@@ -1,0 +1,4 @@
+allow player to end turn once discarded card
+implement drag and drop for creatting sets and eventually for discard but for now just use a boolean when pressing the discard button
+
+CLEAN UP CODE
