@@ -5,14 +5,14 @@
 
 export const controllers = {
   AccessTokens: () => import('#controllers/access_tokens_controller'),
-  NewAccount: () => import('#controllers/new_account_controller'),
-  Profile: () => import('#controllers/profile_controller'),
   Avatars: () => import('#controllers/avatars_controller'),
   ChatMessages: () => import('#controllers/chat_messages_controller'),
-  Friends: () => import('#controllers/friends_controller'),
   FriendRequests: () => import('#controllers/friend_requests_controller'),
-  Groups: () => import('#controllers/groups_controller'),
+  Friends: () => import('#controllers/friends_controller'),
   GroupInvites: () => import('#controllers/group_invites_controller'),
-  Matches: () => import('#controllers/matches_controller'),
   GroupMembers: () => import('#controllers/group_members_controller'),
+  Groups: () => import('#controllers/groups_controller'),
+  Matches: () => import('#controllers/matches_controller'),
+  NewAccount: () => import('#controllers/new_account_controller'),
+  Profile: () => import('#controllers/profile_controller'),
 }
