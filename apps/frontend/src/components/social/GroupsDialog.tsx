@@ -16,6 +16,7 @@ import {
 } from '#/lib/social'
 import UserAvatar from '#/components/UserAvatar'
 import FormErrors from '#/components/FormErrors'
+import GroupGamePanel from '#/components/game/GroupGamePanel'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import {
@@ -280,6 +281,12 @@ function GroupDetail({ groupId, onBack }: GroupDetailProps) {
       </DialogHeader>
 
       <FormErrors errors={errors} />
+
+      <GroupGamePanel
+        groupId={groupId}
+        currentUserId={currentUser.id}
+        isOwner={isOwner}
+      />
 
       {isOwner && (
         <form className="space-y-2" onSubmit={submitInvite}>

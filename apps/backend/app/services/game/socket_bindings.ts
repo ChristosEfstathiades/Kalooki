@@ -1,0 +1,284 @@
+import Group from '#models/group'
+import { GameError, CLASSIC_RULES } from '#services/game/engine'
+import {
+  applyGameAction,
+  configureMatchService,
+  createLobby,
+  getMatch,
+  joinLobby,
+  joinPublicQueue,
+  leaveLobby,
+  leavePublicQueue,
+  lobbyForGroup,
+  matchForUser,
+  playerDisconnected,
+  playerReconnected,
+  queueStatusFor,
+  redactedView,
+  startLobby,
+} from '#services/game/match_service'
+import { isGroupMember } from '#services/group_service'
+import { chatRoom } from '#services/socket_service'
+import type User from '#models/user'
+import type { GameRules } from '#services/game/engine'
+import type { GameAction, PlayerIdentity } from '#services/game/match_service'
+import type { Server, Socket } from 'socket.io'
+
+/**
+ * Socket wiring for matchmaking, private lobbies, and live gameplay.
+ * All rule enforcement lives in the engine/match service; this module
+ * parses untrusted payloads, checks group authorization, and routes
+ * events. Every player gets a `user:{id}` room so match broadcasts can
+ * target them individually with their own redacted view.
+ */
+
+type Ack = (result: { ok: boolean; error?: string; data?: unknown }) => void
+
+/**
+ * Points the match service's outbound events at Socket.IO rooms.
+ */
+export function bindMatchEmitter(io: Server): void {
+  configureMatchService({
+    toUser: (userId, event, payload) => {
+      io.to(`user:${userId}`).emit(event, payload)
+    },
+    toGroup: (groupId, event, payload) => {
+      io.to(chatRoom({ type: 'group', groupId })).emit(event, payload)
+    },
+  })
+}
+
+function identityOf(user: User): PlayerIdentity {
+  return {
+    id: user.id,
+    username: user.username,
+    avatarUrl: user.avatarUrl,
+    initials: user.initials,
+  }
+}
+
+/**
+ * Runs a handler and funnels the result / GameError into the ack.
+ */
+async function acked(ack: Ack | undefined, handler: () => Promise<unknown>): Promise<void> {
+  try {
+    const data = await handler()
+    ack?.({ ok: true, data })
+  } catch (error) {
+    if (error instanceof GameError) {
+      ack?.({ ok: false, error: error.message })
+      return
+    }
+    ack?.({ ok: false, error: 'Something went wrong' })
+  }
+}
+
+/**
+ * Parses custom rules from an untrusted lobby payload, bounded to the
+ * options private games may change (docs/Kalooki.md): timers, decks,
+ * jokers, and the come-down threshold.
+ */
+function parseCustomRules(payload: unknown): GameRules {
+  const input = (payload ?? {}) as Record<string, unknown>
+
+  const intIn = (value: unknown, min: number, max: number, fallback: number): number => {
+    const parsed = typeof value === 'number' && Number.isInteger(value) ? value : fallback
+    return Math.min(max, Math.max(min, parsed))
+  }
+
+  return {
+    ...CLASSIC_RULES,
+    decks: intIn(input.decks, 2, 4, CLASSIC_RULES.decks),
+    jokers: intIn(input.jokers, 0, 4, CLASSIC_RULES.jokers),
+    comeDownThreshold: intIn(input.comeDownThreshold, 5, 150, CLASSIC_RULES.comeDownThreshold),
+    moveTimeBankMs:
+      intIn(input.moveTimeMinutes, 5, 120, CLASSIC_RULES.moveTimeBankMs / 60000) * 60000,
+    rejoinBudgetMs: intIn(input.rejoinMinutes, 1, 15, CLASSIC_RULES.rejoinBudgetMs / 60000) * 60000,
+  }
+}
+
+/**
+ * Registers the game events on a freshly connected (authenticated)
+ * socket and reports reconnection to any running match.
+ */
+export function bindGameHandlers(io: Server, socket: Socket, user: User): void {
+  void socket.join(`user:${user.id}`)
+
+  // Rejoining a running match after a disconnect
+  const runningMatch = playerReconnected(user.id)
+  if (runningMatch) {
+    socket.emit('game:start', { matchId: runningMatch.id })
+  }
+
+  socket.on('match:queue', (_payload: unknown, ack?: Ack) => {
+    void acked(ack, async () => joinPublicQueue(identityOf(user)))
+  })
+
+  socket.on('match:unqueue', (_payload: unknown, ack?: Ack) => {
+    void acked(ack, async () => {
+      leavePublicQueue(user.id)
+      return queueStatusFor(user.id)
+    })
+  })
+
+  socket.on('match:createLobby', (payload: unknown, ack?: Ack) => {
+    void acked(ack, async () => {
+      const { groupId } = (payload ?? {}) as { groupId?: unknown }
+      if (typeof groupId !== 'number') {
+        throw new GameError('Malformed request', 'E_MALFORMED')
+      }
+      const group = await Group.find(groupId)
+      if (!group || !(await isGroupMember(groupId, user.id))) {
+        throw new GameError('Group not found', 'E_GROUP_NOT_FOUND')
+      }
+      if (group.ownerId !== user.id) {
+        throw new GameError('Only the group owner can start a game', 'E_NOT_GROUP_OWNER')
+      }
+      const rules = parseCustomRules((payload as { rules?: unknown }).rules)
+      createLobby(groupId, identityOf(user), rules)
+      return lobbyForGroup(groupId)
+    })
+  })
+
+  socket.on('match:joinLobby', (payload: unknown, ack?: Ack) => {
+    void acked(ack, async () => {
+      const { groupId } = (payload ?? {}) as { groupId?: unknown }
+      if (typeof groupId !== 'number') {
+        throw new GameError('Malformed request', 'E_MALFORMED')
+      }
+      if (!(await isGroupMember(groupId, user.id))) {
+        throw new GameError('Group not found', 'E_GROUP_NOT_FOUND')
+      }
+      joinLobby(groupId, identityOf(user))
+      return lobbyForGroup(groupId)
+    })
+  })
+
+  socket.on('match:leaveLobby', (payload: unknown, ack?: Ack) => {
+    void acked(ack, async () => {
+      const { groupId } = (payload ?? {}) as { groupId?: unknown }
+      if (typeof groupId !== 'number') {
+        throw new GameError('Malformed request', 'E_MALFORMED')
+      }
+      leaveLobby(groupId, user.id)
+    })
+  })
+
+  socket.on('match:startLobby', (payload: unknown, ack?: Ack) => {
+    void acked(ack, async () => {
+      const { groupId } = (payload ?? {}) as { groupId?: unknown }
+      if (typeof groupId !== 'number') {
+        throw new GameError('Malformed request', 'E_MALFORMED')
+      }
+      const match = startLobby(groupId, user.id)
+      return { matchId: match.id }
+    })
+  })
+
+  socket.on('lobby:get', (payload: unknown, ack?: Ack) => {
+    void acked(ack, async () => {
+      const { groupId } = (payload ?? {}) as { groupId?: unknown }
+      if (typeof groupId !== 'number' || !(await isGroupMember(groupId, user.id))) {
+        throw new GameError('Group not found', 'E_GROUP_NOT_FOUND')
+      }
+      return lobbyForGroup(groupId)
+    })
+  })
+
+  socket.on('game:view', (payload: unknown, ack?: Ack) => {
+    void acked(ack, async () => {
+      const { matchId } = (payload ?? {}) as { matchId?: unknown }
+      const match = typeof matchId === 'string' ? getMatch(matchId) : matchForUser(user.id)
+      if (!match || !match.identities.has(user.id)) {
+        throw new GameError('You are not part of this game', 'E_NOT_IN_GAME')
+      }
+      return redactedView(match, user.id)
+    })
+  })
+
+  socket.on('game:action', (payload: unknown, ack?: Ack) => {
+    void acked(ack, async () => {
+      const { matchId, action } = (payload ?? {}) as { matchId?: unknown; action?: unknown }
+      if (typeof matchId !== 'string' || !isGameAction(action)) {
+        throw new GameError('Malformed game action', 'E_MALFORMED')
+      }
+      return applyGameAction(matchId, user.id, action)
+    })
+  })
+
+  socket.on('disconnect', () => {
+    void handleUserDisconnect(io, user.id)
+  })
+}
+
+/**
+ * Reports a disconnect only when the user has no other open sockets
+ * (multiple tabs count as one presence).
+ */
+async function handleUserDisconnect(io: Server, userId: number): Promise<void> {
+  const remaining = await io.in(`user:${userId}`).fetchSockets()
+  if (remaining.length === 0) {
+    playerDisconnected(userId)
+  }
+}
+
+/**
+ * Structural check for an untrusted game action payload. Deep
+ * validation happens in the engine.
+ */
+function isGameAction(value: unknown): value is GameAction {
+  if (!value || typeof value !== 'object' || !('type' in value)) {
+    return false
+  }
+  const action = value as { type: unknown }
+  switch (action.type) {
+    case 'draw':
+    case 'takeDiscard':
+    case 'returnDiscard':
+      return true
+    case 'layMelds': {
+      const { melds } = value as { melds?: unknown }
+      return (
+        Array.isArray(melds) &&
+        melds.every((meld) => Array.isArray(meld) && meld.every((id) => typeof id === 'number'))
+      )
+    }
+    case 'goer': {
+      const { meldId, cardId, runEnd } = value as {
+        meldId?: unknown
+        cardId?: unknown
+        runEnd?: unknown
+      }
+      return (
+        typeof meldId === 'number' &&
+        typeof cardId === 'number' &&
+        (runEnd === undefined || runEnd === 'low' || runEnd === 'high')
+      )
+    }
+    case 'takeJoker': {
+      const { meldId, jokerCardId, replacementCardIds } = value as {
+        meldId?: unknown
+        jokerCardId?: unknown
+        replacementCardIds?: unknown
+      }
+      return (
+        typeof meldId === 'number' &&
+        typeof jokerCardId === 'number' &&
+        Array.isArray(replacementCardIds) &&
+        replacementCardIds.every((id) => typeof id === 'number')
+      )
+    }
+    case 'discard': {
+      const { cardId } = value as { cardId?: unknown }
+      return typeof cardId === 'number'
+    }
+    case 'buyIn': {
+      const { accept } = value as { accept?: unknown }
+      return typeof accept === 'boolean'
+    }
+    case 'quit':
+      return true
+    default:
+      return false
+  }
+}

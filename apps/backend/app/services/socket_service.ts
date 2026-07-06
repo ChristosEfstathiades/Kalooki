@@ -4,6 +4,7 @@ import logger from '@adonisjs/core/services/logger'
 import User from '#models/user'
 import { groupIdsOf, isGroupMember } from '#services/group_service'
 import { postChatMessage } from '#services/chat_service'
+import { bindGameHandlers, bindMatchEmitter } from '#services/game/socket_bindings'
 import { chatMessageShape } from '#transformers/chat_message_transformer'
 import type { Socket } from 'socket.io'
 import type { Server as NodeHttpServer } from 'node:http'
@@ -83,8 +84,11 @@ export function bootSocketServer(nodeServer: NodeHttpServer): Server {
       .catch(() => next(new Error('Authentication failed')))
   })
 
+  bindMatchEmitter(io)
+
   io.on('connection', (socket) => {
     void joinAuthorizedRooms(socket)
+    bindGameHandlers(io as Server, socket, socketUser(socket))
 
     socket.on('chat:send', (payload: unknown, ack?: SendAck) => {
       void handleChatSend(socket, payload, ack)
