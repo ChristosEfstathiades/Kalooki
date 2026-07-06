@@ -38,6 +38,27 @@ export const signupValidator = vine.create({
 })
 
 /**
+ * Validator for profile updates: both fields are optional so a user
+ * can change their username, their avatar, or both in one request.
+ * The uniqueness check excludes the requesting user (passed through
+ * validation metadata) so keeping the current username is allowed.
+ */
+export const updateProfileValidator = vine.create({
+  username: username()
+    .unique({
+      table: 'users',
+      column: 'username',
+      caseInsensitive: true,
+      filter: (db, _value, field) => {
+        const { userId } = field.meta as { userId: number }
+        db.whereNot('id', userId)
+      },
+    })
+    .optional(),
+  avatar: vine.file({ size: '2mb', extnames: ['jpg', 'jpeg', 'png', 'webp'] }).optional(),
+})
+
+/**
  * Validator to use before validating user credentials
  * during login
  */
