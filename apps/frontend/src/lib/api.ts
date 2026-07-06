@@ -8,7 +8,19 @@ import { getStoredToken } from '#/lib/auth-token'
  */
 function resolveBaseUrl(): string {
   const configured: unknown = import.meta.env.VITE_API_URL
-  return typeof configured === 'string' && configured !== '' ? configured : 'http://localhost:3333'
+  return typeof configured === 'string' && configured !== ''
+    ? configured
+    : 'http://localhost:3333'
+}
+
+export const apiBaseUrl: string = resolveBaseUrl()
+
+/**
+ * Builds an absolute URL for a backend-relative path, e.g. an avatar
+ * image served from the backend's local disk storage.
+ */
+export function backendUrl(path: string): string {
+  return new URL(path, apiBaseUrl).toString()
 }
 
 /**
@@ -17,7 +29,7 @@ function resolveBaseUrl(): string {
  */
 export const api = createTuyau({
   registry,
-  baseUrl: resolveBaseUrl(),
+  baseUrl: apiBaseUrl,
   hooks: {
     beforeRequest: [
       (request): void => {
