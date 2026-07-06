@@ -28,6 +28,7 @@ export type ScannedRoutes = {
     'social.chat_messages.global': { paramsTuple?: []; params?: {} }
     'social.chat_messages.group': { paramsTuple: [ParamValue]; params: {'groupId': ParamValue} }
     'social.chat_messages.report': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'social.matches.index': { paramsTuple?: []; params?: {} }
   }
   GET: {
     'avatars.show': { paramsTuple: [ParamValue]; params: {'filename': ParamValue} }
@@ -39,6 +40,7 @@ export type ScannedRoutes = {
     'social.group_invites.index': { paramsTuple?: []; params?: {} }
     'social.chat_messages.global': { paramsTuple?: []; params?: {} }
     'social.chat_messages.group': { paramsTuple: [ParamValue]; params: {'groupId': ParamValue} }
+    'social.matches.index': { paramsTuple?: []; params?: {} }
   }
   HEAD: {
     'avatars.show': { paramsTuple: [ParamValue]; params: {'filename': ParamValue} }
@@ -50,6 +52,7 @@ export type ScannedRoutes = {
     'social.group_invites.index': { paramsTuple?: []; params?: {} }
     'social.chat_messages.global': { paramsTuple?: []; params?: {} }
     'social.chat_messages.group': { paramsTuple: [ParamValue]; params: {'groupId': ParamValue} }
+    'social.matches.index': { paramsTuple?: []; params?: {} }
   }
   POST: {
     'auth.new_account.store': { paramsTuple?: []; params?: {} }

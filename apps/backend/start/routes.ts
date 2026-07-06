@@ -59,6 +59,8 @@ router
         router.get('chat/global/messages', [controllers.ChatMessages, 'global'])
         router.get('groups/:groupId/messages', [controllers.ChatMessages, 'group'])
         router.post('chat/messages/:id/report', [controllers.ChatMessages, 'report'])
+
+        router.get('matches', [controllers.Matches, 'index'])
       })
       .as('social')
       .use(middleware.auth())

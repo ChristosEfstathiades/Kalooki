@@ -24,6 +24,16 @@ export default class SocketProvider {
     const { bootSocketServer } = await import('#services/socket_service')
     bootSocketServer(nodeServer)
 
+    // Record finished games for match history
+    const { onMatchFinished } = await import('#services/game/match_service')
+    const { recordMatch } = await import('#services/match_history_service')
+    const { default: logger } = await import('@adonisjs/core/services/logger')
+    onMatchFinished((match) => {
+      recordMatch(match).catch((error: unknown) => {
+        logger.error({ err: error }, 'Failed to record finished match')
+      })
+    })
+
     const { deleteExpiredChatMessages } = await import('#services/chat_service')
     await deleteExpiredChatMessages()
     this.#retentionSweep = setInterval(

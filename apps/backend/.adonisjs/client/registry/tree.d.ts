@@ -53,5 +53,8 @@ export interface ApiDefinition {
       group: typeof routes['social.chat_messages.group']
       report: typeof routes['social.chat_messages.report']
     }
+    matches: {
+      index: typeof routes['social.matches.index']
+    }
   }
 }

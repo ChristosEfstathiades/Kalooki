@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Clock, UserPlus, Users, UsersRound } from 'lucide-react'
 import {
@@ -84,14 +84,11 @@ function PlayPage() {
             Groups
             <CountBadge count={inviteCount} />
           </Button>
-          <Button
-            variant="secondary"
-            className="justify-start"
-            disabled
-            title="Coming soon"
-          >
-            <Clock aria-hidden="true" />
-            Match history
+          <Button asChild variant="secondary" className="justify-start">
+            <Link to="/history">
+              <Clock aria-hidden="true" />
+              Match history
+            </Link>
           </Button>
         </div>
       </section>

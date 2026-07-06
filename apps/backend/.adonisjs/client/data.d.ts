@@ -10,6 +10,7 @@ import type FriendRequestTransformer from '#transformers/friend_request_transfor
 import type GroupDetailTransformer from '#transformers/group_detail_transformer'
 import type GroupInviteTransformer from '#transformers/group_invite_transformer'
 import type GroupTransformer from '#transformers/group_transformer'
+import type MatchTransformer from '#transformers/match_transformer'
 import type PublicUserTransformer from '#transformers/public_user_transformer'
 import type UserTransformer from '#transformers/user_transformer'
 
@@ -33,6 +34,10 @@ export namespace Data {
   export type Group = InferData<GroupTransformer>
   export namespace Group {
     export type Variants = InferVariants<GroupTransformer>
+  }
+  export type Match = InferData<MatchTransformer>
+  export namespace Match {
+    export type Variants = InferVariants<MatchTransformer>
   }
   export type PublicUser = InferData<PublicUserTransformer>
   export namespace PublicUser {

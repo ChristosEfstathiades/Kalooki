@@ -148,6 +148,75 @@ export class GroupSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class MatchPlayerSchema extends BaseModel {
+  static $columns = [
+    'createdAt',
+    'finalScore',
+    'id',
+    'leftEarly',
+    'matchId',
+    'placement',
+    'updatedAt',
+    'userId',
+  ] as const
+  $columns = MatchPlayerSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare finalScore: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare leftEarly: boolean
+  @column()
+  declare matchId: number
+  @column()
+  declare placement: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
+}
+
+export class MatchSchema extends BaseModel {
+  static $columns = [
+    'completed',
+    'createdAt',
+    'endedAt',
+    'groupId',
+    'id',
+    'kind',
+    'rules',
+    'scoresheet',
+    'startedAt',
+    'updatedAt',
+    'winnerUserId',
+  ] as const
+  $columns = MatchSchema.$columns
+  @column()
+  declare completed: boolean
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column.dateTime()
+  declare endedAt: DateTime
+  @column()
+  declare groupId: number | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare kind: string
+  @column()
+  declare rules: string
+  @column()
+  declare scoresheet: string
+  @column.dateTime()
+  declare startedAt: DateTime
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare winnerUserId: number | null
+}
+
 export class MessageReportSchema extends BaseModel {
   static $columns = ['createdAt', 'id', 'messageId', 'reporterId', 'updatedAt'] as const
   $columns = MessageReportSchema.$columns

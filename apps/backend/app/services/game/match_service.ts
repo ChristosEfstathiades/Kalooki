@@ -72,6 +72,8 @@ export interface ActiveMatch {
   pausedAt: number | null
   /** Whether the current turn already used its overtime grant. */
   overtimeGranted: boolean
+  /** Epoch ms the match was created. */
+  startedAt: number
   finishedAt: number | null
 }
 
@@ -410,6 +412,7 @@ function createMatch(
     turnDeadlineAt: null,
     pausedAt: null,
     overtimeGranted: false,
+    startedAt: Date.now(),
     finishedAt: null,
   }
 

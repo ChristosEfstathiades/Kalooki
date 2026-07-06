@@ -150,6 +150,12 @@ const routes = {
     tokens: [{"old":"/api/v1/chat/messages/:id/report","type":0,"val":"api","end":""},{"old":"/api/v1/chat/messages/:id/report","type":0,"val":"v1","end":""},{"old":"/api/v1/chat/messages/:id/report","type":0,"val":"chat","end":""},{"old":"/api/v1/chat/messages/:id/report","type":0,"val":"messages","end":""},{"old":"/api/v1/chat/messages/:id/report","type":1,"val":"id","end":""},{"old":"/api/v1/chat/messages/:id/report","type":0,"val":"report","end":""}],
     types: placeholder as Registry['social.chat_messages.report']['types'],
   },
+  'social.matches.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/matches',
+    tokens: [{"old":"/api/v1/matches","type":0,"val":"api","end":""},{"old":"/api/v1/matches","type":0,"val":"v1","end":""},{"old":"/api/v1/matches","type":0,"val":"matches","end":""}],
+    types: placeholder as Registry['social.matches.index']['types'],
+  },
 } as const satisfies Record<string, AdonisEndpoint>
 
 export { routes }

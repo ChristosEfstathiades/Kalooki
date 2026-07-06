@@ -295,4 +295,16 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/chat_messages_controller').default['report']>>>
     }
   }
+  'social.matches.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/matches'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/matches_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/matches_controller').default['index']>>>
+    }
+  }
 }
