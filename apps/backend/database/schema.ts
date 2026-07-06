@@ -50,6 +50,7 @@ export class ChatMessageSchema extends BaseModel {
     'createdAt',
     'groupId',
     'id',
+    'matchId',
     'updatedAt',
     'userId',
     'wasCensored',
@@ -65,6 +66,8 @@ export class ChatMessageSchema extends BaseModel {
   declare groupId: number | null
   @column({ isPrimary: true })
   declare id: number
+  @column()
+  declare matchId: string | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
   @column()
@@ -187,6 +190,7 @@ export class MatchSchema extends BaseModel {
     'id',
     'kind',
     'rules',
+    'runtimeId',
     'scoresheet',
     'startedAt',
     'updatedAt',
@@ -207,6 +211,8 @@ export class MatchSchema extends BaseModel {
   declare kind: string
   @column()
   declare rules: string
+  @column()
+  declare runtimeId: string | null
   @column()
   declare scoresheet: string
   @column.dateTime()

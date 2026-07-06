@@ -52,6 +52,7 @@ export interface ApiDefinition {
     chatMessages: {
       global: typeof routes['social.chat_messages.global']
       group: typeof routes['social.chat_messages.group']
+      match: typeof routes['social.chat_messages.match']
       report: typeof routes['social.chat_messages.report']
     }
     matches: {

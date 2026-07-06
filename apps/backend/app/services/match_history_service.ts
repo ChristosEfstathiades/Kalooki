@@ -44,6 +44,7 @@ export async function recordMatch(match: ActiveMatch): Promise<Match> {
   return db.transaction(async (trx) => {
     const recorded = await Match.create(
       {
+        runtimeId: match.id,
         kind: match.kind,
         groupId: match.groupId,
         rules: JSON.stringify(match.rules),

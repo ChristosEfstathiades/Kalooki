@@ -1,6 +1,6 @@
 import ChatMessage from '#models/chat_message'
 import MessageReport from '#models/message_report'
-import { recentChatMessages } from '#services/chat_service'
+import { assertMatchChatAccess, recentChatMessages } from '#services/chat_service'
 import { isGroupMember } from '#services/group_service'
 import ChatMessageTransformer from '#transformers/chat_message_transformer'
 import { Exception } from '@adonisjs/core/exceptions'
@@ -32,6 +32,20 @@ export default class ChatMessagesController {
   }
 
   /**
+   * Recent history for a live game's chat. Players of that match only;
+   * once the game ends the messages are no longer accessible.
+   */
+  async match({ auth, params, serialize }: HttpContext) {
+    const user = auth.getUserOrFail()
+    const matchId = String(params.matchId)
+
+    assertMatchChatAccess(matchId, user.id)
+
+    const messages = await recentChatMessages({ type: 'match', matchId })
+    return serialize({ messages: ChatMessageTransformer.transform(messages) })
+  }
+
+  /**
    * Reports a chat message to the moderators. Idempotent per reporter;
    * only messages the user can actually see can be reported.
    */
@@ -47,6 +61,12 @@ export default class ChatMessagesController {
       (message.groupId === null || !(await isGroupMember(message.groupId, user.id)))
     ) {
       throw new Exception('Message not found', { status: 404, code: 'E_MESSAGE_NOT_FOUND' })
+    }
+    if (message.channel === 'match') {
+      if (message.matchId === null) {
+        throw new Exception('Message not found', { status: 404, code: 'E_MESSAGE_NOT_FOUND' })
+      }
+      assertMatchChatAccess(message.matchId, user.id)
     }
     if (message.userId === user.id) {
       throw new Exception('You cannot report your own message', {

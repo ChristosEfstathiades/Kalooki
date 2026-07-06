@@ -1,13 +1,17 @@
-import { queryOptions, useMutation } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '#/lib/api'
 import { getSocket } from '#/lib/socket'
 import type { PublicUser } from '#/lib/social'
 
 /**
- * A chat channel: the public global chatroom or a group's chat.
+ * A chat channel: the public global chatroom, a group's chat, or a
+ * live game's table chat.
  */
 export type ChatChannel =
-  { type: 'global' } | { type: 'group'; groupId: number }
+  | { type: 'global' }
+  | { type: 'group'; groupId: number }
+  | { type: 'match'; matchId: string }
 
 export interface ChatMessageItem {
   id: number
@@ -20,8 +24,9 @@ export interface ChatMessageItem {
  * Payload of a live `chat:message` event from the server.
  */
 export interface IncomingChatMessage {
-  channel: 'global' | 'group'
+  channel: 'global' | 'group' | 'match'
   groupId: number | null
+  matchId: string | null
   message: ChatMessageItem
 }
 
@@ -29,9 +34,13 @@ export interface IncomingChatMessage {
  * Cache key for a channel's message list.
  */
 export function chatQueryKey(channel: ChatChannel): (string | number)[] {
-  return channel.type === 'global'
-    ? ['chat', 'global']
-    : ['chat', 'group', channel.groupId]
+  if (channel.type === 'group') {
+    return ['chat', 'group', channel.groupId]
+  }
+  if (channel.type === 'match') {
+    return ['chat', 'match', channel.matchId]
+  }
+  return ['chat', 'global']
 }
 
 /**
@@ -48,10 +57,44 @@ export function chatHistoryQueryOptions(channel: ChatChannel) {
         })
         return response.data.messages
       }
+      if (channel.type === 'match') {
+        const response = await api.get('/api/v1/matches/:matchId/messages', {
+          params: { matchId: channel.matchId },
+        })
+        return response.data.messages
+      }
       const response = await api.get('/api/v1/chat/global/messages', {})
       return response.data.messages
     },
   })
+}
+
+/**
+ * Appends every live `chat:message` event to its channel's cache while
+ * the calling component is mounted.
+ */
+export function useChatLiveUpdates(): void {
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    const socket = getSocket()
+    const onMessage = (event: IncomingChatMessage) => {
+      let eventChannel: ChatChannel = { type: 'global' }
+      if (event.channel === 'group' && event.groupId !== null) {
+        eventChannel = { type: 'group', groupId: event.groupId }
+      } else if (event.channel === 'match' && event.matchId !== null) {
+        eventChannel = { type: 'match', matchId: event.matchId }
+      }
+      queryClient.setQueryData<ChatMessageItem[]>(
+        chatQueryKey(eventChannel),
+        (old) => (old ? [...old, event.message] : [event.message]),
+      )
+    }
+    socket.on('chat:message', onMessage)
+    return () => {
+      socket.off('chat:message', onMessage)
+    }
+  }, [queryClient])
 }
 
 interface SendAck {
@@ -69,9 +112,11 @@ export function sendChatMessage(
   body: string,
 ): Promise<void> {
   const payload =
-    channel.type === 'global'
-      ? { channel: 'global', body }
-      : { channel: 'group', groupId: channel.groupId, body }
+    channel.type === 'group'
+      ? { channel: 'group', groupId: channel.groupId, body }
+      : channel.type === 'match'
+        ? { channel: 'match', matchId: channel.matchId, body }
+        : { channel: 'global', body }
 
   return new Promise((resolve, reject) => {
     getSocket()
@@ -101,6 +146,14 @@ export function sendChatMessage(
  */
 export function subscribeToGroupChat(groupId: number): void {
   getSocket().emit('chat:subscribe', { groupId })
+}
+
+/**
+ * Joins a live game's chat room (players only; access is re-checked
+ * server-side, and the server closes the room when the game ends).
+ */
+export function subscribeToMatchChat(matchId: string): void {
+  getSocket().emit('chat:subscribe', { matchId })
 }
 
 /**

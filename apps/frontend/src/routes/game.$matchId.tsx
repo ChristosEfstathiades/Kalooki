@@ -6,6 +6,7 @@ import { getStoredToken } from '#/lib/auth-token'
 import { getSocket } from '#/lib/socket'
 import { fetchGameView, sendGameAction } from '#/lib/game'
 import PlayingCard, { CardBack } from '#/components/game/PlayingCard'
+import MatchChatPanel from '#/components/chat/MatchChatPanel'
 import UserAvatar from '#/components/UserAvatar'
 import { Button } from '#/components/ui/button'
 import { cn } from '#/lib/utils'
@@ -40,6 +41,7 @@ function GamePage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedCardIds, setSelectedCardIds] = useState<number[]>([])
   const [stagedMelds, setStagedMelds] = useState<number[][]>([])
+  const [chatOpen, setChatOpen] = useState(false)
 
   // Initial view + live updates
   useEffect(() => {
@@ -135,7 +137,19 @@ function GamePage() {
 
   return (
     <main className="flex min-h-screen flex-col bg-background">
-      <TableHeader view={view} onQuit={() => void act({ type: 'quit' })} />
+      <TableHeader
+        view={view}
+        onQuit={() => void act({ type: 'quit' })}
+        onToggleChat={() => setChatOpen((open) => !open)}
+      />
+
+      {chatOpen && (
+        <MatchChatPanel
+          matchId={matchId}
+          finished={view.phase === 'finished'}
+          onClose={() => setChatOpen(false)}
+        />
+      )}
 
       <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-3 p-3">
         <div className="flex flex-wrap justify-center gap-3">
@@ -245,9 +259,10 @@ function GamePage() {
 interface TableHeaderProps {
   view: GameView
   onQuit: () => void
+  onToggleChat: () => void
 }
 
-function TableHeader({ view, onQuit }: TableHeaderProps) {
+function TableHeader({ view, onQuit, onToggleChat }: TableHeaderProps) {
   return (
     <header className="flex items-center justify-between border-b border-border bg-panel px-4 py-2">
       <p className="m-0 text-sm font-semibold">
@@ -259,6 +274,9 @@ function TableHeader({ view, onQuit }: TableHeaderProps) {
       </p>
       <div className="flex items-center gap-3">
         <TurnClock deadline={view.turnDeadlineAt} paused={view.paused} />
+        <Button size="sm" variant="secondary" onClick={onToggleChat}>
+          Chat
+        </Button>
         <Button
           size="sm"
           variant="secondary"

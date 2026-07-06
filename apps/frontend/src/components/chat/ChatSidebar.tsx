@@ -1,24 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { MessageSquare } from 'lucide-react'
 import {
   chatHistoryQueryOptions,
-  chatQueryKey,
   sendChatMessage,
   subscribeToGroupChat,
+  useChatLiveUpdates,
   useReportMessage,
 } from '#/lib/chat'
-import { getSocket } from '#/lib/socket'
 import { currentUserQueryOptions } from '#/lib/auth'
 import { groupsQueryOptions, useSendFriendRequest } from '#/lib/social'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { cn } from '#/lib/utils'
-import type {
-  ChatChannel,
-  ChatMessageItem,
-  IncomingChatMessage,
-} from '#/lib/chat'
+import type { ChatChannel } from '#/lib/chat'
 
 /**
  * Chat sidebar for the play page: pick the global chatroom or one of
@@ -26,28 +21,10 @@ import type {
  * updates arrive over Socket.IO (docs/Frontend-design.md).
  */
 export default function ChatSidebar() {
-  const queryClient = useQueryClient()
   const { data: groups } = useQuery(groupsQueryOptions)
   const [channel, setChannel] = useState<ChatChannel>({ type: 'global' })
 
-  // Append every live message to its channel's cache
-  useEffect(() => {
-    const socket = getSocket()
-    const onMessage = (event: IncomingChatMessage) => {
-      const eventChannel: ChatChannel =
-        event.channel === 'group' && event.groupId !== null
-          ? { type: 'group', groupId: event.groupId }
-          : { type: 'global' }
-      queryClient.setQueryData<ChatMessageItem[]>(
-        chatQueryKey(eventChannel),
-        (old) => (old ? [...old, event.message] : [event.message]),
-      )
-    }
-    socket.on('chat:message', onMessage)
-    return () => {
-      socket.off('chat:message', onMessage)
-    }
-  }, [queryClient])
+  useChatLiveUpdates()
 
   // Joining a group after connecting requires an explicit room join
   useEffect(() => {
@@ -114,7 +91,12 @@ interface ChatConversationProps {
   channel: ChatChannel
 }
 
-function ChatConversation({ channel }: ChatConversationProps) {
+/**
+ * A single channel's conversation: history, live messages, the send
+ * box, and the per-message friend-request/report menu. Shared between
+ * the play-page sidebar and the in-game match chat panel.
+ */
+export function ChatConversation({ channel }: ChatConversationProps) {
   const { data: currentUser } = useQuery(currentUserQueryOptions)
   const history = useQuery(chatHistoryQueryOptions(channel))
   const sendFriendRequest = useSendFriendRequest()

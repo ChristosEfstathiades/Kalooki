@@ -295,6 +295,18 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/chat_messages_controller').default['group']>>>
     }
   }
+  'social.chat_messages.match': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/matches/:matchId/messages'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { matchId: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/chat_messages_controller').default['match']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/chat_messages_controller').default['match']>>>
+    }
+  }
   'social.chat_messages.report': {
     methods: ["POST"]
     pattern: '/api/v1/chat/messages/:id/report'

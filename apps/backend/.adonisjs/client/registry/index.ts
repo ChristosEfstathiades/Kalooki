@@ -150,6 +150,12 @@ const routes = {
     tokens: [{"old":"/api/v1/groups/:groupId/messages","type":0,"val":"api","end":""},{"old":"/api/v1/groups/:groupId/messages","type":0,"val":"v1","end":""},{"old":"/api/v1/groups/:groupId/messages","type":0,"val":"groups","end":""},{"old":"/api/v1/groups/:groupId/messages","type":1,"val":"groupId","end":""},{"old":"/api/v1/groups/:groupId/messages","type":0,"val":"messages","end":""}],
     types: placeholder as Registry['social.chat_messages.group']['types'],
   },
+  'social.chat_messages.match': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/matches/:matchId/messages',
+    tokens: [{"old":"/api/v1/matches/:matchId/messages","type":0,"val":"api","end":""},{"old":"/api/v1/matches/:matchId/messages","type":0,"val":"v1","end":""},{"old":"/api/v1/matches/:matchId/messages","type":0,"val":"matches","end":""},{"old":"/api/v1/matches/:matchId/messages","type":1,"val":"matchId","end":""},{"old":"/api/v1/matches/:matchId/messages","type":0,"val":"messages","end":""}],
+    types: placeholder as Registry['social.chat_messages.match']['types'],
+  },
   'social.chat_messages.report': {
     methods: ["POST"],
     pattern: '/api/v1/chat/messages/:id/report',

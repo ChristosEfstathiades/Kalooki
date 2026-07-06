@@ -11,7 +11,17 @@ import {
   recentChatMessages,
   resetChatRateLimits,
 } from '#services/chat_service'
+import {
+  applyGameAction,
+  configureMatchService,
+  createLobby,
+  joinLobby,
+  resetMatchService,
+  startLobby,
+} from '#services/game/match_service'
+import { CLASSIC_RULES } from '#services/game/engine'
 import testUtils from '@adonisjs/core/services/test_utils'
+import type { ActiveMatch, PlayerIdentity } from '#services/game/match_service'
 
 /**
  * Creates a user with a valid password for auth-client logins.
@@ -119,6 +129,103 @@ test.group('Chat messages', (group) => {
 
     await deleteExpiredChatMessages()
     assert.isNull(await ChatMessage.find(message.id))
+  })
+})
+
+/**
+ * The identity the match service tracks for a player.
+ */
+function identityOf(user: User): PlayerIdentity {
+  return { id: user.id, username: user.username, avatarUrl: null, initials: 'P?' }
+}
+
+/**
+ * Starts a live 2-player match through a private lobby on the group.
+ */
+function startMatch(groupId: number, alice: User, bobby: User): ActiveMatch {
+  createLobby(groupId, identityOf(alice), CLASSIC_RULES)
+  joinLobby(groupId, identityOf(bobby))
+  return startLobby(groupId, alice.id)
+}
+
+test.group('Match chat', (group) => {
+  group.each.setup(() => testUtils.db().withGlobalTransaction())
+  group.each.setup(() => {
+    resetChatRateLimits()
+    resetMatchService()
+    configureMatchService(
+      { toUser: () => {}, toGroup: () => {} },
+      { rng: () => 0.42, queueCountdownMs: 5 }
+    )
+    return () => resetMatchService()
+  })
+
+  test('players can chat during a live game; messages carry the game id', async ({
+    client,
+    assert,
+  }) => {
+    const alice = await makeUser('alice')
+    const bobby = await makeUser('bobby')
+    const sharks = await makeGroup(alice, 'Card Sharks')
+    const match = startMatch(sharks.id, alice, bobby)
+
+    const message = await postChatMessage(alice, { type: 'match', matchId: match.id }, 'good luck')
+    assert.equal(message.channel, 'match')
+    assert.equal(message.matchId, match.id)
+
+    const asPlayer = await client.get(`/api/v1/matches/${match.id}/messages`).loginAs(bobby)
+    asPlayer.assertStatus(200)
+    assert.lengthOf(asPlayer.body().data.messages, 1)
+    assert.equal(asPlayer.body().data.messages[0].body, 'good luck')
+
+    // Match messages never leak into the global chatroom
+    const globalHistory = await recentChatMessages({ type: 'global' })
+    assert.lengthOf(globalHistory, 0)
+  })
+
+  test('non-players can neither read nor post', async ({ client, assert }) => {
+    const alice = await makeUser('alice')
+    const bobby = await makeUser('bobby')
+    const mallory = await makeUser('mallory')
+    const sharks = await makeGroup(alice, 'Card Sharks')
+    const match = startMatch(sharks.id, alice, bobby)
+
+    const asStranger = await client.get(`/api/v1/matches/${match.id}/messages`).loginAs(mallory)
+    asStranger.assertStatus(404)
+
+    await assert.rejects(
+      () => postChatMessage(mallory, { type: 'match', matchId: match.id }, 'hello players'),
+      'Match chat not found'
+    )
+  })
+
+  test('the chat closes when the game ends, but rows stay for retention', async ({
+    client,
+    assert,
+  }) => {
+    const alice = await makeUser('alice')
+    const bobby = await makeUser('bobby')
+    const sharks = await makeGroup(alice, 'Card Sharks')
+    const match = startMatch(sharks.id, alice, bobby)
+    await postChatMessage(alice, { type: 'match', matchId: match.id }, 'last words')
+
+    // Bobby quits the 2-player game, which finishes it
+    applyGameAction(match.id, bobby.id, { type: 'quit' })
+
+    const afterEnd = await client.get(`/api/v1/matches/${match.id}/messages`).loginAs(alice)
+    afterEnd.assertStatus(404)
+    await assert.rejects(
+      () => postChatMessage(alice, { type: 'match', matchId: match.id }, 'anyone there?'),
+      'Match chat not found'
+    )
+
+    // Stored (associated with the game id) until the 7-day sweep
+    const stored = await ChatMessage.query().where('matchId', match.id)
+    assert.lengthOf(stored, 1)
+    stored[0].createdAt = DateTime.now().minus({ days: 8 })
+    await stored[0].save()
+    await deleteExpiredChatMessages()
+    assert.lengthOf(await ChatMessage.query().where('matchId', match.id), 0)
   })
 })
 
