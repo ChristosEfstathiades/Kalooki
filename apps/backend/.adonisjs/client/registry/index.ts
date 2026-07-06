@@ -132,6 +132,24 @@ const routes = {
     tokens: [{"old":"/api/v1/group-invites/:id","type":0,"val":"api","end":""},{"old":"/api/v1/group-invites/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/group-invites/:id","type":0,"val":"group-invites","end":""},{"old":"/api/v1/group-invites/:id","type":1,"val":"id","end":""}],
     types: placeholder as Registry['social.group_invites.destroy']['types'],
   },
+  'social.chat_messages.global': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/chat/global/messages',
+    tokens: [{"old":"/api/v1/chat/global/messages","type":0,"val":"api","end":""},{"old":"/api/v1/chat/global/messages","type":0,"val":"v1","end":""},{"old":"/api/v1/chat/global/messages","type":0,"val":"chat","end":""},{"old":"/api/v1/chat/global/messages","type":0,"val":"global","end":""},{"old":"/api/v1/chat/global/messages","type":0,"val":"messages","end":""}],
+    types: placeholder as Registry['social.chat_messages.global']['types'],
+  },
+  'social.chat_messages.group': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/groups/:groupId/messages',
+    tokens: [{"old":"/api/v1/groups/:groupId/messages","type":0,"val":"api","end":""},{"old":"/api/v1/groups/:groupId/messages","type":0,"val":"v1","end":""},{"old":"/api/v1/groups/:groupId/messages","type":0,"val":"groups","end":""},{"old":"/api/v1/groups/:groupId/messages","type":1,"val":"groupId","end":""},{"old":"/api/v1/groups/:groupId/messages","type":0,"val":"messages","end":""}],
+    types: placeholder as Registry['social.chat_messages.group']['types'],
+  },
+  'social.chat_messages.report': {
+    methods: ["POST"],
+    pattern: '/api/v1/chat/messages/:id/report',
+    tokens: [{"old":"/api/v1/chat/messages/:id/report","type":0,"val":"api","end":""},{"old":"/api/v1/chat/messages/:id/report","type":0,"val":"v1","end":""},{"old":"/api/v1/chat/messages/:id/report","type":0,"val":"chat","end":""},{"old":"/api/v1/chat/messages/:id/report","type":0,"val":"messages","end":""},{"old":"/api/v1/chat/messages/:id/report","type":1,"val":"id","end":""},{"old":"/api/v1/chat/messages/:id/report","type":0,"val":"report","end":""}],
+    types: placeholder as Registry['social.chat_messages.report']['types'],
+  },
 } as const satisfies Record<string, AdonisEndpoint>
 
 export { routes }

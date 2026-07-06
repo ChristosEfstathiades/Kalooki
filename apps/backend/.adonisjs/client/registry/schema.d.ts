@@ -259,4 +259,40 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/group_invites_controller').default['destroy']>>>
     }
   }
+  'social.chat_messages.global': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/chat/global/messages'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/chat_messages_controller').default['global']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/chat_messages_controller').default['global']>>>
+    }
+  }
+  'social.chat_messages.group': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/groups/:groupId/messages'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { groupId: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/chat_messages_controller').default['group']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/chat_messages_controller').default['group']>>>
+    }
+  }
+  'social.chat_messages.report': {
+    methods: ["POST"]
+    pattern: '/api/v1/chat/messages/:id/report'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/chat_messages_controller').default['report']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/chat_messages_controller').default['report']>>>
+    }
+  }
 }

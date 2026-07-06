@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Clock, MessageSquare, UserPlus, Users, UsersRound } from 'lucide-react'
+import { Clock, UserPlus, Users, UsersRound } from 'lucide-react'
 import {
   friendRequestsQueryOptions,
   groupInvitesQueryOptions,
@@ -9,6 +9,7 @@ import {
 import SendFriendRequestDialog from '#/components/social/SendFriendRequestDialog'
 import FriendsDialog from '#/components/social/FriendsDialog'
 import GroupsDialog from '#/components/social/GroupsDialog'
+import ChatSidebar from '#/components/chat/ChatSidebar'
 import { Button } from '#/components/ui/button'
 
 export const Route = createFileRoute('/_app/_auth/play')({
@@ -109,20 +110,7 @@ function PlayPage() {
         </div>
       </section>
 
-      <aside className="flex min-h-64 flex-col rounded-lg border border-border bg-card">
-        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <MessageSquare
-            aria-hidden="true"
-            className="size-4 text-muted-foreground"
-          />
-          <h2 className="m-0 text-sm font-semibold">Chat</h2>
-        </div>
-        <div className="flex flex-1 items-center justify-center p-4">
-          <p className="m-0 text-center text-sm text-muted-foreground">
-            Global chat and group chats will live here.
-          </p>
-        </div>
-      </aside>
+      <ChatSidebar />
 
       <SendFriendRequestDialog
         open={openDialog === 'sendRequest'}

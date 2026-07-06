@@ -48,5 +48,10 @@ export interface ApiDefinition {
     groupMembers: {
       destroy: typeof routes['social.group_members.destroy']
     }
+    chatMessages: {
+      global: typeof routes['social.chat_messages.global']
+      group: typeof routes['social.chat_messages.group']
+      report: typeof routes['social.chat_messages.report']
+    }
   }
 }

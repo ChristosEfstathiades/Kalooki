@@ -5,6 +5,7 @@
 
 /// <reference path="./manifest.d.ts" />
 import type { InferData, InferVariants } from '@adonisjs/core/types/transformers'
+import type ChatMessageTransformer from '#transformers/chat_message_transformer'
 import type FriendRequestTransformer from '#transformers/friend_request_transformer'
 import type GroupDetailTransformer from '#transformers/group_detail_transformer'
 import type GroupInviteTransformer from '#transformers/group_invite_transformer'
@@ -13,6 +14,10 @@ import type PublicUserTransformer from '#transformers/public_user_transformer'
 import type UserTransformer from '#transformers/user_transformer'
 
 export namespace Data {
+  export type ChatMessage = InferData<ChatMessageTransformer>
+  export namespace ChatMessage {
+    export type Variants = InferVariants<ChatMessageTransformer>
+  }
   export type FriendRequest = InferData<FriendRequestTransformer>
   export namespace FriendRequest {
     export type Variants = InferVariants<FriendRequestTransformer>

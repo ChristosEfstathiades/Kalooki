@@ -27,7 +27,7 @@ export async function areFriends(userIdA: number, userIdB: number): Promise<bool
 export async function createFriendship(
   userIdA: number,
   userIdB: number,
-  options: { client?: TransactionClientContract } = {},
+  options: { client?: TransactionClientContract } = {}
 ): Promise<Friendship> {
   const [a, b] = orderPair(userIdA, userIdB)
   return Friendship.create({ userAId: a, userBId: b }, { client: options.client })

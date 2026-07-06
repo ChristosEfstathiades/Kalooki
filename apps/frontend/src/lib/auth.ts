@@ -5,6 +5,7 @@ import {
 } from '@tanstack/react-query'
 import { TuyauError } from '@tuyau/core/client'
 import { api } from '#/lib/api'
+import { closeSocket } from '#/lib/socket'
 import { clearStoredToken, getStoredToken, storeToken } from '#/lib/auth-token'
 import type { Data } from '@KalookiOnline/backend/data'
 import type { Path } from '@tuyau/core/types'
@@ -129,6 +130,7 @@ export function useLogout() {
     },
     onSettled: () => {
       clearStoredToken()
+      closeSocket()
       queryClient.setQueryData(currentUserQueryOptions.queryKey, null)
     },
   })

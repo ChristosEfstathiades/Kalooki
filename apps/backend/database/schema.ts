@@ -43,6 +43,36 @@ export class AuthAccessTokenSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class ChatMessageSchema extends BaseModel {
+  static $columns = [
+    'body',
+    'channel',
+    'createdAt',
+    'groupId',
+    'id',
+    'updatedAt',
+    'userId',
+    'wasCensored',
+  ] as const
+  $columns = ChatMessageSchema.$columns
+  @column()
+  declare body: string
+  @column()
+  declare channel: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare groupId: number | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
+  @column()
+  declare wasCensored: boolean
+}
+
 export class FriendRequestSchema extends BaseModel {
   static $columns = ['createdAt', 'id', 'recipientId', 'senderId', 'updatedAt'] as const
   $columns = FriendRequestSchema.$columns
@@ -114,6 +144,21 @@ export class GroupSchema extends BaseModel {
   declare name: string
   @column()
   declare ownerId: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class MessageReportSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'messageId', 'reporterId', 'updatedAt'] as const
+  $columns = MessageReportSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare messageId: number
+  @column()
+  declare reporterId: number
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }

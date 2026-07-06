@@ -25,6 +25,9 @@ export type ScannedRoutes = {
     'social.group_invites.index': { paramsTuple?: []; params?: {} }
     'social.group_invites.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'social.group_invites.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'social.chat_messages.global': { paramsTuple?: []; params?: {} }
+    'social.chat_messages.group': { paramsTuple: [ParamValue]; params: {'groupId': ParamValue} }
+    'social.chat_messages.report': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   GET: {
     'avatars.show': { paramsTuple: [ParamValue]; params: {'filename': ParamValue} }
@@ -34,6 +37,8 @@ export type ScannedRoutes = {
     'social.groups.index': { paramsTuple?: []; params?: {} }
     'social.groups.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'social.group_invites.index': { paramsTuple?: []; params?: {} }
+    'social.chat_messages.global': { paramsTuple?: []; params?: {} }
+    'social.chat_messages.group': { paramsTuple: [ParamValue]; params: {'groupId': ParamValue} }
   }
   HEAD: {
     'avatars.show': { paramsTuple: [ParamValue]; params: {'filename': ParamValue} }
@@ -43,6 +48,8 @@ export type ScannedRoutes = {
     'social.groups.index': { paramsTuple?: []; params?: {} }
     'social.groups.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'social.group_invites.index': { paramsTuple?: []; params?: {} }
+    'social.chat_messages.global': { paramsTuple?: []; params?: {} }
+    'social.chat_messages.group': { paramsTuple: [ParamValue]; params: {'groupId': ParamValue} }
   }
   POST: {
     'auth.new_account.store': { paramsTuple?: []; params?: {} }
@@ -54,6 +61,7 @@ export type ScannedRoutes = {
     'social.groups.transfer': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'social.group_invites.store': { paramsTuple: [ParamValue]; params: {'groupId': ParamValue} }
     'social.group_invites.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'social.chat_messages.report': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   DELETE: {
     'social.friends.destroy': { paramsTuple: [ParamValue]; params: {'userId': ParamValue} }

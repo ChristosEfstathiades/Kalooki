@@ -55,6 +55,10 @@ router
         router.get('group-invites', [controllers.GroupInvites, 'index'])
         router.post('group-invites/:id/accept', [controllers.GroupInvites, 'accept'])
         router.delete('group-invites/:id', [controllers.GroupInvites, 'destroy'])
+
+        router.get('chat/global/messages', [controllers.ChatMessages, 'global'])
+        router.get('groups/:groupId/messages', [controllers.ChatMessages, 'group'])
+        router.post('chat/messages/:id/report', [controllers.ChatMessages, 'report'])
       })
       .as('social')
       .use(middleware.auth())
