@@ -1,11 +1,13 @@
 import app from '@adonisjs/core/services/app'
 import { defineConfig } from '@adonisjs/lucid'
+import env from '#start/env'
 
 const dbConfig = defineConfig({
   /**
-   * Default connection used for all queries.
+   * Default connection used for all queries. SQLite in development
+   * and tests; set DB_CONNECTION=pg in production (docs/Architecture.md).
    */
-  connection: 'sqlite',
+  connection: env.get('DB_CONNECTION', 'sqlite'),
 
   connections: {
     /**
@@ -53,24 +55,24 @@ const dbConfig = defineConfig({
     },
 
     /**
-     * PostgreSQL connection.
-     * Install package to switch: npm install pg
+     * PostgreSQL connection, used in production.
      */
-    // pg: {
-    //   client: 'pg',
-    //   connection: {
-    //     host: process.env.PG_HOST,
-    //     port: Number(process.env.PG_PORT || 5432),
-    //     user: process.env.PG_USER,
-    //     password: process.env.PG_PASSWORD,
-    //     database: process.env.PG_DB_NAME,
-    //   },
-    //   migrations: {
-    //     naturalSort: true,
-    //     paths: ['database/migrations'],
-    //   },
-    //   debug: app.inDev,
-    // },
+    pg: {
+      client: 'pg',
+
+      connection: {
+        host: env.get('PG_HOST'),
+        port: env.get('PG_PORT', 5432),
+        user: env.get('PG_USER'),
+        password: env.get('PG_PASSWORD'),
+        database: env.get('PG_DB_NAME'),
+      },
+
+      migrations: {
+        naturalSort: true,
+        paths: ['database/migrations'],
+      },
+    },
 
     /**
      * MySQL / MariaDB connection.
