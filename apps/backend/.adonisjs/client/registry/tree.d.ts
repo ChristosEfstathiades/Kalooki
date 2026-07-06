@@ -21,4 +21,32 @@ export interface ApiDefinition {
       destroy: typeof routes['profile.access_tokens.destroy']
     }
   }
+  social: {
+    friends: {
+      index: typeof routes['social.friends.index']
+      destroy: typeof routes['social.friends.destroy']
+    }
+    friendRequests: {
+      index: typeof routes['social.friend_requests.index']
+      store: typeof routes['social.friend_requests.store']
+      accept: typeof routes['social.friend_requests.accept']
+      destroy: typeof routes['social.friend_requests.destroy']
+    }
+    groups: {
+      index: typeof routes['social.groups.index']
+      store: typeof routes['social.groups.store']
+      show: typeof routes['social.groups.show']
+      transfer: typeof routes['social.groups.transfer']
+      destroy: typeof routes['social.groups.destroy']
+    }
+    groupInvites: {
+      store: typeof routes['social.group_invites.store']
+      index: typeof routes['social.group_invites.index']
+      accept: typeof routes['social.group_invites.accept']
+      destroy: typeof routes['social.group_invites.destroy']
+    }
+    groupMembers: {
+      destroy: typeof routes['social.group_members.destroy']
+    }
+  }
 }

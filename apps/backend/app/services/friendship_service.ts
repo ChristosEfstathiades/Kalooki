@@ -1,0 +1,52 @@
+import Friendship from '#models/friendship'
+import User from '#models/user'
+
+/**
+ * Orders a pair of user ids so the lower id is first. Friendships are
+ * stored once per pair with userAId < userBId.
+ */
+export function orderPair(userIdA: number, userIdB: number): [number, number] {
+  return userIdA < userIdB ? [userIdA, userIdB] : [userIdB, userIdA]
+}
+
+/**
+ * Checks whether two users are friends.
+ */
+export async function areFriends(userIdA: number, userIdB: number): Promise<boolean> {
+  const [a, b] = orderPair(userIdA, userIdB)
+  const friendship = await Friendship.query().where('userAId', a).where('userBId', b).first()
+  return friendship !== null
+}
+
+/**
+ * Creates the friendship connecting two users.
+ */
+export async function createFriendship(userIdA: number, userIdB: number): Promise<Friendship> {
+  const [a, b] = orderPair(userIdA, userIdB)
+  return Friendship.create({ userAId: a, userBId: b })
+}
+
+/**
+ * Deletes the friendship between two users if one exists. Removal is
+ * silent and mutual: the other user is not notified (docs/features.md).
+ */
+export async function removeFriendship(userIdA: number, userIdB: number): Promise<void> {
+  const [a, b] = orderPair(userIdA, userIdB)
+  await Friendship.query().where('userAId', a).where('userBId', b).delete()
+}
+
+/**
+ * Lists a user's friends ordered by username.
+ */
+export async function friendsOf(userId: number): Promise<User[]> {
+  const friendships = await Friendship.query().where('userAId', userId).orWhere('userBId', userId)
+
+  const friendIds = friendships.map((friendship) =>
+    friendship.userAId === userId ? friendship.userBId : friendship.userAId
+  )
+
+  if (friendIds.length === 0) {
+    return []
+  }
+  return User.query().whereIn('id', friendIds).orderBy('username')
+}

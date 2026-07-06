@@ -9,19 +9,58 @@ export type ScannedRoutes = {
     'auth.access_tokens.store': { paramsTuple?: []; params?: {} }
     'profile.profile.show': { paramsTuple?: []; params?: {} }
     'profile.access_tokens.destroy': { paramsTuple?: []; params?: {} }
+    'social.friends.index': { paramsTuple?: []; params?: {} }
+    'social.friends.destroy': { paramsTuple: [ParamValue]; params: {'userId': ParamValue} }
+    'social.friend_requests.index': { paramsTuple?: []; params?: {} }
+    'social.friend_requests.store': { paramsTuple?: []; params?: {} }
+    'social.friend_requests.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'social.friend_requests.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'social.groups.index': { paramsTuple?: []; params?: {} }
+    'social.groups.store': { paramsTuple?: []; params?: {} }
+    'social.groups.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'social.groups.transfer': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'social.groups.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'social.group_invites.store': { paramsTuple: [ParamValue]; params: {'groupId': ParamValue} }
+    'social.group_members.destroy': { paramsTuple: [ParamValue,ParamValue]; params: {'groupId': ParamValue,'userId': ParamValue} }
+    'social.group_invites.index': { paramsTuple?: []; params?: {} }
+    'social.group_invites.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'social.group_invites.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   GET: {
     'avatars.show': { paramsTuple: [ParamValue]; params: {'filename': ParamValue} }
     'profile.profile.show': { paramsTuple?: []; params?: {} }
+    'social.friends.index': { paramsTuple?: []; params?: {} }
+    'social.friend_requests.index': { paramsTuple?: []; params?: {} }
+    'social.groups.index': { paramsTuple?: []; params?: {} }
+    'social.groups.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'social.group_invites.index': { paramsTuple?: []; params?: {} }
   }
   HEAD: {
     'avatars.show': { paramsTuple: [ParamValue]; params: {'filename': ParamValue} }
     'profile.profile.show': { paramsTuple?: []; params?: {} }
+    'social.friends.index': { paramsTuple?: []; params?: {} }
+    'social.friend_requests.index': { paramsTuple?: []; params?: {} }
+    'social.groups.index': { paramsTuple?: []; params?: {} }
+    'social.groups.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'social.group_invites.index': { paramsTuple?: []; params?: {} }
   }
   POST: {
     'auth.new_account.store': { paramsTuple?: []; params?: {} }
     'auth.access_tokens.store': { paramsTuple?: []; params?: {} }
     'profile.access_tokens.destroy': { paramsTuple?: []; params?: {} }
+    'social.friend_requests.store': { paramsTuple?: []; params?: {} }
+    'social.friend_requests.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'social.groups.store': { paramsTuple?: []; params?: {} }
+    'social.groups.transfer': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'social.group_invites.store': { paramsTuple: [ParamValue]; params: {'groupId': ParamValue} }
+    'social.group_invites.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+  }
+  DELETE: {
+    'social.friends.destroy': { paramsTuple: [ParamValue]; params: {'userId': ParamValue} }
+    'social.friend_requests.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'social.groups.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'social.group_members.destroy': { paramsTuple: [ParamValue,ParamValue]; params: {'groupId': ParamValue,'userId': ParamValue} }
+    'social.group_invites.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
 }
 declare module '@adonisjs/core/types/http' {

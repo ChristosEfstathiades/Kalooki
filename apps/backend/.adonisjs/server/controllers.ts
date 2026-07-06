@@ -6,6 +6,11 @@
 export const controllers = {
   AccessTokens: () => import('#controllers/access_tokens_controller'),
   Avatars: () => import('#controllers/avatars_controller'),
+  FriendRequests: () => import('#controllers/friend_requests_controller'),
+  Friends: () => import('#controllers/friends_controller'),
+  GroupInvites: () => import('#controllers/group_invites_controller'),
+  GroupMembers: () => import('#controllers/group_members_controller'),
+  Groups: () => import('#controllers/groups_controller'),
   NewAccount: () => import('#controllers/new_account_controller'),
   Profile: () => import('#controllers/profile_controller'),
 }
