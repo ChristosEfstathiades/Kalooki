@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto'
+import { rm } from 'node:fs/promises'
+import { join } from 'node:path'
 import app from '@adonisjs/core/services/app'
 import type { MultipartFile } from '@adonisjs/core/bodyparser'
 
@@ -25,4 +27,12 @@ export async function storeAvatar(file: MultipartFile): Promise<string> {
   const fileName = `${randomUUID().replaceAll('-', '')}.${file.extname}`
   await file.move(avatarDirectory(), { name: fileName })
   return fileName
+}
+
+/**
+ * Deletes a stored avatar file, e.g. after the user replaces it.
+ * Deleting a file that is already gone is not an error.
+ */
+export async function removeAvatar(fileName: string): Promise<void> {
+  await rm(join(avatarDirectory(), fileName), { force: true })
 }

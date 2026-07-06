@@ -1,5 +1,9 @@
+import { access } from 'node:fs/promises'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { test } from '@japa/runner'
 import User from '#models/user'
+import { avatarDirectory } from '#services/avatar_storage'
 import testUtils from '@adonisjs/core/services/test_utils'
 
 /**
@@ -134,6 +138,92 @@ test.group('Auth login', (group) => {
     }
     const lifetimeMs = rememberedToken.expiresAt.getTime() - Date.now()
     assert.isAbove(lifetimeMs, 1000 * 60 * 60 * 24 * 20, 'expected a ~30 day token')
+  })
+})
+
+test.group('Profile update', (group) => {
+  group.each.setup(() => testUtils.db().withGlobalTransaction())
+
+  const avatarFixture = fileURLToPath(new URL('../fixtures/avatar.png', import.meta.url))
+
+  test('requires authentication', async ({ client }) => {
+    const response = await client.patch('/api/v1/account/profile').json({ username: 'renamed' })
+
+    response.assertStatus(401)
+  })
+
+  test('changes the username', async ({ client, assert }) => {
+    const signup = await client.post('/api/v1/auth/signup').json(validSignupPayload())
+    const token = tokenFrom(signup.body())
+
+    const response = await client
+      .patch('/api/v1/account/profile')
+      .bearerToken(token)
+      .json({ username: 'renamed_one' })
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.username, 'renamed_one')
+
+    const profile = await client.get('/api/v1/account/profile').bearerToken(token)
+    assert.equal(profile.body().data.username, 'renamed_one')
+  })
+
+  test('allows keeping the current username', async ({ client, assert }) => {
+    const signup = await client.post('/api/v1/auth/signup').json(validSignupPayload())
+    const token = tokenFrom(signup.body())
+
+    const response = await client
+      .patch('/api/v1/account/profile')
+      .bearerToken(token)
+      .json({ username: 'player_one' })
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.username, 'player_one')
+  })
+
+  test('rejects a username taken by another user, case-insensitively', async ({ client }) => {
+    await client.post('/api/v1/auth/signup').json({
+      ...validSignupPayload(),
+      username: 'someone_else',
+      email: 'someone.else@example.com',
+    })
+    const signup = await client.post('/api/v1/auth/signup').json(validSignupPayload())
+    const token = tokenFrom(signup.body())
+
+    const response = await client
+      .patch('/api/v1/account/profile')
+      .bearerToken(token)
+      .json({ username: 'SOMEONE_ELSE' })
+
+    response.assertStatus(422)
+  })
+
+  test('uploads a new avatar and deletes the replaced file', async ({ client, assert }) => {
+    const signup = await client.post('/api/v1/auth/signup').json(validSignupPayload())
+    const token = tokenFrom(signup.body())
+
+    const first = await client
+      .patch('/api/v1/account/profile')
+      .bearerToken(token)
+      .file('avatar', avatarFixture)
+
+    first.assertStatus(200)
+    const firstUrl: string | null = first.body().data.avatarUrl
+    if (!firstUrl) {
+      throw new Error('Expected the profile update to return an avatar URL')
+    }
+    assert.match(firstUrl, /^\/uploads\/avatars\/[a-z0-9]+\.png$/)
+    const firstFile = join(avatarDirectory(), firstUrl.split('/').at(-1) ?? '')
+    await access(firstFile)
+
+    const second = await client
+      .patch('/api/v1/account/profile')
+      .bearerToken(token)
+      .file('avatar', avatarFixture)
+
+    second.assertStatus(200)
+    assert.notEqual(second.body().data.avatarUrl, firstUrl)
+    await assert.rejects(() => access(firstFile), /ENOENT/)
   })
 })
 

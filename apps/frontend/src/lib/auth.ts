@@ -117,6 +117,34 @@ export function useSignup() {
   })
 }
 
+export interface UpdateProfileInput {
+  username?: string
+  avatar?: File | null
+}
+
+/**
+ * Updates the signed-in user's username and/or profile photo, and
+ * refreshes the current-user cache with the returned profile.
+ */
+export function useUpdateProfile() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: UpdateProfileInput) => {
+      const response = await api.patch('/api/v1/account/profile', {
+        body: {
+          ...(input.username !== undefined ? { username: input.username } : {}),
+          ...(input.avatar ? { avatar: asUploadedFile(input.avatar) } : {}),
+        },
+      })
+      return response.data
+    },
+    onSuccess: (user) => {
+      queryClient.setQueryData(currentUserQueryOptions.queryKey, user)
+    },
+  })
+}
+
 /**
  * Signs the user out. The local token is cleared even when the revoke
  * request fails (e.g. the token already expired server-side).
