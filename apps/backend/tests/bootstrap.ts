@@ -41,7 +41,13 @@ export const plugins: Config['plugins'] = [
  * The teardown functions are executed after all the tests
  */
 export const runnerHooks: Required<Pick<Config, 'setup' | 'teardown'>> = {
-  setup: [],
+  setup: [
+    /**
+     * Migrate the dedicated test database (tmp/test.sqlite3) before the
+     * suite runs and roll it back afterwards.
+     */
+    () => testUtils.db().migrate(),
+  ],
   teardown: [],
 }
 

@@ -12,7 +12,7 @@
 */
 
 import { DateTime } from 'luxon'
-import { VineDate } from '@vinejs/vine'
+import vine, { VineDate, SimpleMessagesProvider } from '@vinejs/vine'
 
 declare module '@vinejs/vine/types' {
   interface VineGlobalTransforms {
@@ -21,3 +21,14 @@ declare module '@vinejs/vine/types' {
 }
 
 VineDate.transform((value) => DateTime.fromJSDate(value))
+
+/**
+ * Human-readable messages for rules whose defaults are too vague
+ * (see docs/Coding-Conventions.md on descriptive error messages).
+ */
+vine.messagesProvider = new SimpleMessagesProvider({
+  'password.regex': 'Password must include at least one capital letter and one symbol',
+  'username.regex': 'Username can only contain letters, numbers, and underscores',
+  'passwordConfirmation.sameAs': 'Password confirmation does not match the password',
+  'database.unique': 'This {{ field }} is already taken',
+})

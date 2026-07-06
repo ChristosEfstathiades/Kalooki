@@ -15,6 +15,8 @@ router.get('/', () => {
   return { hello: 'world' }
 })
 
+router.get('/uploads/avatars/:filename', [controllers.Avatars, 'show']).as('avatars.show')
+
 router
   .group(() => {
     router
