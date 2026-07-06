@@ -1,5 +1,5 @@
 import type GroupInvite from '#models/group_invite'
-import PublicUserTransformer from '#transformers/public_user_transformer'
+import { publicUserShape } from '#transformers/public_user_transformer'
 import { BaseTransformer } from '@adonisjs/core/transformers'
 
 /**
@@ -13,12 +13,9 @@ export default class GroupInviteTransformer extends BaseTransformer<GroupInvite>
       group: {
         id: this.resource.group.id,
         name: this.resource.group.name,
-        // Nested plain objects are not walked by the serializer, so the
-        // owner's public fields are picked directly instead of using
-        // PublicUserTransformer here.
-        owner: this.pick(this.resource.group.owner, ['id', 'username', 'avatarUrl', 'initials']),
+        owner: publicUserShape(this.resource.group.owner),
       },
-      user: PublicUserTransformer.transform(this.resource.user),
+      user: publicUserShape(this.resource.user),
     }
   }
 }

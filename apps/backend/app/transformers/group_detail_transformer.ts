@@ -1,5 +1,5 @@
 import type Group from '#models/group'
-import PublicUserTransformer from '#transformers/public_user_transformer'
+import { publicUserShape } from '#transformers/public_user_transformer'
 import { BaseTransformer } from '@adonisjs/core/transformers'
 
 /**
@@ -10,8 +10,8 @@ export default class GroupDetailTransformer extends BaseTransformer<Group> {
   toObject() {
     return {
       ...this.pick(this.resource, ['id', 'name', 'ownerId', 'createdAt']),
-      owner: PublicUserTransformer.transform(this.resource.owner),
-      members: PublicUserTransformer.transform(this.resource.members),
+      owner: publicUserShape(this.resource.owner),
+      members: this.resource.members.map(publicUserShape),
     }
   }
 }

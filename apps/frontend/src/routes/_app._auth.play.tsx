@@ -1,17 +1,53 @@
+import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { Clock, MessageSquare, UserPlus, Users } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Clock, MessageSquare, UserPlus, Users, UsersRound } from 'lucide-react'
+import {
+  friendRequestsQueryOptions,
+  groupInvitesQueryOptions,
+} from '#/lib/social'
+import SendFriendRequestDialog from '#/components/social/SendFriendRequestDialog'
+import FriendsDialog from '#/components/social/FriendsDialog'
+import GroupsDialog from '#/components/social/GroupsDialog'
 import { Button } from '#/components/ui/button'
 
 export const Route = createFileRoute('/_app/_auth/play')({
   component: PlayPage,
 })
 
+interface CountBadgeProps {
+  count: number
+}
+
+/**
+ * Small notification counter shown on a button when something is
+ * waiting for the user.
+ */
+function CountBadge({ count }: CountBadgeProps) {
+  if (count === 0) {
+    return null
+  }
+  return (
+    <span className="ml-auto rounded-full bg-button-red px-2 py-0.5 text-xs font-semibold text-white">
+      {count}
+    </span>
+  )
+}
+
 /**
  * Logged-in home: match actions and social shortcuts on the left, chat
- * sidebar on the right (docs/Frontend-design.md). Matchmaking, friends,
- * history, and chat activate as their slices land.
+ * sidebar on the right (docs/Frontend-design.md).
  */
 function PlayPage() {
+  const [openDialog, setOpenDialog] = useState<
+    'sendRequest' | 'friends' | 'groups' | null
+  >(null)
+  const requests = useQuery(friendRequestsQueryOptions)
+  const invites = useQuery(groupInvitesQueryOptions)
+
+  const incomingRequestCount = requests.data?.incoming.length ?? 0
+  const inviteCount = invites.data?.length ?? 0
+
   return (
     <div className="page-wrap grid gap-6 py-8 lg:grid-cols-[1fr_320px]">
       <section className="space-y-6">
@@ -34,12 +70,11 @@ function PlayPage() {
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Button
             variant="secondary"
             className="justify-start"
-            disabled
-            title="Coming soon"
+            onClick={() => setOpenDialog('sendRequest')}
           >
             <UserPlus aria-hidden="true" />
             Send friend request
@@ -47,11 +82,20 @@ function PlayPage() {
           <Button
             variant="secondary"
             className="justify-start"
-            disabled
-            title="Coming soon"
+            onClick={() => setOpenDialog('friends')}
           >
             <Users aria-hidden="true" />
             Friends
+            <CountBadge count={incomingRequestCount} />
+          </Button>
+          <Button
+            variant="secondary"
+            className="justify-start"
+            onClick={() => setOpenDialog('groups')}
+          >
+            <UsersRound aria-hidden="true" />
+            Groups
+            <CountBadge count={inviteCount} />
           </Button>
           <Button
             variant="secondary"
@@ -79,6 +123,19 @@ function PlayPage() {
           </p>
         </div>
       </aside>
+
+      <SendFriendRequestDialog
+        open={openDialog === 'sendRequest'}
+        onOpenChange={(open) => setOpenDialog(open ? 'sendRequest' : null)}
+      />
+      <FriendsDialog
+        open={openDialog === 'friends'}
+        onOpenChange={(open) => setOpenDialog(open ? 'friends' : null)}
+      />
+      <GroupsDialog
+        open={openDialog === 'groups'}
+        onOpenChange={(open) => setOpenDialog(open ? 'groups' : null)}
+      />
     </div>
   )
 }

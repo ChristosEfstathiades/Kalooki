@@ -111,7 +111,7 @@ export default class FriendRequestsController {
 
     await db.transaction(async (trx) => {
       friendRequest.useTransaction(trx)
-      await createFriendship(friendRequest.senderId, friendRequest.recipientId)
+      await createFriendship(friendRequest.senderId, friendRequest.recipientId, { client: trx })
       await friendRequest.delete()
     })
 

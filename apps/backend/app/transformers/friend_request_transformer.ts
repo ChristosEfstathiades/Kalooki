@@ -1,5 +1,5 @@
 import type FriendRequest from '#models/friend_request'
-import PublicUserTransformer from '#transformers/public_user_transformer'
+import { publicUserShape } from '#transformers/public_user_transformer'
 import { BaseTransformer } from '@adonisjs/core/transformers'
 
 /**
@@ -10,8 +10,8 @@ export default class FriendRequestTransformer extends BaseTransformer<FriendRequ
   toObject() {
     return {
       ...this.pick(this.resource, ['id', 'createdAt']),
-      sender: PublicUserTransformer.transform(this.resource.sender),
-      recipient: PublicUserTransformer.transform(this.resource.recipient),
+      sender: publicUserShape(this.resource.sender),
+      recipient: publicUserShape(this.resource.recipient),
     }
   }
 }

@@ -1,5 +1,6 @@
 import Friendship from '#models/friendship'
 import User from '#models/user'
+import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 
 /**
  * Orders a pair of user ids so the lower id is first. Friendships are
@@ -19,11 +20,17 @@ export async function areFriends(userIdA: number, userIdB: number): Promise<bool
 }
 
 /**
- * Creates the friendship connecting two users.
+ * Creates the friendship connecting two users. Pass the surrounding
+ * transaction client when called inside one — writing on a separate
+ * connection while a transaction holds the lock deadlocks SQLite.
  */
-export async function createFriendship(userIdA: number, userIdB: number): Promise<Friendship> {
+export async function createFriendship(
+  userIdA: number,
+  userIdB: number,
+  options: { client?: TransactionClientContract } = {},
+): Promise<Friendship> {
   const [a, b] = orderPair(userIdA, userIdB)
-  return Friendship.create({ userAId: a, userBId: b })
+  return Friendship.create({ userAId: a, userBId: b }, { client: options.client })
 }
 
 /**
