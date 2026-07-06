@@ -8,9 +8,10 @@ import { Exception } from '@adonisjs/core/exceptions'
 
 /**
  * Chat rules from docs/features.md: one message every 3 seconds in the
- * global chatroom, messages kept for 7 days, blocked words masked.
+ * global chatroom and in-game chats, messages kept for 7 days, blocked
+ * words masked.
  */
-export const GLOBAL_CHAT_RATE_LIMIT_MS = 3000
+export const CHAT_RATE_LIMIT_MS = 3000
 export const MESSAGE_RETENTION_DAYS = 7
 export const MAX_MESSAGE_LENGTH = 500
 
@@ -41,17 +42,36 @@ export function assertMatchChatAccess(matchId: string, userId: number): void {
 }
 
 /**
- * Per-user timestamps of the last global message, for rate limiting.
- * In-memory is fine while the app runs as a single process.
+ * Per-user timestamps of the last message in each rate-limited scope
+ * ('global' or a match id), keyed `scope:userId`. In-memory is fine
+ * while the app runs as a single process.
  */
-const lastGlobalMessageAt = new Map<number, number>()
+const lastMessageAt = new Map<string, number>()
 
 /**
  * Clears rate-limit state. For tests, where user ids are reused across
  * rolled-back transactions while this map lives on.
  */
 export function resetChatRateLimits(): void {
-  lastGlobalMessageAt.clear()
+  lastMessageAt.clear()
+}
+
+/**
+ * Enforces one message per user every 3 seconds within a scope.
+ *
+ * @throws Exception (429) when the user posted too recently.
+ */
+function enforceRateLimit(scope: string, userId: number): void {
+  const key = `${scope}:${userId}`
+  const last = lastMessageAt.get(key)
+  const now = Date.now()
+  if (last !== undefined && now - last < CHAT_RATE_LIMIT_MS) {
+    throw new Exception('You can only send one message every 3 seconds', {
+      status: 429,
+      code: 'E_CHAT_RATE_LIMITED',
+    })
+  }
+  lastMessageAt.set(key, now)
 }
 
 /**
@@ -96,16 +116,9 @@ export async function postChatMessage(
     }
   } else if (channel.type === 'match') {
     assertMatchChatAccess(channel.matchId, user.id)
+    enforceRateLimit(channel.matchId, user.id)
   } else {
-    const last = lastGlobalMessageAt.get(user.id)
-    const now = Date.now()
-    if (last !== undefined && now - last < GLOBAL_CHAT_RATE_LIMIT_MS) {
-      throw new Exception('You can only send one message every 3 seconds', {
-        status: 429,
-        code: 'E_CHAT_RATE_LIMITED',
-      })
-    }
-    lastGlobalMessageAt.set(user.id, now)
+    enforceRateLimit('global', user.id)
   }
 
   const { text, wasCensored } = censorMessage(body)

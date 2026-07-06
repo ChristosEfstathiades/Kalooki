@@ -21,7 +21,7 @@
 
 ## In-Game Chat
 
-- Every live game has a table chat, shown in a side panel on the gameplay page, that only that game's players can read and post in. Messages are censored and reportable like every other chat. When the game ends the chat closes: nobody — players included — can access the messages any more. The messages remain stored in the database for 7 days (associated with the game's id, the same id the recorded match carries) so moderators can act on reports, and are then deleted like all other chat messages.
+- Every live game has a table chat, shown in a side panel on the gameplay page, that only that game's players can read and post in. Each player is limited to one message every 3 seconds, and messages are censored and reportable like every other chat. When the game ends the chat closes: nobody — players included — can access the messages any more. The messages remain stored in the database for 7 days (associated with the game's id, the same id the recorded match carries) so moderators can act on reports, and are then deleted like all other chat messages.
 
 ## Match History
 

@@ -199,6 +199,23 @@ test.group('Match chat', (group) => {
     )
   })
 
+  test('match chat allows one message every 3 seconds', async ({ assert }) => {
+    const alice = await makeUser('alice')
+    const bobby = await makeUser('bobby')
+    const sharks = await makeGroup(alice, 'Card Sharks')
+    const match = startMatch(sharks.id, alice, bobby)
+
+    await postChatMessage(alice, { type: 'match', matchId: match.id }, 'first')
+    await assert.rejects(
+      () => postChatMessage(alice, { type: 'match', matchId: match.id }, 'second'),
+      'You can only send one message every 3 seconds'
+    )
+
+    // The limit is per chat: the other player is unaffected
+    const fromBobby = await postChatMessage(bobby, { type: 'match', matchId: match.id }, 'hello')
+    assert.equal(fromBobby.body, 'hello')
+  })
+
   test('the chat closes when the game ends, but rows stay for retention', async ({
     client,
     assert,
