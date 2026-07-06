@@ -1,9 +1,11 @@
 import { Server } from 'socket.io'
 import { Secret } from '@adonisjs/core/helpers'
+import { Exception } from '@adonisjs/core/exceptions'
 import logger from '@adonisjs/core/services/logger'
 import User from '#models/user'
 import { groupIdsOf, isGroupMember } from '#services/group_service'
-import { postChatMessage } from '#services/chat_service'
+import { assertMatchChatAccess, postChatMessage } from '#services/chat_service'
+import { onMatchFinished } from '#services/game/match_service'
 import { bindGameHandlers, bindMatchEmitter } from '#services/game/socket_bindings'
 import { chatMessageShape } from '#transformers/chat_message_transformer'
 import type { Socket } from 'socket.io'
@@ -30,7 +32,13 @@ export function getSocketServer(): Server | null {
  * The room name for a chat channel.
  */
 export function chatRoom(channel: ChatChannel): string {
-  return channel.type === 'global' ? 'chat:global' : `chat:group:${channel.groupId}`
+  if (channel.type === 'group') {
+    return `chat:group:${channel.groupId}`
+  }
+  if (channel.type === 'match') {
+    return `chat:match:${channel.matchId}`
+  }
+  return 'chat:global'
 }
 
 /**
@@ -48,12 +56,19 @@ function parseChannel(payload: unknown): ChatChannel | null {
   if (!payload || typeof payload !== 'object') {
     return null
   }
-  const { channel, groupId } = payload as { channel?: unknown; groupId?: unknown }
+  const { channel, groupId, matchId } = payload as {
+    channel?: unknown
+    groupId?: unknown
+    matchId?: unknown
+  }
   if (channel === 'global') {
     return { type: 'global' }
   }
   if (channel === 'group' && typeof groupId === 'number' && Number.isInteger(groupId)) {
     return { type: 'group', groupId }
+  }
+  if (channel === 'match' && typeof matchId === 'string' && matchId !== '') {
+    return { type: 'match', matchId }
   }
   return null
 }
@@ -85,6 +100,14 @@ export function bootSocketServer(nodeServer: NodeHttpServer): Server {
   })
 
   bindMatchEmitter(io)
+
+  // A game's chat closes with the game: kick every socket out of the
+  // room so nobody receives (or can be sent) further messages.
+  onMatchFinished((match) => {
+    io?.in(chatRoom({ type: 'match', matchId: match.id })).socketsLeave(
+      chatRoom({ type: 'match', matchId: match.id })
+    )
+  })
 
   io.on('connection', (socket) => {
     void joinAuthorizedRooms(socket)
@@ -156,6 +179,7 @@ async function handleChatSend(socket: Socket, payload: unknown, ack?: SendAck): 
     io?.to(chatRoom(channel)).emit('chat:message', {
       channel: channel.type,
       groupId: channel.type === 'group' ? channel.groupId : null,
+      matchId: channel.type === 'match' ? channel.matchId : null,
       message: chatMessageShape(message),
     })
     ack?.({ ok: true })
@@ -166,18 +190,27 @@ async function handleChatSend(socket: Socket, payload: unknown, ack?: SendAck): 
 }
 
 /**
- * Joins a group chat room after connection time (e.g. the user just
- * accepted a group invite). Membership is re-checked server-side.
+ * Joins a chat room after connection time: a group chat (e.g. the user
+ * just accepted an invite) or a live game's chat. Access is re-checked
+ * server-side either way.
  */
 async function handleChatSubscribe(socket: Socket, payload: unknown, ack?: SendAck): Promise<void> {
-  const { groupId } = (payload ?? {}) as { groupId?: unknown }
-  if (typeof groupId !== 'number' || !Number.isInteger(groupId)) {
-    ack?.({ ok: false, error: 'Malformed subscribe request' })
-    return
-  }
+  const { groupId, matchId } = (payload ?? {}) as { groupId?: unknown; matchId?: unknown }
 
   try {
     const user = socketUser(socket)
+
+    if (typeof matchId === 'string' && matchId !== '') {
+      assertMatchChatAccess(matchId, user.id)
+      await socket.join(chatRoom({ type: 'match', matchId }))
+      ack?.({ ok: true })
+      return
+    }
+
+    if (typeof groupId !== 'number' || !Number.isInteger(groupId)) {
+      ack?.({ ok: false, error: 'Malformed subscribe request' })
+      return
+    }
     if (!(await isGroupMember(groupId, user.id))) {
       ack?.({ ok: false, error: 'Group not found' })
       return
@@ -185,7 +218,11 @@ async function handleChatSubscribe(socket: Socket, payload: unknown, ack?: SendA
     await socket.join(chatRoom({ type: 'group', groupId }))
     ack?.({ ok: true })
   } catch (error) {
+    if (error instanceof Exception && error.code === 'E_MATCH_CHAT_NOT_FOUND') {
+      ack?.({ ok: false, error: 'Match chat not found' })
+      return
+    }
     logger.error({ err: error }, 'chat:subscribe failed')
-    ack?.({ ok: false, error: 'Could not join the group chat' })
+    ack?.({ ok: false, error: 'Could not join the chat' })
   }
 }

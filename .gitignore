@@ -31,8 +31,5 @@ yarn-error.log
 # Frontend compiled assets
 public/assets
 
-# Documentation
-Docs
-
 # Uploaded avatars (local disk storage)
 apps/backend/storage/

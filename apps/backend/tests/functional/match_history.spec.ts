@@ -73,6 +73,7 @@ test.group('Match history', (group) => {
     assert.isTrue(recorded.completed)
     assert.equal(recorded.winnerUserId, alice.id)
     assert.equal(recorded.kind, 'private')
+    assert.equal(recorded.runtimeId, match.id)
     assert.lengthOf(recorded.matchPlayers, 2)
 
     const aliceRow = recorded.matchPlayers.find((player) => player.userId === alice.id)

@@ -3,6 +3,7 @@ import ChatMessage from '#models/chat_message'
 import type User from '#models/user'
 import { censorMessage } from '#services/profanity_filter'
 import { isGroupMember } from '#services/group_service'
+import { getMatch } from '#services/game/match_service'
 import { Exception } from '@adonisjs/core/exceptions'
 
 /**
@@ -17,10 +18,27 @@ export const MAX_MESSAGE_LENGTH = 500
 const HISTORY_LIMIT = 100
 
 /**
- * The channel a message belongs to: the public global chatroom or a
- * private group's chat.
+ * The channel a message belongs to: the public global chatroom, a
+ * private group's chat, or a live game's table chat.
  */
-export type ChatChannel = { type: 'global' } | { type: 'group'; groupId: number }
+export type ChatChannel =
+  { type: 'global' } | { type: 'group'; groupId: number } | { type: 'match'; matchId: string }
+
+/**
+ * Asserts the user may use a match's chat: the game must still be
+ * running and the user must be one of its players. Once the game ends
+ * the messages become inaccessible (they stay in the database for the
+ * retention window, associated with the game id, for moderation).
+ *
+ * @throws Exception (404) when the match is unknown, finished, or the
+ *   user is not a player in it.
+ */
+export function assertMatchChatAccess(matchId: string, userId: number): void {
+  const match = getMatch(matchId)
+  if (!match || match.finishedAt !== null || !match.identities.has(userId)) {
+    throw new Exception('Match chat not found', { status: 404, code: 'E_MATCH_CHAT_NOT_FOUND' })
+  }
+}
 
 /**
  * Per-user timestamps of the last global message, for rate limiting.
@@ -76,6 +94,8 @@ export async function postChatMessage(
     if (!(await isGroupMember(channel.groupId, user.id))) {
       throw new Exception('Group not found', { status: 404, code: 'E_GROUP_NOT_FOUND' })
     }
+  } else if (channel.type === 'match') {
+    assertMatchChatAccess(channel.matchId, user.id)
   } else {
     const last = lastGlobalMessageAt.get(user.id)
     const now = Date.now()
@@ -92,6 +112,7 @@ export async function postChatMessage(
   const message = await ChatMessage.create({
     channel: channel.type,
     groupId: channel.type === 'group' ? channel.groupId : null,
+    matchId: channel.type === 'match' ? channel.matchId : null,
     userId: user.id,
     body: text,
     wasCensored,
@@ -102,7 +123,7 @@ export async function postChatMessage(
 
 /**
  * Recent messages for a channel, oldest first, respecting retention.
- * Group membership must be checked by the caller.
+ * Group membership / match chat access must be checked by the caller.
  */
 export async function recentChatMessages(channel: ChatChannel): Promise<ChatMessage[]> {
   const query = ChatMessage.query()
@@ -113,6 +134,8 @@ export async function recentChatMessages(channel: ChatChannel): Promise<ChatMess
 
   if (channel.type === 'group') {
     query.where('channel', 'group').where('groupId', channel.groupId)
+  } else if (channel.type === 'match') {
+    query.where('channel', 'match').where('matchId', channel.matchId)
   } else {
     query.where('channel', 'global')
   }

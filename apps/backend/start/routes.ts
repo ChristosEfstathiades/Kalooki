@@ -59,6 +59,7 @@ router
 
         router.get('chat/global/messages', [controllers.ChatMessages, 'global'])
         router.get('groups/:groupId/messages', [controllers.ChatMessages, 'group'])
+        router.get('matches/:matchId/messages', [controllers.ChatMessages, 'match'])
         router.post('chat/messages/:id/report', [controllers.ChatMessages, 'report'])
 
         router.get('matches', [controllers.Matches, 'index'])
