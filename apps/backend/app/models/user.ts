@@ -8,11 +8,19 @@ export default class User extends compose(UserSchema, withAuthFinder(hash)) {
   static accessTokens = DbAccessTokensProvider.forModel(User)
   declare currentAccessToken?: AccessToken
 
-  get initials() {
-    const [first, last] = this.fullName ? this.fullName.split(' ') : this.email.split('@')
-    if (first && last) {
-      return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase()
-    }
-    return `${first.slice(0, 2)}`.toUpperCase()
+  /**
+   * Two-letter monogram derived from the username, used as the
+   * avatar fallback in the UI.
+   */
+  get initials(): string {
+    return this.username.slice(0, 2).toUpperCase()
+  }
+
+  /**
+   * Backend-relative URL the avatar image is served from, or null
+   * when the user has not uploaded one.
+   */
+  get avatarUrl(): string | null {
+    return this.avatarPath ? `/uploads/avatars/${this.avatarPath}` : null
   }
 }

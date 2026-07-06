@@ -33,3 +33,6 @@ public/assets
 
 # Documentation
 Docs
+
+# Uploaded avatars (local disk storage)
+apps/backend/storage/

@@ -1,5 +1,5 @@
 {
-  "name": "@api-starter-kit/backend",
+  "name": "@KalookiOnline/backend",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -67,7 +67,9 @@
     "@vinejs/vine": "^4.4.0",
     "better-sqlite3": "^12.10.0",
     "luxon": "^3.7.2",
-    "reflect-metadata": "^0.2.2"
+    "pg": "^8.22.0",
+    "reflect-metadata": "^0.2.2",
+    "socket.io": "^4.8.3"
   },
   "hotHook": {
     "boundaries": [

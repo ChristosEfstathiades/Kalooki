@@ -9,15 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AboutRouteImport } from './routes/about'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
-import { Route as DemoFormSimpleRouteImport } from './routes/demo/form.simple'
-import { Route as DemoFormAddressRouteImport } from './routes/demo/form.address'
+import { Route as GameMatchIdRouteImport } from './routes/game.$matchId'
+import { Route as AppTipsRouteImport } from './routes/_app.tips'
+import { Route as AppSignupRouteImport } from './routes/_app.signup'
+import { Route as AppSigninRouteImport } from './routes/_app.signin'
+import { Route as AppRulesRouteImport } from './routes/_app.rules'
+import { Route as AppPrivacyRouteImport } from './routes/_app.privacy'
+import { Route as AppContactRouteImport } from './routes/_app.contact'
+import { Route as AppAuthRouteImport } from './routes/_app._auth'
+import { Route as AppAuthSettingsRouteImport } from './routes/_app._auth.settings'
+import { Route as AppAuthPlayRouteImport } from './routes/_app._auth.play'
+import { Route as AppAuthHistoryRouteImport } from './routes/_app._auth.history'
 
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -25,83 +32,160 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DemoTanstackQueryRoute = DemoTanstackQueryRouteImport.update({
-  id: '/demo/tanstack-query',
-  path: '/demo/tanstack-query',
+const GameMatchIdRoute = GameMatchIdRouteImport.update({
+  id: '/game/$matchId',
+  path: '/game/$matchId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DemoFormSimpleRoute = DemoFormSimpleRouteImport.update({
-  id: '/demo/form/simple',
-  path: '/demo/form/simple',
-  getParentRoute: () => rootRouteImport,
+const AppTipsRoute = AppTipsRouteImport.update({
+  id: '/tips',
+  path: '/tips',
+  getParentRoute: () => AppRoute,
 } as any)
-const DemoFormAddressRoute = DemoFormAddressRouteImport.update({
-  id: '/demo/form/address',
-  path: '/demo/form/address',
-  getParentRoute: () => rootRouteImport,
+const AppSignupRoute = AppSignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSigninRoute = AppSigninRouteImport.update({
+  id: '/signin',
+  path: '/signin',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRulesRoute = AppRulesRouteImport.update({
+  id: '/rules',
+  path: '/rules',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPrivacyRoute = AppPrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppContactRoute = AppContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAuthRoute = AppAuthRouteImport.update({
+  id: '/_auth',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAuthSettingsRoute = AppAuthSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppAuthRoute,
+} as any)
+const AppAuthPlayRoute = AppAuthPlayRouteImport.update({
+  id: '/play',
+  path: '/play',
+  getParentRoute: () => AppAuthRoute,
+} as any)
+const AppAuthHistoryRoute = AppAuthHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => AppAuthRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/demo/form/address': typeof DemoFormAddressRoute
-  '/demo/form/simple': typeof DemoFormSimpleRoute
+  '/contact': typeof AppContactRoute
+  '/privacy': typeof AppPrivacyRoute
+  '/rules': typeof AppRulesRoute
+  '/signin': typeof AppSigninRoute
+  '/signup': typeof AppSignupRoute
+  '/tips': typeof AppTipsRoute
+  '/game/$matchId': typeof GameMatchIdRoute
+  '/history': typeof AppAuthHistoryRoute
+  '/play': typeof AppAuthPlayRoute
+  '/settings': typeof AppAuthSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/demo/form/address': typeof DemoFormAddressRoute
-  '/demo/form/simple': typeof DemoFormSimpleRoute
+  '/contact': typeof AppContactRoute
+  '/privacy': typeof AppPrivacyRoute
+  '/rules': typeof AppRulesRoute
+  '/signin': typeof AppSigninRoute
+  '/signup': typeof AppSignupRoute
+  '/tips': typeof AppTipsRoute
+  '/game/$matchId': typeof GameMatchIdRoute
+  '/history': typeof AppAuthHistoryRoute
+  '/play': typeof AppAuthPlayRoute
+  '/settings': typeof AppAuthSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/demo/form/address': typeof DemoFormAddressRoute
-  '/demo/form/simple': typeof DemoFormSimpleRoute
+  '/_app': typeof AppRouteWithChildren
+  '/_app/_auth': typeof AppAuthRouteWithChildren
+  '/_app/contact': typeof AppContactRoute
+  '/_app/privacy': typeof AppPrivacyRoute
+  '/_app/rules': typeof AppRulesRoute
+  '/_app/signin': typeof AppSigninRoute
+  '/_app/signup': typeof AppSignupRoute
+  '/_app/tips': typeof AppTipsRoute
+  '/game/$matchId': typeof GameMatchIdRoute
+  '/_app/_auth/history': typeof AppAuthHistoryRoute
+  '/_app/_auth/play': typeof AppAuthPlayRoute
+  '/_app/_auth/settings': typeof AppAuthSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/about'
-    | '/demo/tanstack-query'
-    | '/demo/form/address'
-    | '/demo/form/simple'
+    | '/contact'
+    | '/privacy'
+    | '/rules'
+    | '/signin'
+    | '/signup'
+    | '/tips'
+    | '/game/$matchId'
+    | '/history'
+    | '/play'
+    | '/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/about'
-    | '/demo/tanstack-query'
-    | '/demo/form/address'
-    | '/demo/form/simple'
+    | '/contact'
+    | '/privacy'
+    | '/rules'
+    | '/signin'
+    | '/signup'
+    | '/tips'
+    | '/game/$matchId'
+    | '/history'
+    | '/play'
+    | '/settings'
   id:
     | '__root__'
     | '/'
-    | '/about'
-    | '/demo/tanstack-query'
-    | '/demo/form/address'
-    | '/demo/form/simple'
+    | '/_app'
+    | '/_app/_auth'
+    | '/_app/contact'
+    | '/_app/privacy'
+    | '/_app/rules'
+    | '/_app/signin'
+    | '/_app/signup'
+    | '/_app/tips'
+    | '/game/$matchId'
+    | '/_app/_auth/history'
+    | '/_app/_auth/play'
+    | '/_app/_auth/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AboutRoute: typeof AboutRoute
-  DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
-  DemoFormAddressRoute: typeof DemoFormAddressRoute
-  DemoFormSimpleRoute: typeof DemoFormSimpleRoute
+  AppRoute: typeof AppRouteWithChildren
+  GameMatchIdRoute: typeof GameMatchIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -111,36 +195,127 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/demo/tanstack-query': {
-      id: '/demo/tanstack-query'
-      path: '/demo/tanstack-query'
-      fullPath: '/demo/tanstack-query'
-      preLoaderRoute: typeof DemoTanstackQueryRouteImport
+    '/game/$matchId': {
+      id: '/game/$matchId'
+      path: '/game/$matchId'
+      fullPath: '/game/$matchId'
+      preLoaderRoute: typeof GameMatchIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/demo/form/simple': {
-      id: '/demo/form/simple'
-      path: '/demo/form/simple'
-      fullPath: '/demo/form/simple'
-      preLoaderRoute: typeof DemoFormSimpleRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_app/tips': {
+      id: '/_app/tips'
+      path: '/tips'
+      fullPath: '/tips'
+      preLoaderRoute: typeof AppTipsRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/demo/form/address': {
-      id: '/demo/form/address'
-      path: '/demo/form/address'
-      fullPath: '/demo/form/address'
-      preLoaderRoute: typeof DemoFormAddressRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_app/signup': {
+      id: '/_app/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof AppSignupRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/signin': {
+      id: '/_app/signin'
+      path: '/signin'
+      fullPath: '/signin'
+      preLoaderRoute: typeof AppSigninRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/rules': {
+      id: '/_app/rules'
+      path: '/rules'
+      fullPath: '/rules'
+      preLoaderRoute: typeof AppRulesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/privacy': {
+      id: '/_app/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof AppPrivacyRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/contact': {
+      id: '/_app/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof AppContactRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/_auth': {
+      id: '/_app/_auth'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppAuthRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/_auth/settings': {
+      id: '/_app/_auth/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppAuthSettingsRouteImport
+      parentRoute: typeof AppAuthRoute
+    }
+    '/_app/_auth/play': {
+      id: '/_app/_auth/play'
+      path: '/play'
+      fullPath: '/play'
+      preLoaderRoute: typeof AppAuthPlayRouteImport
+      parentRoute: typeof AppAuthRoute
+    }
+    '/_app/_auth/history': {
+      id: '/_app/_auth/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof AppAuthHistoryRouteImport
+      parentRoute: typeof AppAuthRoute
     }
   }
 }
 
+interface AppAuthRouteChildren {
+  AppAuthHistoryRoute: typeof AppAuthHistoryRoute
+  AppAuthPlayRoute: typeof AppAuthPlayRoute
+  AppAuthSettingsRoute: typeof AppAuthSettingsRoute
+}
+
+const AppAuthRouteChildren: AppAuthRouteChildren = {
+  AppAuthHistoryRoute: AppAuthHistoryRoute,
+  AppAuthPlayRoute: AppAuthPlayRoute,
+  AppAuthSettingsRoute: AppAuthSettingsRoute,
+}
+
+const AppAuthRouteWithChildren =
+  AppAuthRoute._addFileChildren(AppAuthRouteChildren)
+
+interface AppRouteChildren {
+  AppAuthRoute: typeof AppAuthRouteWithChildren
+  AppContactRoute: typeof AppContactRoute
+  AppPrivacyRoute: typeof AppPrivacyRoute
+  AppRulesRoute: typeof AppRulesRoute
+  AppSigninRoute: typeof AppSigninRoute
+  AppSignupRoute: typeof AppSignupRoute
+  AppTipsRoute: typeof AppTipsRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppAuthRoute: AppAuthRouteWithChildren,
+  AppContactRoute: AppContactRoute,
+  AppPrivacyRoute: AppPrivacyRoute,
+  AppRulesRoute: AppRulesRoute,
+  AppSigninRoute: AppSigninRoute,
+  AppSignupRoute: AppSignupRoute,
+  AppTipsRoute: AppTipsRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AboutRoute: AboutRoute,
-  DemoTanstackQueryRoute: DemoTanstackQueryRoute,
-  DemoFormAddressRoute: DemoFormAddressRoute,
-  DemoFormSimpleRoute: DemoFormSimpleRoute,
+  AppRoute: AppRouteWithChildren,
+  GameMatchIdRoute: GameMatchIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

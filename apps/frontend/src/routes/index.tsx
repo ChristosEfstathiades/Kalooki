@@ -1,87 +1,139 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, redirect } from '@tanstack/react-router'
+import { Clock, MessageSquare, Shuffle, Users } from 'lucide-react'
+import { getStoredToken } from '#/lib/auth-token'
+import Footer from '#/components/Footer'
+import { Button } from '#/components/ui/button'
 
-export const Route = createFileRoute('/')({ component: App })
+export const Route = createFileRoute('/')({
+  beforeLoad: () => {
+    // Signed-in players skip the marketing page and go straight to play
+    if (getStoredToken()) {
+      throw redirect({ to: '/play' })
+    }
+  },
+  component: WelcomePage,
+})
 
-function App() {
+const features = [
+  {
+    icon: Shuffle,
+    title: 'Public matches',
+    description:
+      'Jump into a game against other players any time. Every public match uses the classic ruleset, so you always know what you are playing.',
+  },
+  {
+    icon: Users,
+    title: 'Private games with friends',
+    description:
+      'Create a group, invite your friends, and set your own rules — decks, jokers, timers, and the points you need to come down.',
+  },
+  {
+    icon: MessageSquare,
+    title: 'Chat while you play',
+    description:
+      'A global chatroom for everyone and a private chat in every group. Talk between hands or plan the next game night.',
+  },
+  {
+    icon: Clock,
+    title: 'Match history',
+    description:
+      'Every game is recorded: winners, round-by-round scores, and placements. Only the players in a match can see it.',
+  },
+]
+
+const rulesDigest = [
+  {
+    heading: 'The deal',
+    body: 'Kalooki is played with 2 decks and 2 jokers — 106 cards — for 2 to 6 players. Each player is dealt 13 cards.',
+  },
+  {
+    heading: 'Your turn',
+    body: 'Draw a card from the deck or take the top discard, then discard one to end your turn. A discard can only be taken if you use it in a set immediately.',
+  },
+  {
+    heading: 'Coming down',
+    body: 'Build sets — groups of 3–4 cards of the same value in different suits, or runs of 3+ cards in one suit. Once your sets are worth 40 or more points you can lay them on the table.',
+  },
+  {
+    heading: 'Winning',
+    body: 'First player to table and discard all 13 cards wins the round. Everyone else scores penalty points for cards left in hand — go over 150 and you are out. Last player standing wins the game.',
+  },
+]
+
+function WelcomePage() {
   return (
-    <main className="page-wrap px-4 pb-8 pt-14">
-      <section className="island-shell rise-in relative overflow-hidden rounded-[2rem] px-6 py-10 sm:px-10 sm:py-14">
-        <div className="pointer-events-none absolute -left-20 -top-24 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(79,184,178,0.32),transparent_66%)]" />
-        <div className="pointer-events-none absolute -bottom-20 -right-20 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(47,106,74,0.18),transparent_66%)]" />
-        <p className="island-kicker mb-3">TanStack Start Base Template</p>
-        <h1 className="display-title mb-5 max-w-3xl text-4xl leading-[1.02] font-bold tracking-tight text-[var(--sea-ink)] sm:text-6xl">
-          Start simple, ship quickly.
-        </h1>
-        <p className="mb-8 max-w-2xl text-base text-[var(--sea-ink-soft)] sm:text-lg">
-          This base starter intentionally keeps things light: two routes, clean
-          structure, and the essentials you need to build from scratch.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <a
-            href="/about"
-            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-5 py-2.5 text-sm font-semibold text-[var(--lagoon-deep)] no-underline transition hover:-translate-y-0.5 hover:bg-[rgba(79,184,178,0.24)]"
-          >
-            About This Starter
-          </a>
-          <a
-            href="https://tanstack.com/router"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-full border border-[rgba(23,58,64,0.2)] bg-white/50 px-5 py-2.5 text-sm font-semibold text-[var(--sea-ink)] no-underline transition hover:-translate-y-0.5 hover:border-[rgba(23,58,64,0.35)]"
-          >
-            Router Guide
-          </a>
-        </div>
-      </section>
+    <div className="flex min-h-screen flex-col">
+      <main className="flex-1">
+        <section className="page-wrap py-16 sm:py-24">
+          <p className="m-0 text-sm font-semibold tracking-widest text-muted-foreground uppercase">
+            KalookiOnline
+          </p>
+          <h1 className="mt-3 mb-0 max-w-2xl text-4xl font-bold sm:text-5xl">
+            Play Kalooki online, in real time
+          </h1>
+          <p className="mt-4 mb-8 max-w-xl text-lg text-muted-foreground">
+            The classic Rummy card game loved in the UK, Jamaica, and Cyprus.
+            Public matches against other players, or private games with friends
+            under your own rules.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              asChild
+              size="lg"
+              className="bg-button-red hover:bg-button-red-hover"
+            >
+              <Link to="/signup">Play now — it&apos;s free</Link>
+            </Button>
+            <Button asChild size="lg" variant="ghost">
+              <Link to="/signin">I already have an account</Link>
+            </Button>
+          </div>
+        </section>
 
-      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          [
-            'Type-Safe Routing',
-            'Routes and links stay in sync across every page.',
-          ],
-          [
-            'Server Functions',
-            'Call server code from your UI without creating API boilerplate.',
-          ],
-          [
-            'Streaming by Default',
-            'Ship progressively rendered responses for faster experiences.',
-          ],
-          [
-            'Tailwind Native',
-            'Design quickly with utility-first styling and reusable tokens.',
-          ],
-        ].map(([title, desc], index) => (
-          <article
-            key={title}
-            className="island-shell feature-card rise-in rounded-2xl p-5"
-            style={{ animationDelay: `${index * 90 + 80}ms` }}
-          >
-            <h2 className="mb-2 text-base font-semibold text-[var(--sea-ink)]">
-              {title}
-            </h2>
-            <p className="m-0 text-sm text-[var(--sea-ink-soft)]">{desc}</p>
-          </article>
-        ))}
-      </section>
+        <section className="border-y border-border bg-panel py-12">
+          <div className="page-wrap grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {features.map((feature) => (
+              <article key={feature.title}>
+                <feature.icon
+                  aria-hidden="true"
+                  className="size-5 text-muted-foreground"
+                />
+                <h2 className="mt-3 mb-1 text-base font-semibold">
+                  {feature.title}
+                </h2>
+                <p className="m-0 text-sm text-muted-foreground">
+                  {feature.description}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
 
-      <section className="island-shell mt-8 rounded-2xl p-6">
-        <p className="island-kicker mb-2">Quick Start</p>
-        <ul className="m-0 list-disc space-y-2 pl-5 text-sm text-[var(--sea-ink-soft)]">
-          <li>
-            Edit <code>src/routes/index.tsx</code> to customize the home page.
-          </li>
-          <li>
-            Update <code>src/components/Header.tsx</code> and{' '}
-            <code>src/components/Footer.tsx</code> for brand links.
-          </li>
-          <li>
-            Add routes in <code>src/routes</code> and tweak visual tokens in{' '}
-            <code>src/styles.css</code>.
-          </li>
-        </ul>
-      </section>
-    </main>
+        <section className="page-wrap py-12 sm:py-16">
+          <h2 className="m-0 text-2xl font-bold">How Kalooki works</h2>
+          <p className="mt-2 mb-8 text-sm text-muted-foreground">
+            The short version — the{' '}
+            <Link to="/rules" className="underline underline-offset-4">
+              full rules
+            </Link>{' '}
+            cover jokers, go-ers, calling up, and scoring.
+          </p>
+          <div className="grid gap-6 sm:grid-cols-2">
+            {rulesDigest.map((rule, index) => (
+              <article
+                key={rule.heading}
+                className="rounded-lg border border-border bg-card p-5"
+              >
+                <h3 className="m-0 text-sm font-semibold text-muted-foreground">
+                  {index + 1}. {rule.heading}
+                </h3>
+                <p className="mt-2 mb-0 text-sm">{rule.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </div>
   )
 }

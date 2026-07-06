@@ -1,19 +1,40 @@
 import vine from '@vinejs/vine'
 
 /**
- * Shared rules for email and password.
+ * Shared rule for email fields.
  */
 const email = () => vine.string().email().maxLength(254)
-const password = () => vine.string().minLength(8).maxLength(32)
+
+/**
+ * Shared rule for passwords: at least 8 characters including at least
+ * one capital letter and one symbol (see docs/features.md).
+ */
+const password = () =>
+  vine
+    .string()
+    .minLength(8)
+    .maxLength(128)
+    .regex(/^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).*$/)
+
+/**
+ * Shared rule for usernames: 3-20 characters, letters/digits/underscores.
+ */
+const username = () =>
+  vine
+    .string()
+    .minLength(3)
+    .maxLength(20)
+    .regex(/^[A-Za-z0-9_]+$/)
 
 /**
  * Validator to use when performing self-signup
  */
 export const signupValidator = vine.create({
-  fullName: vine.string().nullable(),
-  email: email().unique({ table: 'users', column: 'email' }),
+  username: username().unique({ table: 'users', column: 'username', caseInsensitive: true }),
+  email: email().unique({ table: 'users', column: 'email', caseInsensitive: true }),
   password: password(),
-  passwordConfirmation: password().sameAs('password'),
+  passwordConfirmation: vine.string().sameAs('password'),
+  avatar: vine.file({ size: '2mb', extnames: ['jpg', 'jpeg', 'png', 'webp'] }).optional(),
 })
 
 /**
@@ -23,4 +44,5 @@ export const signupValidator = vine.create({
 export const loginValidator = vine.create({
   email: email(),
   password: vine.string(),
+  rememberMe: vine.boolean().optional(),
 })

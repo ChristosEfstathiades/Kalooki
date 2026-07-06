@@ -1,9 +1,9 @@
 {
-  "name": "adonisjs-api-starter-kit",
+  "name": "KalookiOnline",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "A batteries-included AdonisJS starter kit for building modern APIs with type-safe frontend integration",
+  "description": "Online Kalooki",
   "license": "MIT",
   "workspaces": [
     "apps/*"

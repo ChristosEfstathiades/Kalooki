@@ -43,19 +43,221 @@ export class AuthAccessTokenSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class ChatMessageSchema extends BaseModel {
+  static $columns = [
+    'body',
+    'channel',
+    'createdAt',
+    'groupId',
+    'id',
+    'updatedAt',
+    'userId',
+    'wasCensored',
+  ] as const
+  $columns = ChatMessageSchema.$columns
+  @column()
+  declare body: string
+  @column()
+  declare channel: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare groupId: number | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
+  @column()
+  declare wasCensored: boolean
+}
+
+export class FriendRequestSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'recipientId', 'senderId', 'updatedAt'] as const
+  $columns = FriendRequestSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare recipientId: number
+  @column()
+  declare senderId: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class FriendshipSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'updatedAt', 'userAId', 'userBId'] as const
+  $columns = FriendshipSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userAId: number
+  @column()
+  declare userBId: number
+}
+
+export class GroupInviteSchema extends BaseModel {
+  static $columns = ['createdAt', 'groupId', 'id', 'updatedAt', 'userId'] as const
+  $columns = GroupInviteSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare groupId: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
+}
+
+export class GroupMemberSchema extends BaseModel {
+  static $columns = ['createdAt', 'groupId', 'id', 'updatedAt', 'userId'] as const
+  $columns = GroupMemberSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare groupId: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
+}
+
+export class GroupSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'name', 'ownerId', 'updatedAt'] as const
+  $columns = GroupSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column()
+  declare ownerId: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class MatchPlayerSchema extends BaseModel {
+  static $columns = [
+    'createdAt',
+    'finalScore',
+    'id',
+    'leftEarly',
+    'matchId',
+    'placement',
+    'updatedAt',
+    'userId',
+  ] as const
+  $columns = MatchPlayerSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare finalScore: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare leftEarly: boolean
+  @column()
+  declare matchId: number
+  @column()
+  declare placement: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
+}
+
+export class MatchSchema extends BaseModel {
+  static $columns = [
+    'completed',
+    'createdAt',
+    'endedAt',
+    'groupId',
+    'id',
+    'kind',
+    'rules',
+    'scoresheet',
+    'startedAt',
+    'updatedAt',
+    'winnerUserId',
+  ] as const
+  $columns = MatchSchema.$columns
+  @column()
+  declare completed: boolean
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column.dateTime()
+  declare endedAt: DateTime
+  @column()
+  declare groupId: number | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare kind: string
+  @column()
+  declare rules: string
+  @column()
+  declare scoresheet: string
+  @column.dateTime()
+  declare startedAt: DateTime
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare winnerUserId: number | null
+}
+
+export class MessageReportSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'messageId', 'reporterId', 'updatedAt'] as const
+  $columns = MessageReportSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare messageId: number
+  @column()
+  declare reporterId: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'email', 'fullName', 'id', 'password', 'updatedAt'] as const
+  static $columns = [
+    'avatarPath',
+    'createdAt',
+    'email',
+    'emailVerifiedAt',
+    'id',
+    'password',
+    'updatedAt',
+    'username',
+  ] as const
   $columns = UserSchema.$columns
+  @column()
+  declare avatarPath: string | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column()
   declare email: string
-  @column()
-  declare fullName: string | null
+  @column.dateTime()
+  declare emailVerifiedAt: DateTime | null
   @column({ isPrimary: true })
   declare id: number
   @column({ serializeAs: null })
   declare password: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+  @column()
+  declare username: string
 }
