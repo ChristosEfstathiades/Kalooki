@@ -1,7 +1,8 @@
 import { GroupSchema } from '#database/schema'
+import GroupInvite from '#models/group_invite'
 import User from '#models/user'
-import { belongsTo, manyToMany } from '@adonisjs/lucid/orm'
-import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
+import { belongsTo, hasMany, manyToMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 
 /**
  * A private group. The owner invites friends, manages members, and can
@@ -16,4 +17,7 @@ export default class Group extends GroupSchema {
     pivotTimestamps: true,
   })
   declare members: ManyToMany<typeof User>
+
+  @hasMany(() => GroupInvite)
+  declare invites: HasMany<typeof GroupInvite>
 }

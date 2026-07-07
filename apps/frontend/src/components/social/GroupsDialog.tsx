@@ -16,6 +16,7 @@ import {
 } from '#/lib/social'
 import UserAvatar from '#/components/UserAvatar'
 import FormErrors from '#/components/FormErrors'
+import FriendSuggestInput from '#/components/social/FriendSuggestInput'
 import GroupGamePanel from '#/components/game/GroupGamePanel'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
@@ -210,6 +211,7 @@ function GroupDetail({ groupId, onBack }: GroupDetailProps) {
   const { data: currentUser } = useQuery(currentUserQueryOptions)
   const group = useQuery(groupDetailQueryOptions(groupId))
   const inviteToGroup = useInviteToGroup()
+  const revokeInvite = useDeleteGroupInvite()
   const removeMember = useRemoveGroupMember()
   const transferOwnership = useTransferOwnership()
   const deleteGroup = useDeleteGroup()
@@ -296,12 +298,15 @@ function GroupDetail({ groupId, onBack }: GroupDetailProps) {
             </p>
           )}
           <div className="flex gap-2">
-            <Input
+            <FriendSuggestInput
               value={inviteUsername}
-              onChange={(event) => setInviteUsername(event.target.value)}
-              placeholder="Invite a friend by exact username"
-              aria-label="Invite a friend by exact username"
-              autoComplete="off"
+              onValueChange={setInviteUsername}
+              excludedUserIds={[
+                ...group.data.members.map((member) => member.id),
+                ...group.data.pendingInvites.map((invite) => invite.user.id),
+              ]}
+              placeholder="Invite a friend by username"
+              label="Invite a friend by username"
             />
             <Button
               type="submit"
@@ -378,6 +383,44 @@ function GroupDetail({ groupId, onBack }: GroupDetailProps) {
           ))}
         </ul>
       </section>
+
+      {group.data.pendingInvites.length > 0 && (
+        <section>
+          <h3 className="m-0 text-sm font-semibold text-muted-foreground">
+            Pending invites
+          </h3>
+          <ul className="m-0 list-none divide-y divide-border p-0">
+            {group.data.pendingInvites.map((invite) => (
+              <li
+                key={invite.id}
+                className="flex items-center justify-between gap-2 py-2"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <UserAvatar user={invite.user} />
+                  <span className="truncate text-sm font-medium">
+                    {invite.user.username}
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      (invited)
+                    </span>
+                  </span>
+                </span>
+                {isOwner && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={revokeInvite.isPending}
+                    onClick={() =>
+                      runWithErrors(() => revokeInvite.mutateAsync(invite.id))
+                    }
+                  >
+                    Revoke
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="border-t border-border pt-4">
         {isOwner ? (

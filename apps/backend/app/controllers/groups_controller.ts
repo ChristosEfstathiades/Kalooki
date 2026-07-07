@@ -39,6 +39,9 @@ export default class GroupsController {
 
     await group.load('owner')
     await group.load('members')
+    await group.load('invites', (query) => {
+      query.preload('user')
+    })
     return serialize({ group: GroupDetailTransformer.transform(group) })
   }
 
@@ -58,6 +61,9 @@ export default class GroupsController {
       .preload('owner')
       .preload('members', (query) => {
         query.orderBy('username')
+      })
+      .preload('invites', (query) => {
+        query.preload('user').orderBy('createdAt')
       })
       .firstOrFail()
 

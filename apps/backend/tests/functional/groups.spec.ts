@@ -168,6 +168,36 @@ test.group('Group invites', (group) => {
     assert.lengthOf(invites.body().data.invites, 0)
   })
 
+  test('group detail lists pending invites until accepted or revoked', async ({
+    client,
+    assert,
+  }) => {
+    const alice = await makeUser('alice')
+    const bobby = await makeUser('bobby')
+    await createFriendship(alice.id, bobby.id)
+    const kalookiGroup = await makeGroup(alice, 'Card Sharks')
+
+    const invite = await client
+      .post(`/api/v1/groups/${kalookiGroup.id}/invites`)
+      .json({ username: 'bobby' })
+      .loginAs(alice)
+    const inviteId = invite.body().data.invite.id
+
+    const detail = await client.get(`/api/v1/groups/${kalookiGroup.id}`).loginAs(alice)
+    detail.assertStatus(200)
+    const pendingInvites = detail.body().data.group.pendingInvites
+    assert.lengthOf(pendingInvites, 1)
+    assert.equal(pendingInvites[0].id, inviteId)
+    assert.equal(pendingInvites[0].user.username, 'bobby')
+    assert.notProperty(pendingInvites[0].user, 'email')
+
+    const revoke = await client.delete(`/api/v1/group-invites/${inviteId}`).loginAs(alice)
+    revoke.assertStatus(200)
+
+    const afterRevoke = await client.get(`/api/v1/groups/${kalookiGroup.id}`).loginAs(alice)
+    assert.lengthOf(afterRevoke.body().data.group.pendingInvites, 0)
+  })
+
   test('groups are capped at 50 members', async ({ client }) => {
     const alice = await makeUser('alice')
     const bobby = await makeUser('bobby')
