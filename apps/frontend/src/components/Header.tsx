@@ -24,7 +24,9 @@ export default function Header() {
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-2">
               <UserAvatar user={user} />
-              <span className="text-sm font-medium">{user.username}</span>
+              <span className="hidden text-sm font-medium sm:inline">
+                {user.username}
+              </span>
             </span>
             <Button asChild variant="ghost" size="icon" aria-label="Settings">
               <Link to="/settings">

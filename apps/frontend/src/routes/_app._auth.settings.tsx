@@ -62,9 +62,9 @@ function SettingsPage() {
 
       <ProfileSection user={user} />
 
-      <ChatColorSection user={user} />
-
       <ThemeSection />
+
+      <ChatColorSection user={user} />
 
       <section className="mt-6 rounded-lg border border-border bg-card p-6">
         <h2 className="m-0 text-lg font-semibold">Session</h2>
