@@ -168,6 +168,12 @@ const routes = {
     tokens: [{"old":"/api/v1/matches","type":0,"val":"api","end":""},{"old":"/api/v1/matches","type":0,"val":"v1","end":""},{"old":"/api/v1/matches","type":0,"val":"matches","end":""}],
     types: placeholder as Registry['social.matches.index']['types'],
   },
+  'social.leaderboard.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/leaderboard',
+    tokens: [{"old":"/api/v1/leaderboard","type":0,"val":"api","end":""},{"old":"/api/v1/leaderboard","type":0,"val":"v1","end":""},{"old":"/api/v1/leaderboard","type":0,"val":"leaderboard","end":""}],
+    types: placeholder as Registry['social.leaderboard.index']['types'],
+  },
 } as const satisfies Record<string, AdonisEndpoint>
 
 export { routes }

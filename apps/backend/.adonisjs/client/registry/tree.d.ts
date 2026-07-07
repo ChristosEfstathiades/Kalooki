@@ -58,5 +58,8 @@ export interface ApiDefinition {
     matches: {
       index: typeof routes['social.matches.index']
     }
+    leaderboard: {
+      index: typeof routes['social.leaderboard.index']
+    }
   }
 }

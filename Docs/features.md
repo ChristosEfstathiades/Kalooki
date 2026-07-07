@@ -32,6 +32,12 @@
 
 - Every game is recorded so users can view their match history. (Gameplay and in-game mechanics are documented separately in `kalooki.md`.) Each recorded match stores: the winner (if the game finished), the full scoresheet including round-by-round scores, the players involved and their final placements (1st/2nd/3rd, etc.), the date/time and duration of the match, and the game variant and custom rules that were in effect. Unfinished games (abandoned or where a player quit) are also recorded, marked as incomplete with no winner and noting who left or forfeited. Match records are visible only to the participants of that match and are kept indefinitely.
 
+## Global Leaderboard
+
+- There is a global leaderboard for public matches, shown on its own page (not a popup). Once a user has completed 10 public matches they are eligible to appear; only completed public games count — private games (custom rules) and incomplete games (no winner) are excluded from both eligibility and every stat.
+- Players are ranked by highest win rate (ties broken by more games played, then more wins). Each row shows the player's profile picture and username alongside their stats: win rate, games played, wins, longest win streak (consecutive public-match wins), average penalty points per round (lower is better), rounds won rate (how often they go out and win an individual round), and average number of players in their games.
+- The board shows the top 100 players and is visible to any signed-in user.
+
 ## Game Modes
 
 - There are two ways to play Kalooki. (1) Public friendly matches, which always use a fixed, universal classic ruleset. (2) Private matches (as described in Private Groups), which can use either the classic ruleset or custom rules set by the group owner.

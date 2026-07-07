@@ -31,6 +31,7 @@ export type ScannedRoutes = {
     'social.chat_messages.match': { paramsTuple: [ParamValue]; params: {'matchId': ParamValue} }
     'social.chat_messages.report': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'social.matches.index': { paramsTuple?: []; params?: {} }
+    'social.leaderboard.index': { paramsTuple?: []; params?: {} }
   }
   GET: {
     'avatars.show': { paramsTuple: [ParamValue]; params: {'filename': ParamValue} }
@@ -44,6 +45,7 @@ export type ScannedRoutes = {
     'social.chat_messages.group': { paramsTuple: [ParamValue]; params: {'groupId': ParamValue} }
     'social.chat_messages.match': { paramsTuple: [ParamValue]; params: {'matchId': ParamValue} }
     'social.matches.index': { paramsTuple?: []; params?: {} }
+    'social.leaderboard.index': { paramsTuple?: []; params?: {} }
   }
   HEAD: {
     'avatars.show': { paramsTuple: [ParamValue]; params: {'filename': ParamValue} }
@@ -57,6 +59,7 @@ export type ScannedRoutes = {
     'social.chat_messages.group': { paramsTuple: [ParamValue]; params: {'groupId': ParamValue} }
     'social.chat_messages.match': { paramsTuple: [ParamValue]; params: {'matchId': ParamValue} }
     'social.matches.index': { paramsTuple?: []; params?: {} }
+    'social.leaderboard.index': { paramsTuple?: []; params?: {} }
   }
   POST: {
     'auth.new_account.store': { paramsTuple?: []; params?: {} }

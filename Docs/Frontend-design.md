@@ -38,7 +38,7 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 ## Play page
 
 - Users should be redirected to this page if they are logged in
-- Left hand side of the page contains button to find public match and below that is buttons to send friend requests and to view friends list and to see match history. friends list should be a popup modal.
+- Left hand side of the page contains button to find public match and below that is buttons to send friend requests and to view friends list and to see match history and the leaderboard. friends list should be a popup modal.
 - right hand side contains a sidebar where users can select to show global public chat or one of their private group chats
 
 ## Kalooki Gameplay page
@@ -56,6 +56,12 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 ## match history page
 
 - display table of match history. click match to expand and show more info that is specified in features.md
+
+## leaderboard page
+
+- separate page (not a modal) reachable from the play page, linked next to match history.
+- a single ranked table of the top public-match players: rank, profile picture + username, win rate, games, wins, best win streak, average points per round, rounds won rate, and average players per game (see features.md, Global Leaderboard).
+- the signed-in user's own row is highlighted when they are on the board. explains the 10-public-match eligibility rule above the table; wide stats scroll horizontally on small screens.
 
 ## settings page
 

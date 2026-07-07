@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Clock, UserPlus, Users, UsersRound } from 'lucide-react'
+import { Clock, Trophy, UserPlus, Users, UsersRound } from 'lucide-react'
 import {
   friendRequestsQueryOptions,
   groupInvitesQueryOptions,
@@ -88,6 +88,12 @@ function PlayPage() {
             <Link to="/history">
               <Clock aria-hidden="true" />
               Match history
+            </Link>
+          </Button>
+          <Button asChild variant="secondary" className="justify-start">
+            <Link to="/leaderboard">
+              <Trophy aria-hidden="true" />
+              Leaderboard
             </Link>
           </Button>
         </div>

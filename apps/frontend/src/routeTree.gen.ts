@@ -21,6 +21,7 @@ import { Route as AppContactRouteImport } from './routes/_app.contact'
 import { Route as AppAuthRouteImport } from './routes/_app._auth'
 import { Route as AppAuthSettingsRouteImport } from './routes/_app._auth.settings'
 import { Route as AppAuthPlayRouteImport } from './routes/_app._auth.play'
+import { Route as AppAuthLeaderboardRouteImport } from './routes/_app._auth.leaderboard'
 import { Route as AppAuthHistoryRouteImport } from './routes/_app._auth.history'
 
 const AppRoute = AppRouteImport.update({
@@ -81,6 +82,11 @@ const AppAuthPlayRoute = AppAuthPlayRouteImport.update({
   path: '/play',
   getParentRoute: () => AppAuthRoute,
 } as any)
+const AppAuthLeaderboardRoute = AppAuthLeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
+  getParentRoute: () => AppAuthRoute,
+} as any)
 const AppAuthHistoryRoute = AppAuthHistoryRouteImport.update({
   id: '/history',
   path: '/history',
@@ -97,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/tips': typeof AppTipsRoute
   '/game/$matchId': typeof GameMatchIdRoute
   '/history': typeof AppAuthHistoryRoute
+  '/leaderboard': typeof AppAuthLeaderboardRoute
   '/play': typeof AppAuthPlayRoute
   '/settings': typeof AppAuthSettingsRoute
 }
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/tips': typeof AppTipsRoute
   '/game/$matchId': typeof GameMatchIdRoute
   '/history': typeof AppAuthHistoryRoute
+  '/leaderboard': typeof AppAuthLeaderboardRoute
   '/play': typeof AppAuthPlayRoute
   '/settings': typeof AppAuthSettingsRoute
 }
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/_app/tips': typeof AppTipsRoute
   '/game/$matchId': typeof GameMatchIdRoute
   '/_app/_auth/history': typeof AppAuthHistoryRoute
+  '/_app/_auth/leaderboard': typeof AppAuthLeaderboardRoute
   '/_app/_auth/play': typeof AppAuthPlayRoute
   '/_app/_auth/settings': typeof AppAuthSettingsRoute
 }
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/tips'
     | '/game/$matchId'
     | '/history'
+    | '/leaderboard'
     | '/play'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
@@ -154,6 +164,7 @@ export interface FileRouteTypes {
     | '/tips'
     | '/game/$matchId'
     | '/history'
+    | '/leaderboard'
     | '/play'
     | '/settings'
   id:
@@ -169,6 +180,7 @@ export interface FileRouteTypes {
     | '/_app/tips'
     | '/game/$matchId'
     | '/_app/_auth/history'
+    | '/_app/_auth/leaderboard'
     | '/_app/_auth/play'
     | '/_app/_auth/settings'
   fileRoutesById: FileRoutesById
@@ -265,6 +277,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuthPlayRouteImport
       parentRoute: typeof AppAuthRoute
     }
+    '/_app/_auth/leaderboard': {
+      id: '/_app/_auth/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof AppAuthLeaderboardRouteImport
+      parentRoute: typeof AppAuthRoute
+    }
     '/_app/_auth/history': {
       id: '/_app/_auth/history'
       path: '/history'
@@ -277,12 +296,14 @@ declare module '@tanstack/react-router' {
 
 interface AppAuthRouteChildren {
   AppAuthHistoryRoute: typeof AppAuthHistoryRoute
+  AppAuthLeaderboardRoute: typeof AppAuthLeaderboardRoute
   AppAuthPlayRoute: typeof AppAuthPlayRoute
   AppAuthSettingsRoute: typeof AppAuthSettingsRoute
 }
 
 const AppAuthRouteChildren: AppAuthRouteChildren = {
   AppAuthHistoryRoute: AppAuthHistoryRoute,
+  AppAuthLeaderboardRoute: AppAuthLeaderboardRoute,
   AppAuthPlayRoute: AppAuthPlayRoute,
   AppAuthSettingsRoute: AppAuthSettingsRoute,
 }

@@ -63,6 +63,7 @@ router
         router.post('chat/messages/:id/report', [controllers.ChatMessages, 'report'])
 
         router.get('matches', [controllers.Matches, 'index'])
+        router.get('leaderboard', [controllers.Leaderboard, 'index'])
       })
       .as('social')
       .use(middleware.auth())

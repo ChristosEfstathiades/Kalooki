@@ -12,6 +12,7 @@ export const controllers = {
   GroupInvites: () => import('#controllers/group_invites_controller'),
   GroupMembers: () => import('#controllers/group_members_controller'),
   Groups: () => import('#controllers/groups_controller'),
+  Leaderboard: () => import('#controllers/leaderboard_controller'),
   Matches: () => import('#controllers/matches_controller'),
   NewAccount: () => import('#controllers/new_account_controller'),
   Profile: () => import('#controllers/profile_controller'),
