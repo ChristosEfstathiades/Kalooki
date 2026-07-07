@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { queryOptions, useQuery } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react'
 import { api } from '#/lib/api'
 import { currentUserQueryOptions } from '#/lib/auth'
 import { cn } from '#/lib/utils'
@@ -33,6 +33,13 @@ function HistoryPage() {
 
   return (
     <div className="page-wrap max-w-4xl py-8">
+      <Link
+        to="/play"
+        className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft aria-hidden="true" className="size-4" />
+        Back to lobby
+      </Link>
       <h1 className="m-0 text-2xl font-bold">Match history</h1>
       <p className="mt-1 mb-6 text-sm text-muted-foreground">
         Every game you have played. Click a match for the full scoresheet.
