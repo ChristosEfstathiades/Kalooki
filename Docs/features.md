@@ -4,7 +4,7 @@
 
 - Users can create an account with an email address, a unique username, and a password. Signup also collects a password confirmation (must match) and an optional avatar / profile photo. Password rules: at least 8 characters, including at least one symbol and one capital letter. After signup the account stays inactive until the user verifies their email via an emailed confirmation link. Email verification is only enforced in production; in development accounts are active immediately without verification. When signing in, users can choose a "remember me" option to stay logged in.
 - Users can change their username and profile photo at any time from the settings page. The same rules as at signup apply: usernames must stay unique (checked case-insensitively) and photos are JPG/PNG/WebP up to 2 MB. Replacing a photo deletes the old file; the email address cannot be changed.
-- Users can also choose their chat name colour from the settings page (see Chat Messages).
+- Users can also choose their chat name colour from the settings page (see Chat Messages), and switch the site between the default dark theme and a light theme — a per-device choice remembered by the browser, not stored on the account.
 
 ## Friends
 

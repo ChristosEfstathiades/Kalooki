@@ -13,7 +13,7 @@ import { groupsQueryOptions, useSendFriendRequest } from '#/lib/social'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { cn } from '#/lib/utils'
-import { usernameColor } from '#/lib/username-color'
+import { chatNameColor, usernameColor } from '#/lib/username-color'
 import type { ChatChannel } from '#/lib/chat'
 
 /**
@@ -168,7 +168,9 @@ export function ChatConversation({ channel }: ChatConversationProps) {
               type="button"
               className="font-semibold hover:underline"
               style={{
-                color: message.user.chatColor ?? usernameColor(message.user.username),
+                color: chatNameColor(
+                  message.user.chatColor ?? usernameColor(message.user.username),
+                ),
               }}
               onClick={() =>
                 setMenuMessageId(

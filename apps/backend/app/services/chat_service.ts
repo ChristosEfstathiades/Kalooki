@@ -23,7 +23,7 @@ export const MAX_MESSAGE_LENGTH = 500
  */
 export const CHAT_USERNAME_COLORS = [
   '#FF0000', // Red
-  '#0000FF', // Blue
+  '#6495ED', // CornflowerBlue
   '#008000', // Green
   '#B22222', // Firebrick
   '#FF7F50', // Coral

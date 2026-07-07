@@ -13,6 +13,7 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 ## Theme / Colours
 
 - The website should have a darker theme by default with colours similar to card game websites such as ggpoker and pokerstars.
+- A light theme is available as an opt-in from the settings page (per device, remembered in the browser); dark stays the default. The light theme is the same room by daylight: a soft green-grey background, white panels, the same felt/red/purple brand colours, and chat name colours darkened for contrast on light backgrounds.
 - #141616 = Main background color
 - A dark blue (#1b2838) = Secondary background colour
 - use red (#6a303b) and purple (#533367) colours for buttons. These were selected cause they pair nicely with #35654d which is the colour of the felt
@@ -65,7 +66,7 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 
 ## settings page
 
-- users can change username, profile picture, chat colour (a swatch picker over the fixed palette, see features.md, Chat Messages), and logout
+- users can change username, profile picture, chat colour (a swatch picker over the fixed palette, see features.md, Chat Messages), switch between the dark (default) and light themes, and logout
 
 ## header
 

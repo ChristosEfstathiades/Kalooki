@@ -3,24 +3,25 @@
 
 @import 'tw-animate-css';
 
+/* dark: utilities follow the .dark class on <html>, not the OS setting */
+@custom-variant dark (&:is(.dark *));
+
 /*
  * Kalooki Online theme (docs/Frontend-design.md).
- * Dark card-room palette: near-black table surround, deep blue panels,
- * muted red/purple buttons, and the green felt reserved for gameplay.
+ * Dark card-room palette is the default: near-black table surround,
+ * deep blue panels, muted red/purple buttons, and the green felt
+ * reserved for gameplay. The light theme is the same room by daylight —
+ * soft green-grey surround, white panels, identical brand colours.
+ * The server renders <html class="dark">; choosing light on the
+ * settings page removes the class (see lib/theme.ts).
  */
 :root {
-  /* Core palette */
-  --bg-main: #141616;
-  --bg-panel: #1b2838;
+  /* Brand constants, identical in both themes */
   --felt: #35654d;
   --button-red: #6a303b;
   --button-red-hover: #7e3a47;
   --button-purple: #533367;
   --button-purple-hover: #633e7b;
-
-  /* Text */
-  --text-strong: #f4f6f5;
-  --text-soft: #aab4b1;
 
   /* Fonts: system stacks for now, swappable in one place */
   --font-display:
@@ -30,27 +31,57 @@
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica,
     Arial, sans-serif;
 
+  /* Light theme (opt-in) */
+  --bg-main: #eef0ef;
+  --bg-panel: #ffffff;
+  --text-strong: #1d2422;
+  --text-soft: #5c6663;
+
   /* shadcn/ui token mapping */
   --background: var(--bg-main);
   --foreground: var(--text-strong);
   --card: var(--bg-panel);
   --card-foreground: var(--text-strong);
-  --popover: #223145;
+  --popover: #ffffff;
   --popover-foreground: var(--text-strong);
   --primary: var(--button-purple);
   --primary-foreground: #ffffff;
-  --secondary: #24344a;
+  --secondary: #e2e7e9;
   --secondary-foreground: var(--text-strong);
-  --muted: #1d2226;
+  --muted: #e7eae9;
   --muted-foreground: var(--text-soft);
-  --accent: #2a3b52;
+  --accent: #dee5ea;
   --accent-foreground: var(--text-strong);
-  --destructive: #c14953;
+  --destructive: #b03e48;
   --destructive-foreground: #ffffff;
+  --border: rgba(20, 30, 26, 0.14);
+  --input: rgba(20, 30, 26, 0.2);
+  --ring: #6d4b8a;
+  --radius: 0.5rem;
+
+  /* How much black to mix into chat name colours; the palette is
+   * tuned for dark backgrounds, so light mode darkens it for contrast
+   * (see lib/username-color.ts) */
+  --chat-color-shade: 30%;
+}
+
+/* Dark theme (default) */
+.dark {
+  --bg-main: #141616;
+  --bg-panel: #1b2838;
+  --text-strong: #f4f6f5;
+  --text-soft: #aab4b1;
+
+  --popover: #223145;
+  --secondary: #24344a;
+  --muted: #1d2226;
+  --accent: #2a3b52;
+  --destructive: #c14953;
   --border: rgba(255, 255, 255, 0.12);
   --input: rgba(255, 255, 255, 0.16);
   --ring: #9b7bb8;
-  --radius: 0.5rem;
+
+  --chat-color-shade: 0%;
 }
 
 @theme inline {

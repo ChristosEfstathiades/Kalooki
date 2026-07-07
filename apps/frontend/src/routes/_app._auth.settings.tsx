@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useForm } from '@tanstack/react-form'
+import { ArrowLeft } from 'lucide-react'
 import { z } from 'zod'
 import {
   currentUserQueryOptions,
@@ -16,7 +17,9 @@ import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { cn } from '#/lib/utils'
-import { USERNAME_COLORS, usernameColor } from '#/lib/username-color'
+import { getStoredTheme, setTheme } from '#/lib/theme'
+import { chatNameColor, USERNAME_COLORS, usernameColor } from '#/lib/username-color'
+import type { Theme } from '#/lib/theme'
 import type { CurrentUser } from '#/lib/auth'
 
 export const Route = createFileRoute('/_app/_auth/settings')({
@@ -37,6 +40,7 @@ const usernameSchema = z
  */
 function SettingsPage() {
   const navigate = useNavigate()
+  const router = useRouter()
   const { data: user } = useQuery(currentUserQueryOptions)
   const logout = useLogout()
 
@@ -46,11 +50,21 @@ function SettingsPage() {
 
   return (
     <div className="page-wrap max-w-2xl py-8">
+      <button
+        type="button"
+        onClick={() => router.history.back()}
+        className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft aria-hidden="true" className="size-4" />
+        Back
+      </button>
       <h1 className="m-0 text-2xl font-bold">Settings</h1>
 
       <ProfileSection user={user} />
 
       <ChatColorSection user={user} />
+
+      <ThemeSection />
 
       <section className="mt-6 rounded-lg border border-border bg-card p-6">
         <h2 className="m-0 text-lg font-semibold">Session</h2>
@@ -191,6 +205,51 @@ function ProfileSection({ user }: ProfileSectionProps) {
   )
 }
 
+/**
+ * Theme picker: dark (the default) or light, remembered per device.
+ */
+function ThemeSection() {
+  // Starts on the server-safe default and reads the real choice after
+  // mount, so SSR markup matches the first client render
+  const [theme, setThemeState] = useState<Theme>('dark')
+  useEffect(() => {
+    setThemeState(getStoredTheme())
+  }, [])
+
+  const choose = (nextTheme: Theme) => {
+    setTheme(nextTheme)
+    setThemeState(nextTheme)
+  }
+
+  return (
+    <section className="mt-6 rounded-lg border border-border bg-card p-6">
+      <h2 className="m-0 text-lg font-semibold">Appearance</h2>
+      <p className="mt-1 mb-4 text-sm text-muted-foreground">
+        Choose how the site looks on this device.
+      </p>
+
+      <div className="flex gap-2" role="radiogroup" aria-label="Theme">
+        {(['dark', 'light'] as const).map((option) => (
+          <Button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={theme === option}
+            variant={theme === option ? 'default' : 'secondary'}
+            className={cn(
+              theme === option &&
+                'bg-button-purple hover:bg-button-purple-hover',
+            )}
+            onClick={() => choose(option)}
+          >
+            {option === 'dark' ? 'Dark (default)' : 'Light'}
+          </Button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 interface ChatColorSectionProps {
   user: CurrentUser
 }
@@ -212,7 +271,10 @@ function ChatColorSection({ user }: ChatColorSectionProps) {
       </p>
 
       <p className="m-0 mb-4 text-sm">
-        <span className="font-semibold" style={{ color: activeColor }}>
+        <span
+          className="font-semibold"
+          style={{ color: chatNameColor(activeColor) }}
+        >
           {user.username}
         </span>
         {': '}

@@ -6,7 +6,7 @@
  */
 export const USERNAME_COLORS = [
   '#FF0000', // Red
-  '#0000FF', // Blue
+  '#6495ED', // CornflowerBlue
   '#008000', // Green
   '#B22222', // Firebrick
   '#FF7F50', // Coral
@@ -42,4 +42,14 @@ export function usernameColor(username: string): UsernameColor {
     hash = Math.imul(hash, 0x01000193)
   }
   return USERNAME_COLORS[(hash >>> 0) % USERNAME_COLORS.length]
+}
+
+/**
+ * CSS colour for rendering a chat name in the current theme. The
+ * palette is tuned for dark backgrounds, so the light theme mixes in
+ * black via --chat-color-shade (0% in dark mode, see styles.css) to
+ * keep pale colours like SpringGreen readable on white.
+ */
+export function chatNameColor(color: string): string {
+  return `color-mix(in srgb, ${color}, black var(--chat-color-shade))`
 }

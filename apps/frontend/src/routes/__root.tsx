@@ -10,6 +10,8 @@ import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 
 import appCss from '../styles.css?url'
 
+import { themeInitScript } from '#/lib/theme'
+
 import type { QueryClient } from '@tanstack/react-query'
 
 interface MyRouterContext {
@@ -41,13 +43,22 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         href: appCss,
       },
     ],
+    scripts: [
+      {
+        // Strips the default dark class before first paint for users
+        // who opted into the light theme (see lib/theme.ts)
+        children: themeInitScript,
+      },
+    ],
   }),
   shellComponent: RootDocument,
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    // The theme init script and settings toggle manage the dark class
+    // outside React, so hydration must not "fix" it back
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
