@@ -59,7 +59,7 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 
 ## settings page
 
-- users can change username, profile picture, and logout
+- users can change username, profile picture, chat colour (a swatch picker over the fixed palette, see features.md, Chat Messages), and logout
 
 ## header
 

@@ -1,4 +1,5 @@
 import vine from '@vinejs/vine'
+import { CHAT_USERNAME_COLORS } from '#services/chat_service'
 
 /**
  * Shared rule for email fields.
@@ -56,6 +57,7 @@ export const updateProfileValidator = vine.create({
     })
     .optional(),
   avatar: vine.file({ size: '2mb', extnames: ['jpg', 'jpeg', 'png', 'webp'] }).optional(),
+  chatColor: vine.enum(CHAT_USERNAME_COLORS).optional(),
 })
 
 /**

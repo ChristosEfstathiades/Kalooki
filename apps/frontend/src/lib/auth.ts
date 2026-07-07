@@ -9,6 +9,7 @@ import { closeSocket } from '#/lib/socket'
 import { clearStoredToken, getStoredToken, storeToken } from '#/lib/auth-token'
 import type { Data } from '@KalookiOnline/backend/data'
 import type { Path } from '@tuyau/core/types'
+import type { UsernameColor } from '#/lib/username-color'
 
 export type CurrentUser = Data.User
 
@@ -120,11 +121,13 @@ export function useSignup() {
 export interface UpdateProfileInput {
   username?: string
   avatar?: File | null
+  chatColor?: UsernameColor
 }
 
 /**
- * Updates the signed-in user's username and/or profile photo, and
- * refreshes the current-user cache with the returned profile.
+ * Updates the signed-in user's username, profile photo, and/or chat
+ * name colour, and refreshes the current-user cache with the returned
+ * profile.
  */
 export function useUpdateProfile() {
   const queryClient = useQueryClient()
@@ -135,6 +138,7 @@ export function useUpdateProfile() {
         body: {
           ...(input.username !== undefined ? { username: input.username } : {}),
           ...(input.avatar ? { avatar: asUploadedFile(input.avatar) } : {}),
+          ...(input.chatColor !== undefined ? { chatColor: input.chatColor } : {}),
         },
       })
       return response.data

@@ -241,6 +241,7 @@ export class MessageReportSchema extends BaseModel {
 export class UserSchema extends BaseModel {
   static $columns = [
     'avatarPath',
+    'chatColor',
     'createdAt',
     'email',
     'emailVerifiedAt',
@@ -252,6 +253,8 @@ export class UserSchema extends BaseModel {
   $columns = UserSchema.$columns
   @column()
   declare avatarPath: string | null
+  @column()
+  declare chatColor: string | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column()

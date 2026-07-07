@@ -15,6 +15,8 @@ import FormErrors from '#/components/FormErrors'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
+import { cn } from '#/lib/utils'
+import { USERNAME_COLORS, usernameColor } from '#/lib/username-color'
 import type { CurrentUser } from '#/lib/auth'
 
 export const Route = createFileRoute('/_app/_auth/settings')({
@@ -47,6 +49,8 @@ function SettingsPage() {
       <h1 className="m-0 text-2xl font-bold">Settings</h1>
 
       <ProfileSection user={user} />
+
+      <ChatColorSection user={user} />
 
       <section className="mt-6 rounded-lg border border-border bg-card p-6">
         <h2 className="m-0 text-lg font-semibold">Session</h2>
@@ -183,6 +187,56 @@ function ProfileSection({ user }: ProfileSectionProps) {
           )}
         </div>
       </form>
+    </section>
+  )
+}
+
+interface ChatColorSectionProps {
+  user: CurrentUser
+}
+
+/**
+ * Lets the user pick their chat name colour from the fixed palette
+ * chat messages are coloured from. Without a choice here, a colour is
+ * derived from the username instead (see lib/username-color.ts).
+ */
+function ChatColorSection({ user }: ChatColorSectionProps) {
+  const updateProfile = useUpdateProfile()
+  const activeColor = user.chatColor ?? usernameColor(user.username)
+
+  return (
+    <section className="mt-6 rounded-lg border border-border bg-card p-6">
+      <h2 className="m-0 text-lg font-semibold">Chat colour</h2>
+      <p className="mt-1 mb-4 text-sm text-muted-foreground">
+        Choose the colour your name appears in across every chat.
+      </p>
+
+      <p className="m-0 mb-4 text-sm">
+        <span className="font-semibold" style={{ color: activeColor }}>
+          {user.username}
+        </span>
+        {': '}
+        <span className="text-muted-foreground">This is what it looks like</span>
+      </p>
+
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Chat colour">
+        {USERNAME_COLORS.map((color) => (
+          <button
+            key={color}
+            type="button"
+            role="radio"
+            aria-checked={color === activeColor}
+            aria-label={color}
+            disabled={updateProfile.isPending}
+            onClick={() => updateProfile.mutate({ chatColor: color })}
+            className={cn(
+              'size-8 rounded-full ring-offset-2 ring-offset-card transition',
+              color === activeColor ? 'ring-2 ring-foreground' : 'hover:opacity-80',
+            )}
+            style={{ backgroundColor: color }}
+          />
+        ))}
+      </div>
     </section>
   )
 }

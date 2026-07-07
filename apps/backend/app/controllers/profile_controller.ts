@@ -14,12 +14,16 @@ export default class ProfileController {
    */
   async update({ auth, request, serialize }: HttpContext) {
     const user = auth.getUserOrFail()
-    const { username, avatar } = await request.validateUsing(updateProfileValidator, {
+    const { username, avatar, chatColor } = await request.validateUsing(updateProfileValidator, {
       meta: { userId: user.id },
     })
 
     if (username !== undefined) {
       user.username = username
+    }
+
+    if (chatColor !== undefined) {
+      user.chatColor = chatColor
     }
 
     if (avatar) {

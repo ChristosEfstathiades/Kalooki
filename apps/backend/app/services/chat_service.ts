@@ -15,6 +15,30 @@ export const CHAT_RATE_LIMIT_MS = 3000
 export const MESSAGE_RETENTION_DAYS = 30
 export const MAX_MESSAGE_LENGTH = 500
 
+/**
+ * Fixed palette a user can pick their chat name colour from (settings
+ * page). Must match the frontend's copy in
+ * apps/frontend/src/lib/username-color.ts, which also uses it as the
+ * default hash-derived colour for users who haven't chosen one.
+ */
+export const CHAT_USERNAME_COLORS = [
+  '#FF0000', // Red
+  '#0000FF', // Blue
+  '#008000', // Green
+  '#B22222', // Firebrick
+  '#FF7F50', // Coral
+  '#9ACD32', // YellowGreen
+  '#FF4500', // OrangeRed
+  '#2E8B57', // SeaGreen
+  '#DAA520', // GoldenRod
+  '#D2691E', // Chocolate
+  '#5F9EA0', // CadetBlue
+  '#1E90FF', // DodgerBlue
+  '#FF69B4', // HotPink
+  '#8A2BE2', // BlueViolet
+  '#00FF7F', // SpringGreen
+] as const
+
 /** How many messages a chat loads when opened. */
 const HISTORY_LIMIT = 100
 

@@ -16,6 +16,7 @@ export interface PublicUser {
   username: string
   avatarUrl: string | null
   initials: string
+  chatColor: string | null
 }
 
 /** Pending requests and invites refresh on this interval until

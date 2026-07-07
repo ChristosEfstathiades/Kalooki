@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { test } from '@japa/runner'
 import User from '#models/user'
 import { avatarDirectory } from '#services/avatar_storage'
+import { CHAT_USERNAME_COLORS } from '#services/chat_service'
 import testUtils from '@adonisjs/core/services/test_utils'
 
 /**
@@ -224,6 +225,35 @@ test.group('Profile update', (group) => {
     second.assertStatus(200)
     assert.notEqual(second.body().data.avatarUrl, firstUrl)
     await assert.rejects(() => access(firstFile), /ENOENT/)
+  })
+
+  test('changes the chat colour', async ({ client, assert }) => {
+    const signup = await client.post('/api/v1/auth/signup').json(validSignupPayload())
+    const token = tokenFrom(signup.body())
+    const color = CHAT_USERNAME_COLORS[0]
+
+    const response = await client
+      .patch('/api/v1/account/profile')
+      .bearerToken(token)
+      .json({ chatColor: color })
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.chatColor, color)
+
+    const profile = await client.get('/api/v1/account/profile').bearerToken(token)
+    assert.equal(profile.body().data.chatColor, color)
+  })
+
+  test('rejects a chat colour outside the fixed palette', async ({ client }) => {
+    const signup = await client.post('/api/v1/auth/signup').json(validSignupPayload())
+    const token = tokenFrom(signup.body())
+
+    const response = await client
+      .patch('/api/v1/account/profile')
+      .bearerToken(token)
+      .json({ chatColor: '#123456' })
+
+    response.assertStatus(422)
   })
 })
 

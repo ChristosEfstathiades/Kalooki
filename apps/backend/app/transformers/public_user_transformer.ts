@@ -13,6 +13,7 @@ export function publicUserShape(user: User) {
     username: user.username,
     avatarUrl: user.avatarUrl,
     initials: user.initials,
+    chatColor: user.chatColor,
   }
 }
 

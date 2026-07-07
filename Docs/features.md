@@ -4,10 +4,15 @@
 
 - Users can create an account with an email address, a unique username, and a password. Signup also collects a password confirmation (must match) and an optional avatar / profile photo. Password rules: at least 8 characters, including at least one symbol and one capital letter. After signup the account stays inactive until the user verifies their email via an emailed confirmation link. Email verification is only enforced in production; in development accounts are active immediately without verification. When signing in, users can choose a "remember me" option to stay logged in.
 - Users can change their username and profile photo at any time from the settings page. The same rules as at signup apply: usernames must stay unique (checked case-insensitively) and photos are JPG/PNG/WebP up to 2 MB. Replacing a photo deletes the old file; the email address cannot be changed.
+- Users can also choose their chat name colour from the settings page (see Chat Messages).
 
 ## Friends
 
 - Users can send a friend request by typing another user's exact username and clicking "submit request". Typing does not reveal a list of users with similar names — only an exact username match is accepted. The recipient receives an in-app notification and can accept or decline the request; the sender can cancel a request that is still pending. Once accepted, the two users become friends, which grants them access to other friends-only features described later. Users can view a list of their friends and remove any connection; removal is silent and mutual (the connection is deleted for both users, and the other person is not notified).
+
+## Chat Messages
+
+- Every chat surface (private group chats, the global chatroom, in-game table chat) displays messages as `username: message`. Each user's name is shown in a colour: by default it's deterministically derived from their username, so it's stable but not chosen; a user can instead pick one of a fixed set of colours from the settings page, which then applies to their name in every chat.
 
 ## Private Groups
 
