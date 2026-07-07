@@ -1,0 +1,124 @@
+diff --git a/Docs/features.md b/Docs/features.md
+index 652ca9c..a559bc4 100644
+--- a/Docs/features.md
++++ b/Docs/features.md
+@@ -12,16 +12,16 @@
+ ## Private Groups
+ 
+ - Users can create private groups and invite people to join. Only the group's creator (owner) can send invites, and they can only invite users they are friends with — however, members of a group do not all need to be friends with each other. Invitees receive an in-app notification and must accept before joining. Groups are limited to 50 members. Members can leave a group at any time, the owner can remove members and can transfer ownership to another member, and if the owner deletes the group it disbands for everyone.
+-- Each group has a real-time chat that members use to communicate. Messages are stored in the database for 7 days and then deleted. Outgoing messages are checked for inappropriate language: offending words are censored (masked) but the message is still posted. Any member can report a message; reports are sent to the app's admins/moderators for review.
++- Each group has a real-time chat that members use to communicate. Messages are stored in the database for 30 days and then deleted. Outgoing messages are checked for inappropriate language: offending words are censored (masked) but the message is still posted. Any member can report a message; reports are sent to the app's admins/moderators for review.
+ - The group owner can start private games with custom rules that only members of that group can join. Only one game can be in progress per group at a time.
+ 
+ ## Global Chatroom
+ 
+-- There is a public global chatroom that any user can post in. Each user is limited to one message every 3 seconds to prevent spam. Messages are stored in the database for 7 days and then deleted. Messages are heavily censored to block inappropriate language, with particular emphasis on preventing racial abuse; users who repeatedly post abusive content are flagged to the app's admins for action (e.g. muting or banning). Users can click on the name of anyone who has posted in the chat to send them a friend request or report their message; reports are sent to the app's admins/moderators for review.
++- There is a public global chatroom that any user can post in. Each user is limited to one message every 3 seconds to prevent spam. Messages are stored in the database for 30 days and then deleted. Messages are heavily censored to block inappropriate language, with particular emphasis on preventing racial abuse; users who repeatedly post abusive content are flagged to the app's admins for action (e.g. muting or banning). Users can click on the name of anyone who has posted in the chat to send them a friend request or report their message; reports are sent to the app's admins/moderators for review.
+ 
+ ## In-Game Chat
+ 
+-- Every live game has a table chat, shown in a side panel on the gameplay page, that only that game's players can read and post in. Each player is limited to one message every 3 seconds, and messages are censored and reportable like every other chat. When the game ends the chat closes: nobody — players included — can access the messages any more. The messages remain stored in the database for 7 days (associated with the game's id, the same id the recorded match carries) so moderators can act on reports, and are then deleted like all other chat messages.
++- Every live game has a table chat, shown in a side panel on the gameplay page, that only that game's players can read and post in. Each player is limited to one message every 3 seconds, and messages are censored and reportable like every other chat. When the game ends the chat closes: nobody — players included — can access the messages any more. The messages remain stored in the database for 30 days (associated with the game's id, the same id the recorded match carries) so moderators can act on reports, and are then deleted like all other chat messages.
+ 
+ ## Match History
+ 
+diff --git a/apps/backend/app/services/chat_service.ts b/apps/backend/app/services/chat_service.ts
+index 20fbb22..1fa40ba 100644
+--- a/apps/backend/app/services/chat_service.ts
++++ b/apps/backend/app/services/chat_service.ts
+@@ -8,11 +8,11 @@ import { Exception } from '@adonisjs/core/exceptions'
+ 
+ /**
+  * Chat rules from docs/features.md: one message every 3 seconds in the
+- * global chatroom and in-game chats, messages kept for 7 days, blocked
++ * global chatroom and in-game chats, messages kept for 30 days, blocked
+  * words masked.
+  */
+ export const CHAT_RATE_LIMIT_MS = 3000
+-export const MESSAGE_RETENTION_DAYS = 7
++export const MESSAGE_RETENTION_DAYS = 30
+ export const MAX_MESSAGE_LENGTH = 500
+ 
+ /** How many messages a chat loads when opened. */
+diff --git a/apps/backend/database/migrations/1783303767743_create_chat_messages_table.ts b/apps/backend/database/migrations/1783303767743_create_chat_messages_table.ts
+index fc91e82..36bbdbf 100644
+--- a/apps/backend/database/migrations/1783303767743_create_chat_messages_table.ts
++++ b/apps/backend/database/migrations/1783303767743_create_chat_messages_table.ts
+@@ -2,7 +2,7 @@ import { BaseSchema } from '@adonisjs/lucid/schema'
+ 
+ /**
+  * Chat messages for the global chatroom and per-group chats. Messages
+- * are stored (already censored) for 7 days and then deleted by the
++ * are stored (already censored) for 30 days and then deleted by the
+  * retention sweep (docs/features.md).
+  */
+ export default class extends BaseSchema {
+diff --git a/apps/backend/providers/socket_provider.ts b/apps/backend/providers/socket_provider.ts
+index 9f4b3e2..1ad9592 100644
+--- a/apps/backend/providers/socket_provider.ts
++++ b/apps/backend/providers/socket_provider.ts
+@@ -3,7 +3,7 @@ import type { ApplicationService } from '@adonisjs/core/types'
+ /**
+  * Attaches the Socket.IO server to the AdonisJS HTTP server once it is
+  * ready, and runs the chat retention sweep while the app is up
+- * (messages are deleted after 7 days — docs/features.md).
++ * (messages are deleted after 30 days — docs/features.md).
+  */
+ export default class SocketProvider {
+   #retentionSweep: NodeJS.Timeout | null = null
+diff --git a/apps/backend/tests/functional/chat.spec.ts b/apps/backend/tests/functional/chat.spec.ts
+index 79fd087..1432b09 100644
+--- a/apps/backend/tests/functional/chat.spec.ts
++++ b/apps/backend/tests/functional/chat.spec.ts
+@@ -118,10 +118,10 @@ test.group('Chat messages', (group) => {
+     )
+   })
+ 
+-  test('messages expire after 7 days', async ({ assert }) => {
++  test('messages expire after 30 days', async ({ assert }) => {
+     const alice = await makeUser('alice')
+     const message = await postChatMessage(alice, { type: 'global' }, 'ancient history')
+-    message.createdAt = DateTime.now().minus({ days: 8 })
++    message.createdAt = DateTime.now().minus({ days: 31 })
+     await message.save()
+ 
+     const visible = await recentChatMessages({ type: 'global' })
+@@ -236,10 +236,10 @@ test.group('Match chat', (group) => {
+       'Match chat not found'
+     )
+ 
+-    // Stored (associated with the game id) until the 7-day sweep
++    // Stored (associated with the game id) until the 30-day sweep
+     const stored = await ChatMessage.query().where('matchId', match.id)
+     assert.lengthOf(stored, 1)
+-    stored[0].createdAt = DateTime.now().minus({ days: 8 })
++    stored[0].createdAt = DateTime.now().minus({ days: 31 })
+     await stored[0].save()
+     await deleteExpiredChatMessages()
+     assert.lengthOf(await ChatMessage.query().where('matchId', match.id), 0)
+diff --git a/apps/frontend/src/components/chat/ChatSidebar.tsx b/apps/frontend/src/components/chat/ChatSidebar.tsx
+index 16b7cb5..591d14e 100644
+--- a/apps/frontend/src/components/chat/ChatSidebar.tsx
++++ b/apps/frontend/src/components/chat/ChatSidebar.tsx
+@@ -158,7 +158,7 @@ export function ChatConversation({ channel }: ChatConversationProps) {
+       >
+         {history.isSuccess && messages.length === 0 && (
+           <p className="m-0 text-center text-sm text-muted-foreground">
+-            No messages in the last 7 days. Say hello.
++            No messages in the last 30 days. Say hello.
+           </p>
+         )}
+         {messages.map((message) => (
+diff --git a/apps/frontend/src/routes/_app.privacy.tsx b/apps/frontend/src/routes/_app.privacy.tsx
+index 3b506d7..7a070d2 100644
+--- a/apps/frontend/src/routes/_app.privacy.tsx
++++ b/apps/frontend/src/routes/_app.privacy.tsx
+@@ -25,7 +25,7 @@ function PrivacyPage() {
+           </li>
+           <li>
+             <strong>Chat messages</strong> — messages in the global chatroom and
+-            in group chats are stored for 7 days and then deleted automatically.
++            in group chats are stored for 30 days and then deleted automatically.
+           </li>
+           <li>
+             <strong>Social connections</strong> — your friends list, friend
