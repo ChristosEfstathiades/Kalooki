@@ -8,11 +8,11 @@ import { Exception } from '@adonisjs/core/exceptions'
 
 /**
  * Chat rules from docs/features.md: one message every 3 seconds in the
- * global chatroom and in-game chats, messages kept for 7 days, blocked
+ * global chatroom and in-game chats, messages kept for 30 days, blocked
  * words masked.
  */
 export const CHAT_RATE_LIMIT_MS = 3000
-export const MESSAGE_RETENTION_DAYS = 7
+export const MESSAGE_RETENTION_DAYS = 30
 export const MAX_MESSAGE_LENGTH = 500
 
 /** How many messages a chat loads when opened. */

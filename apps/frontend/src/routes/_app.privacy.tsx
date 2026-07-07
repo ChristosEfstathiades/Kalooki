@@ -25,7 +25,7 @@ function PrivacyPage() {
           </li>
           <li>
             <strong>Chat messages</strong> — messages in the global chatroom and
-            in group chats are stored for 7 days and then deleted automatically.
+            in group chats are stored for 30 days and then deleted automatically.
           </li>
           <li>
             <strong>Social connections</strong> — your friends list, friend

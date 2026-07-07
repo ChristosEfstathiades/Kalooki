@@ -2,7 +2,7 @@ import { BaseSchema } from '@adonisjs/lucid/schema'
 
 /**
  * Chat messages for the global chatroom and per-group chats. Messages
- * are stored (already censored) for 7 days and then deleted by the
+ * are stored (already censored) for 30 days and then deleted by the
  * retention sweep (docs/features.md).
  */
 export default class extends BaseSchema {

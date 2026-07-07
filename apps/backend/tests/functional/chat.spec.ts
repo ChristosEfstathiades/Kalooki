@@ -118,10 +118,10 @@ test.group('Chat messages', (group) => {
     )
   })
 
-  test('messages expire after 7 days', async ({ assert }) => {
+  test('messages expire after 30 days', async ({ assert }) => {
     const alice = await makeUser('alice')
     const message = await postChatMessage(alice, { type: 'global' }, 'ancient history')
-    message.createdAt = DateTime.now().minus({ days: 8 })
+    message.createdAt = DateTime.now().minus({ days: 31 })
     await message.save()
 
     const visible = await recentChatMessages({ type: 'global' })
@@ -236,10 +236,10 @@ test.group('Match chat', (group) => {
       'Match chat not found'
     )
 
-    // Stored (associated with the game id) until the 7-day sweep
+    // Stored (associated with the game id) until the 30-day sweep
     const stored = await ChatMessage.query().where('matchId', match.id)
     assert.lengthOf(stored, 1)
-    stored[0].createdAt = DateTime.now().minus({ days: 8 })
+    stored[0].createdAt = DateTime.now().minus({ days: 31 })
     await stored[0].save()
     await deleteExpiredChatMessages()
     assert.lengthOf(await ChatMessage.query().where('matchId', match.id), 0)

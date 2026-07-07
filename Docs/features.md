@@ -12,16 +12,16 @@
 ## Private Groups
 
 - Users can create private groups and invite people to join. Only the group's creator (owner) can send invites, and they can only invite users they are friends with — however, members of a group do not all need to be friends with each other. Invitees receive an in-app notification and must accept before joining. Groups are limited to 50 members. Members can leave a group at any time, the owner can remove members and can transfer ownership to another member, and if the owner deletes the group it disbands for everyone.
-- Each group has a real-time chat that members use to communicate. Messages are stored in the database for 7 days and then deleted. Outgoing messages are checked for inappropriate language: offending words are censored (masked) but the message is still posted. Any member can report a message; reports are sent to the app's admins/moderators for review.
+- Each group has a real-time chat that members use to communicate. Messages are stored in the database for 30 days and then deleted. Outgoing messages are checked for inappropriate language: offending words are censored (masked) but the message is still posted. Any member can report a message; reports are sent to the app's admins/moderators for review.
 - The group owner can start private games with custom rules that only members of that group can join. Only one game can be in progress per group at a time.
 
 ## Global Chatroom
 
-- There is a public global chatroom that any user can post in. Each user is limited to one message every 3 seconds to prevent spam. Messages are stored in the database for 7 days and then deleted. Messages are heavily censored to block inappropriate language, with particular emphasis on preventing racial abuse; users who repeatedly post abusive content are flagged to the app's admins for action (e.g. muting or banning). Users can click on the name of anyone who has posted in the chat to send them a friend request or report their message; reports are sent to the app's admins/moderators for review.
+- There is a public global chatroom that any user can post in. Each user is limited to one message every 3 seconds to prevent spam. Messages are stored in the database for 30 days and then deleted. Messages are heavily censored to block inappropriate language, with particular emphasis on preventing racial abuse; users who repeatedly post abusive content are flagged to the app's admins for action (e.g. muting or banning). Users can click on the name of anyone who has posted in the chat to send them a friend request or report their message; reports are sent to the app's admins/moderators for review.
 
 ## In-Game Chat
 
-- Every live game has a table chat, shown in a side panel on the gameplay page, that only that game's players can read and post in. Each player is limited to one message every 3 seconds, and messages are censored and reportable like every other chat. When the game ends the chat closes: nobody — players included — can access the messages any more. The messages remain stored in the database for 7 days (associated with the game's id, the same id the recorded match carries) so moderators can act on reports, and are then deleted like all other chat messages.
+- Every live game has a table chat, shown in a side panel on the gameplay page, that only that game's players can read and post in. Each player is limited to one message every 3 seconds, and messages are censored and reportable like every other chat. When the game ends the chat closes: nobody — players included — can access the messages any more. The messages remain stored in the database for 30 days (associated with the game's id, the same id the recorded match carries) so moderators can act on reports, and are then deleted like all other chat messages.
 
 ## Match History
 

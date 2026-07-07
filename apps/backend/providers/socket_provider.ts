@@ -3,7 +3,7 @@ import type { ApplicationService } from '@adonisjs/core/types'
 /**
  * Attaches the Socket.IO server to the AdonisJS HTTP server once it is
  * ready, and runs the chat retention sweep while the app is up
- * (messages are deleted after 7 days — docs/features.md).
+ * (messages are deleted after 30 days — docs/features.md).
  */
 export default class SocketProvider {
   #retentionSweep: NodeJS.Timeout | null = null

@@ -158,7 +158,7 @@ export function ChatConversation({ channel }: ChatConversationProps) {
       >
         {history.isSuccess && messages.length === 0 && (
           <p className="m-0 text-center text-sm text-muted-foreground">
-            No messages in the last 7 days. Say hello.
+            No messages in the last 30 days. Say hello.
           </p>
         )}
         {messages.map((message) => (
