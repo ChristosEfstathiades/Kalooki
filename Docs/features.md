@@ -2,9 +2,10 @@
 
 ## User Accounts
 
-- Users can create an account with an email address, a unique username, and a password. Signup also collects a password confirmation (must match) and an optional avatar / profile photo. Password rules: at least 8 characters, including at least one symbol and one capital letter. After signup the account stays inactive until the user verifies their email via an emailed confirmation link. Email verification is only enforced in production; in development accounts are active immediately without verification. When signing in, users can choose a "remember me" option to stay logged in.
+- Users can create an account with an email address, a unique username, and a password. Signup also collects a password confirmation (must match) and an optional avatar / profile photo. Password rules: at least 8 characters, including at least one symbol and one capital letter. After signup the account stays inactive until the user verifies their email via an emailed confirmation link. Email verification is only enforced in production; in development accounts are active immediately without verification. When signing in, users can log in with either their email address or their username, and can choose a "remember me" option to stay logged in. Email addresses are stored lowercased and matched case-insensitively; usernames must match exactly, including case.
 - Users can change their username and profile photo at any time from the settings page. The same rules as at signup apply: usernames must stay unique (checked case-insensitively) and photos are JPG/PNG/WebP up to 2 MB. Replacing a photo deletes the old file; the email address cannot be changed.
 - Users can also choose their chat name colour from the settings page (see Chat Messages), and switch the site between the default dark theme and a light theme — a per-device choice remembered by the browser, not stored on the account.
+- Users can delete their account from the settings page. Deletion is a soft delete: the account is deactivated immediately (every session is signed out) and permanently removed after a 30-day grace period, during which signing back in restores the account. Until the purge runs, the username and email stay reserved. The running server purges expired accounts automatically (on boot and every 12 hours); `node ace accounts:purge` does the same for manual or cron-driven runs.
 
 ## Friends
 
@@ -30,7 +31,7 @@
 
 ## Match History
 
-- Every game is recorded so users can view their match history. (Gameplay and in-game mechanics are documented separately in `kalooki.md`.) Each recorded match stores: the winner (if the game finished), the full scoresheet including round-by-round scores, the players involved and their final placements (1st/2nd/3rd, etc.), the date/time and duration of the match, and the game variant and custom rules that were in effect. Unfinished games (abandoned or where a player quit) are also recorded, marked as incomplete with no winner and noting who left or forfeited. Match records are visible only to the participants of that match and are kept indefinitely.
+- Every game is recorded so users can view their match history. (Gameplay and in-game mechanics are documented separately in `kalooki.md`.) Each recorded match stores: the winner (if the game finished), the full scoresheet including round-by-round scores, the players involved and their final placements (1st/2nd/3rd, etc.), the date/time and duration of the match, and the game variant and custom rules that were in effect. Unfinished games (abandoned or where a player quit) are also recorded, marked as incomplete with no winner and noting who left or forfeited. Match records are visible only to the participants of that match and are kept indefinitely. The match history list can be filtered by match type (public/private), ordered newest or oldest first, and narrowed to only matches the user won.
 
 ## Global Leaderboard
 

@@ -2,9 +2,11 @@ import vine from '@vinejs/vine'
 import { CHAT_USERNAME_COLORS } from '#services/chat_service'
 
 /**
- * Shared rule for email fields.
+ * Shared rule for email fields. Trims surrounding whitespace (mobile
+ * keyboards often append a space) and lowercases so emails are stored
+ * in a canonical form and compared case-insensitively everywhere.
  */
-const email = () => vine.string().email().maxLength(254)
+const email = () => vine.string().trim().email().toLowerCase().maxLength(254)
 
 /**
  * Shared rule for passwords: at least 8 characters including at least
@@ -61,11 +63,12 @@ export const updateProfileValidator = vine.create({
 })
 
 /**
- * Validator to use before validating user credentials
- * during login
+ * Validator to use before validating user credentials during login.
+ * `identifier` accepts either the account's email address or its
+ * username (see uids config on the User model).
  */
 export const loginValidator = vine.create({
-  email: email(),
+  identifier: vine.string().trim().minLength(1).maxLength(254),
   password: vine.string(),
   rememberMe: vine.boolean().optional(),
 })

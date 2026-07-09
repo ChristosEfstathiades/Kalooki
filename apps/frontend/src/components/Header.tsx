@@ -17,7 +17,7 @@ export default function Header() {
     <header className="border-b border-border bg-panel">
       <div className="page-wrap flex h-14 items-center justify-between">
         <Link to="/" className="text-lg font-bold tracking-tight">
-          KalookiOnline
+          Kalooki<span className="text-button-red">Online</span>
         </Link>
 
         {user ? (

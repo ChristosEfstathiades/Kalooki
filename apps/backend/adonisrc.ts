@@ -54,6 +54,10 @@ export default defineConfig({
     () => import('@adonisjs/auth/auth_provider'),
     () => import('#providers/api_provider'),
     () => import('#providers/socket_provider'),
+    {
+      file: () => import('#providers/account_purge_provider'),
+      environment: ['web'],
+    },
   ],
 
   /*

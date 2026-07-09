@@ -7,6 +7,7 @@ import { z } from 'zod'
 import {
   currentUserQueryOptions,
   extractApiErrors,
+  useDeleteAccount,
   useLogout,
   useUpdateProfile,
 } from '#/lib/auth'
@@ -14,6 +15,14 @@ import UserAvatar from '#/components/UserAvatar'
 import TextField from '#/components/TextField'
 import FormErrors from '#/components/FormErrors'
 import { Button } from '#/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '#/components/ui/dialog'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { cn } from '#/lib/utils'
@@ -85,7 +94,77 @@ function SettingsPage() {
           {logout.isPending ? 'Signing out…' : 'Sign out'}
         </Button>
       </section>
+
+      <DeleteAccountSection />
     </div>
+  )
+}
+
+/**
+ * Danger zone: deletes the account. The backend keeps it recoverable
+ * for 30 days (signing back in restores it), then removes it for good,
+ * so the confirmation dialog explains exactly that before acting.
+ */
+function DeleteAccountSection() {
+  const navigate = useNavigate()
+  const deleteAccount = useDeleteAccount()
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [serverErrors, setServerErrors] = useState<string[]>([])
+
+  const confirmDelete = () => {
+    setServerErrors([])
+    deleteAccount.mutate(undefined, {
+      onSuccess: () => {
+        void navigate({ to: '/' })
+      },
+      onError: (error) => {
+        setServerErrors(extractApiErrors(error))
+      },
+    })
+  }
+
+  return (
+    <section className="mt-6 rounded-lg border border-destructive/50 bg-card p-6">
+      <h2 className="m-0 text-lg font-semibold">Delete account</h2>
+      <p className="mt-1 mb-4 text-sm text-muted-foreground">
+        Deleting your account signs you out everywhere and permanently removes
+        it after 30 days. If you change your mind, just sign back in within
+        those 30 days to restore it.
+      </p>
+      <Button variant="destructive" onClick={() => setConfirmOpen(true)}>
+        Delete account
+      </Button>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete your account?</DialogTitle>
+            <DialogDescription>
+              Your account will be scheduled for permanent deletion. Signing
+              back in within 30 days restores it — after that, your account
+              and its data are gone for good.
+            </DialogDescription>
+          </DialogHeader>
+          <FormErrors errors={serverErrors} />
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              disabled={deleteAccount.isPending}
+              onClick={() => setConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteAccount.isPending}
+              onClick={confirmDelete}
+            >
+              {deleteAccount.isPending ? 'Deleting…' : 'Delete my account'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </section>
   )
 }
 

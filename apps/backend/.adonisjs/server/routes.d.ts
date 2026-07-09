@@ -10,6 +10,7 @@ export type ScannedRoutes = {
     'profile.profile.show': { paramsTuple?: []; params?: {} }
     'profile.profile.update': { paramsTuple?: []; params?: {} }
     'profile.access_tokens.destroy': { paramsTuple?: []; params?: {} }
+    'profile.account_deletion.destroy': { paramsTuple?: []; params?: {} }
     'social.friends.index': { paramsTuple?: []; params?: {} }
     'social.friends.destroy': { paramsTuple: [ParamValue]; params: {'userId': ParamValue} }
     'social.friend_requests.index': { paramsTuple?: []; params?: {} }
@@ -77,6 +78,7 @@ export type ScannedRoutes = {
     'profile.profile.update': { paramsTuple?: []; params?: {} }
   }
   DELETE: {
+    'profile.account_deletion.destroy': { paramsTuple?: []; params?: {} }
     'social.friends.destroy': { paramsTuple: [ParamValue]; params: {'userId': ParamValue} }
     'social.friend_requests.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'social.groups.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

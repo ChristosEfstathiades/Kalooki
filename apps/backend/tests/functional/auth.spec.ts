@@ -83,10 +83,39 @@ test.group('Auth signup', (group) => {
     response.assertStatus(422)
   })
 
-  test('rejects usernames with invalid characters', async ({ client }) => {
+  test('rejects usernames with invalid characters')
+    .with([
+      { username: 'not allowed!' },
+      // "@" must stay banned: login relies on usernames never looking
+      // like email addresses (see User.findForAuth).
+      { username: 'chris@x' },
+    ])
+    .run(async ({ client }, row) => {
+      const response = await client.post('/api/v1/auth/signup').json({
+        ...validSignupPayload(),
+        username: row.username,
+      })
+
+      response.assertStatus(422)
+    })
+
+  test('stores the email trimmed and lowercased', async ({ client, assert }) => {
     const response = await client.post('/api/v1/auth/signup').json({
       ...validSignupPayload(),
-      username: 'not allowed!',
+      email: '  Player.One@EXAMPLE.com ',
+    })
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.user.email, 'player.one@example.com')
+  })
+
+  test('rejects duplicate emails case-insensitively', async ({ client }) => {
+    await client.post('/api/v1/auth/signup').json(validSignupPayload())
+
+    const response = await client.post('/api/v1/auth/signup').json({
+      ...validSignupPayload(),
+      username: 'someone_else',
+      email: 'PLAYER.ONE@example.com',
     })
 
     response.assertStatus(422)
@@ -96,11 +125,11 @@ test.group('Auth signup', (group) => {
 test.group('Auth login', (group) => {
   group.each.setup(() => testUtils.db().withGlobalTransaction())
 
-  test('returns a token for valid credentials', async ({ client, assert }) => {
+  test('returns a token for valid credentials using email', async ({ client, assert }) => {
     await client.post('/api/v1/auth/signup').json(validSignupPayload())
 
     const response = await client.post('/api/v1/auth/login').json({
-      email: 'player.one@example.com',
+      identifier: 'player.one@example.com',
       password: 'Kalooki!23',
     })
 
@@ -110,11 +139,59 @@ test.group('Auth login', (group) => {
     assert.isString(body.data.token)
   })
 
+  test('matches the email case-insensitively', async ({ client, assert }) => {
+    await client.post('/api/v1/auth/signup').json(validSignupPayload())
+
+    const response = await client.post('/api/v1/auth/login').json({
+      identifier: 'PLAYER.ONE@EXAMPLE.COM',
+      password: 'Kalooki!23',
+    })
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.user.username, 'player_one')
+  })
+
+  test('ignores surrounding whitespace in the identifier', async ({ client }) => {
+    await client.post('/api/v1/auth/signup').json(validSignupPayload())
+
+    const response = await client.post('/api/v1/auth/login').json({
+      identifier: ' player.one@example.com ',
+      password: 'Kalooki!23',
+    })
+
+    response.assertStatus(200)
+  })
+
+  test('returns a token for valid credentials using username', async ({ client, assert }) => {
+    await client.post('/api/v1/auth/signup').json(validSignupPayload())
+
+    const response = await client.post('/api/v1/auth/login').json({
+      identifier: 'player_one',
+      password: 'Kalooki!23',
+    })
+
+    response.assertStatus(200)
+    const body = response.body()
+    assert.equal(body.data.user.username, 'player_one')
+    assert.isString(body.data.token)
+  })
+
+  test('requires the username to match exactly, including case', async ({ client }) => {
+    await client.post('/api/v1/auth/signup').json(validSignupPayload())
+
+    const response = await client.post('/api/v1/auth/login').json({
+      identifier: 'PLAYER_ONE',
+      password: 'Kalooki!23',
+    })
+
+    response.assertStatus(400)
+  })
+
   test('rejects invalid credentials', async ({ client }) => {
     await client.post('/api/v1/auth/signup').json(validSignupPayload())
 
     const response = await client.post('/api/v1/auth/login').json({
-      email: 'player.one@example.com',
+      identifier: 'player.one@example.com',
       password: 'WrongPassword!1',
     })
 
@@ -125,7 +202,7 @@ test.group('Auth login', (group) => {
     await client.post('/api/v1/auth/signup').json(validSignupPayload())
 
     await client.post('/api/v1/auth/login').json({
-      email: 'player.one@example.com',
+      identifier: 'player.one@example.com',
       password: 'Kalooki!23',
       rememberMe: true,
     })

@@ -1,7 +1,10 @@
+import { DateTime } from 'luxon'
 import { test } from '@japa/runner'
 import User from '#models/user'
 import Group from '#models/group'
 import GroupMember from '#models/group_member'
+import Match from '#models/match'
+import MatchPlayer from '#models/match_player'
 import { CLASSIC_RULES } from '#services/game/engine'
 import {
   applyGameAction,
@@ -105,5 +108,116 @@ test.group('Match history', (group) => {
 
     const unauthenticated = await client.get('/api/v1/matches')
     unauthenticated.assertStatus(401)
+  })
+})
+
+/**
+ * Inserts a recorded match directly (the filters only read recorded
+ * rows, so playing a full engine game per fixture would be overkill).
+ */
+async function seedMatch(options: {
+  kind: 'public' | 'private'
+  players: User[]
+  winner: User
+  daysAgo: number
+}): Promise<Match> {
+  const endedAt = DateTime.now().minus({ days: options.daysAgo })
+  const match = await Match.create({
+    kind: options.kind,
+    rules: JSON.stringify(CLASSIC_RULES),
+    scoresheet: JSON.stringify([]),
+    completed: true,
+    winnerUserId: options.winner.id,
+    startedAt: endedAt.minus({ minutes: 20 }),
+    endedAt,
+  })
+  await MatchPlayer.createMany(
+    options.players.map((player, index) => ({
+      matchId: match.id,
+      userId: player.id,
+      placement: index + 1,
+      finalScore: index * 50,
+      leftEarly: false,
+    }))
+  )
+  return match
+}
+
+test.group('Match history filters', (group) => {
+  group.each.setup(() => testUtils.db().withGlobalTransaction())
+
+  /**
+   * Seeds three matches for alice: public won 3 days ago, private
+   * lost 2 days ago, public lost 1 day ago. Returns their ids oldest
+   * first alongside the users.
+   */
+  async function seedHistory() {
+    const alice = await makeUser('alice')
+    const bobby = await makeUser('bobby')
+    const players = [alice, bobby]
+    const publicWin = await seedMatch({ kind: 'public', players, winner: alice, daysAgo: 3 })
+    const privateLoss = await seedMatch({ kind: 'private', players, winner: bobby, daysAgo: 2 })
+    const publicLoss = await seedMatch({ kind: 'public', players, winner: bobby, daysAgo: 1 })
+    return { alice, publicWin, privateLoss, publicLoss }
+  }
+
+  /**
+   * The ids of the returned matches, in response order.
+   */
+  function idsOf(response: { body: () => { data: { matches: { id: number }[] } } }): number[] {
+    return response.body().data.matches.map((match) => match.id)
+  }
+
+  test('defaults to every match, newest first', async ({ client, assert }) => {
+    const { alice, publicWin, privateLoss, publicLoss } = await seedHistory()
+
+    const response = await client.get('/api/v1/matches').loginAs(alice)
+
+    assert.deepEqual(idsOf(response), [publicLoss.id, privateLoss.id, publicWin.id])
+  })
+
+  test('filters by match kind', async ({ client, assert }) => {
+    const { alice, publicWin, privateLoss, publicLoss } = await seedHistory()
+
+    const publicOnly = await client.get('/api/v1/matches').qs({ kind: 'public' }).loginAs(alice)
+    assert.deepEqual(idsOf(publicOnly), [publicLoss.id, publicWin.id])
+
+    const privateOnly = await client.get('/api/v1/matches').qs({ kind: 'private' }).loginAs(alice)
+    assert.deepEqual(idsOf(privateOnly), [privateLoss.id])
+  })
+
+  test('sorts oldest first when requested', async ({ client, assert }) => {
+    const { alice, publicWin, privateLoss, publicLoss } = await seedHistory()
+
+    const response = await client.get('/api/v1/matches').qs({ sort: 'oldest' }).loginAs(alice)
+
+    assert.deepEqual(idsOf(response), [publicWin.id, privateLoss.id, publicLoss.id])
+  })
+
+  test('filters to matches the user won', async ({ client, assert }) => {
+    const { alice, publicWin } = await seedHistory()
+
+    const response = await client.get('/api/v1/matches').qs({ wonOnly: true }).loginAs(alice)
+
+    assert.deepEqual(idsOf(response), [publicWin.id])
+  })
+
+  test('filters combine', async ({ client, assert }) => {
+    const { alice, publicWin } = await seedHistory()
+
+    const response = await client
+      .get('/api/v1/matches')
+      .qs({ kind: 'public', sort: 'oldest', wonOnly: true })
+      .loginAs(alice)
+
+    assert.deepEqual(idsOf(response), [publicWin.id])
+  })
+
+  test('rejects an unknown kind', async ({ client }) => {
+    const { alice } = await seedHistory()
+
+    const response = await client.get('/api/v1/matches').qs({ kind: 'ranked' }).loginAs(alice)
+
+    response.assertStatus(422)
   })
 })

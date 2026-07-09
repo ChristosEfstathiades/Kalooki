@@ -79,6 +79,18 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/access_tokens_controller').default['destroy']>>>
     }
   }
+  'profile.account_deletion.destroy': {
+    methods: ["DELETE"]
+    pattern: '/api/v1/account'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/account_deletion_controller').default['destroy']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/account_deletion_controller').default['destroy']>>>
+    }
+  }
   'social.friends.index': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/friends'
@@ -326,9 +338,9 @@ export interface Registry {
       body: {}
       paramsTuple: []
       params: {}
-      query: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/match').matchHistoryFilterValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/matches_controller').default['index']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/matches_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/matches_controller').default['index']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'social.leaderboard.index': {

@@ -21,6 +21,9 @@ export interface ApiDefinition {
     accessTokens: {
       destroy: typeof routes['profile.access_tokens.destroy']
     }
+    accountDeletion: {
+      destroy: typeof routes['profile.account_deletion.destroy']
+    }
   }
   social: {
     friends: {

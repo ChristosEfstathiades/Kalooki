@@ -50,14 +50,15 @@ export const currentUserQueryOptions = queryOptions({
 })
 
 export interface SigninInput {
-  email: string
+  identifier: string
   password: string
   rememberMe: boolean
 }
 
 /**
  * Signs the user in, stores the access token ("remember me" persists it
- * across browser restarts), and primes the current-user cache.
+ * across browser restarts), and primes the current-user cache. The
+ * identifier can be either the account's email address or its username.
  */
 export function useSignin() {
   const queryClient = useQueryClient()
@@ -66,7 +67,7 @@ export function useSignin() {
     mutationFn: async (input: SigninInput) => {
       const response = await api.post('/api/v1/auth/login', {
         body: {
-          email: input.email,
+          identifier: input.identifier,
           password: input.password,
           rememberMe: input.rememberMe,
         },
@@ -161,6 +162,27 @@ export function useLogout() {
       await api.post('/api/v1/account/logout', {}).safe()
     },
     onSettled: () => {
+      clearStoredToken()
+      closeSocket()
+      queryClient.setQueryData(currentUserQueryOptions.queryKey, null)
+    },
+  })
+}
+
+/**
+ * Deletes the signed-in user's account. The backend soft-deletes it
+ * with a 30-day restore window (signing back in restores it), so
+ * locally this behaves like a logout: token cleared, socket closed,
+ * current-user cache reset.
+ */
+export function useDeleteAccount() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async () => {
+      await api.delete('/api/v1/account', {})
+    },
+    onSuccess: () => {
       clearStoredToken()
       closeSocket()
       queryClient.setQueryData(currentUserQueryOptions.queryKey, null)

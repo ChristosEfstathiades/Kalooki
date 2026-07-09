@@ -73,21 +73,47 @@ export async function recordMatch(match: ActiveMatch): Promise<Match> {
 }
 
 /**
- * A user's recorded matches, newest first, with players preloaded.
- * Only participants can see a match (enforced here by construction).
+ * Optional filters for a user's match history listing.
  */
-export async function matchHistoryFor(userId: number, limit = 50): Promise<Match[]> {
+export interface MatchHistoryFilters {
+  /** Only matches of this kind; both kinds when omitted. */
+  kind?: 'public' | 'private'
+  /** Order by end date; newest first when omitted. */
+  sort?: 'newest' | 'oldest'
+  /** Only matches the user won. */
+  wonOnly?: boolean
+}
+
+/**
+ * A user's recorded matches with players preloaded, newest first
+ * unless the filters say otherwise. Only participants can see a match
+ * (enforced here by construction).
+ */
+export async function matchHistoryFor(
+  userId: number,
+  filters: MatchHistoryFilters = {},
+  limit = 50
+): Promise<Match[]> {
   const participations = await MatchPlayer.query().where('userId', userId)
   const matchIds = participations.map((participation) => participation.matchId)
   if (matchIds.length === 0) {
     return []
   }
 
-  return Match.query()
+  const query = Match.query()
     .whereIn('id', matchIds)
-    .preload('matchPlayers', (query) => {
-      query.preload('user')
+    .preload('matchPlayers', (playersQuery) => {
+      playersQuery.preload('user')
     })
-    .orderBy('endedAt', 'desc')
+    .orderBy('endedAt', filters.sort === 'oldest' ? 'asc' : 'desc')
     .limit(limit)
+
+  if (filters.kind) {
+    query.where('kind', filters.kind)
+  }
+  if (filters.wonOnly) {
+    query.where('winnerUserId', userId)
+  }
+
+  return query
 }

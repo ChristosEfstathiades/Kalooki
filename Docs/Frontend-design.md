@@ -41,6 +41,7 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 - Users should be redirected to this page if they are logged in
 - Left hand side of the page contains button to find public match and below that is buttons to send friend requests and to view friends list and to see match history and the leaderboard. friends list should be a popup modal.
 - right hand side contains a sidebar where users can select to show global public chat or one of their private group chats
+- below the chat sidebar is a news box for site announcements; its messages come from the static `public/news.json` file in the frontend (edit or swap that file to change what's shown — no code change needed)
 
 ## Kalooki Gameplay page
 
@@ -57,6 +58,7 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 ## match history page
 
 - display table of match history. click match to expand and show more info that is specified in features.md
+- a filter bar above the list: match type (all/public/private), date order (newest/oldest first), and a checkbox to show only matches the user won. filtering happens server-side.
 
 ## leaderboard page
 

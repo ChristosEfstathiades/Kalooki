@@ -23,7 +23,7 @@ export const Route = createFileRoute('/_app/signin')({
   component: SigninPage,
 })
 
-const emailSchema = z.email('Enter a valid email address')
+const identifierSchema = z.string().min(1, 'Enter your email or username')
 const passwordSchema = z.string().min(1, 'Enter your password')
 
 function SigninPage() {
@@ -33,7 +33,7 @@ function SigninPage() {
 
   const form = useForm({
     defaultValues: {
-      email: '',
+      identifier: '',
       password: '',
       rememberMe: false,
     },
@@ -71,13 +71,13 @@ function SigninPage() {
         >
           <FormErrors errors={serverErrors} />
 
-          <form.Field name="email" validators={{ onBlur: emailSchema }}>
+          <form.Field name="identifier" validators={{ onBlur: identifierSchema }}>
             {(field) => (
               <TextField
                 field={field}
-                label="Email"
-                type="email"
-                autoComplete="email"
+                label="Email or username"
+                type="text"
+                autoComplete="username"
               />
             )}
           </form.Field>

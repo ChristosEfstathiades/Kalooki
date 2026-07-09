@@ -12,6 +12,7 @@ import SendFriendRequestDialog from '#/components/social/SendFriendRequestDialog
 import FriendsDialog from '#/components/social/FriendsDialog'
 import GroupsDialog from '#/components/social/GroupsDialog'
 import ChatSidebar from '#/components/chat/ChatSidebar'
+import NewsCard from '#/components/NewsCard'
 import { Button } from '#/components/ui/button'
 import type { QueueStatus } from '#/lib/game'
 
@@ -40,7 +41,8 @@ function CountBadge({ count }: CountBadgeProps) {
 
 /**
  * Logged-in home: match actions and social shortcuts on the left, chat
- * sidebar on the right (docs/Frontend-design.md).
+ * sidebar with the news box below it on the right
+ * (docs/Frontend-design.md).
  */
 function PlayPage() {
   const [openDialog, setOpenDialog] = useState<
@@ -99,7 +101,10 @@ function PlayPage() {
         </div>
       </section>
 
-      <ChatSidebar />
+      <div className="space-y-6">
+        <ChatSidebar />
+        <NewsCard />
+      </div>
 
       <SendFriendRequestDialog
         open={openDialog === 'sendRequest'}

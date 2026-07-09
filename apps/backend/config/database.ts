@@ -2,6 +2,14 @@ import app from '@adonisjs/core/services/app'
 import { defineConfig } from '@adonisjs/lucid'
 import env from '#start/env'
 
+/**
+ * The slice of the better-sqlite3 Database interface the pool hook
+ * uses (the package ships no type declarations).
+ */
+interface SqliteConnection {
+  pragma(statement: string): unknown
+}
+
 const dbConfig = defineConfig({
   /**
    * Default connection used for all queries. SQLite in development
@@ -28,6 +36,19 @@ const dbConfig = defineConfig({
        * Required by Knex for SQLite defaults.
        */
       useNullAsDefault: true,
+
+      /**
+       * SQLite leaves foreign keys unenforced per connection unless the
+       * pragma is set. Without it the ON DELETE cascades declared in the
+       * migrations never fire in development/tests, silently diverging
+       * from Postgres behaviour in production.
+       */
+      pool: {
+        afterCreate: (connection: SqliteConnection, done: (err: Error | null) => void) => {
+          connection.pragma('foreign_keys = ON')
+          done(null)
+        },
+      },
 
       migrations: {
         /**

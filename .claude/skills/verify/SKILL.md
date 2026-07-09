@@ -12,7 +12,7 @@ description: How to run and observe Kalooki Online end-to-end on this machine �
 
 ## Seeding
 
-- Create users through the real signup API (`POST /api/v1/auth/signup` with `username, email, password, passwordConfirmation`; password rules: 8+ chars, symbol, capital — `Kalooki!23` works). Response: `data.user.id` and `data.token` (bearer). Re-runs: fall back to `POST /api/v1/auth/login` with email+password.
+- Create users through the real signup API (`POST /api/v1/auth/signup` with `username, email, password, passwordConfirmation`; password rules: 8+ chars, symbol, capital — `Kalooki!23` works). Response: `data.user.id` and `data.token` (bearer). Re-runs: fall back to `POST /api/v1/auth/login` with `identifier` (email or username) + password.
 - Recorded matches can be inserted directly into `matches` + `match_players` (they're only written when a live game ends). Timestamps as ISO strings; SQLite booleans as 0/1; `scoresheet` is a JSON array of `{ roundNumber, winnerUserId, penalties, totals }` keyed by user id.
 - Prefix seeded usernames (e.g. `Lb...`) so they're identifiable/cleanable later.
 

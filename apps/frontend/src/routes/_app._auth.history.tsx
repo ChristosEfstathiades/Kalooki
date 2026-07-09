@@ -4,32 +4,64 @@ import { queryOptions, useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react'
 import { api } from '#/lib/api'
 import { currentUserQueryOptions } from '#/lib/auth'
+import { Button } from '#/components/ui/button'
+import { Label } from '#/components/ui/label'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/_app/_auth/history')({
   component: HistoryPage,
 })
 
-const matchesQueryOptions = queryOptions({
-  queryKey: ['matches'],
-  queryFn: async () => {
-    const response = await api.get('/api/v1/matches', {})
-    return response.data.matches
-  },
-})
+interface MatchFilters {
+  kind: 'all' | 'public' | 'private'
+  sort: 'newest' | 'oldest'
+  wonOnly: boolean
+}
+
+const defaultFilters: MatchFilters = {
+  kind: 'all',
+  sort: 'newest',
+  wonOnly: false,
+}
+
+/**
+ * Query for the match list. Filtering happens server-side (the API
+ * caps the list at 50 matches, so filtering the fetched page locally
+ * would miss older matches); default values are omitted from the
+ * request.
+ */
+const matchesQueryOptions = (filters: MatchFilters) =>
+  queryOptions({
+    queryKey: ['matches', filters],
+    queryFn: async () => {
+      const response = await api.get('/api/v1/matches', {
+        query: {
+          ...(filters.kind === 'all' ? {} : { kind: filters.kind }),
+          ...(filters.sort === 'oldest' ? { sort: 'oldest' as const } : {}),
+          ...(filters.wonOnly ? { wonOnly: true } : {}),
+        },
+      })
+      return response.data.matches
+    },
+  })
 
 type MatchRecord = NonNullable<
-  Awaited<ReturnType<NonNullable<typeof matchesQueryOptions.queryFn>>>
+  Awaited<ReturnType<NonNullable<ReturnType<typeof matchesQueryOptions>['queryFn']>>>
 >[number]
 
 /**
- * Match history: every game the user played, newest first, with a
- * click-to-expand scoresheet (docs/Frontend-design.md).
+ * Match history: every game the user played, filterable by match type,
+ * date order, and wins only, with a click-to-expand scoresheet
+ * (docs/Frontend-design.md).
  */
 function HistoryPage() {
-  const matches = useQuery(matchesQueryOptions)
+  const [filters, setFilters] = useState<MatchFilters>(defaultFilters)
+  const matches = useQuery(matchesQueryOptions(filters))
   const { data: currentUser } = useQuery(currentUserQueryOptions)
   const [expandedId, setExpandedId] = useState<number | null>(null)
+
+  const filtersActive =
+    filters.kind !== 'all' || filters.wonOnly || filters.sort !== 'newest'
 
   return (
     <div className="page-wrap max-w-4xl py-8">
@@ -45,9 +77,44 @@ function HistoryPage() {
         Every game you have played. Click a match for the full scoresheet.
       </p>
 
+      <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+        <FilterButtonGroup
+          label="Type"
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'public', label: 'Public' },
+            { value: 'private', label: 'Private' },
+          ]}
+          active={filters.kind}
+          onSelect={(kind) => setFilters({ ...filters, kind })}
+        />
+        <FilterButtonGroup
+          label="Order"
+          options={[
+            { value: 'newest', label: 'Newest first' },
+            { value: 'oldest', label: 'Oldest first' },
+          ]}
+          active={filters.sort}
+          onSelect={(sort) => setFilters({ ...filters, sort })}
+        />
+        <Label className="font-normal">
+          <input
+            type="checkbox"
+            checked={filters.wonOnly}
+            onChange={(event) =>
+              setFilters({ ...filters, wonOnly: event.target.checked })
+            }
+            className="size-4 accent-[var(--button-purple)]"
+          />
+          Only matches I won
+        </Label>
+      </div>
+
       {matches.isSuccess && matches.data.length === 0 && (
         <p className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-          No games yet — find a public match or start one in a group.
+          {filtersActive
+            ? 'No matches fit these filters.'
+            : 'No games yet — find a public match or start one in a group.'}
         </p>
       )}
 
@@ -64,6 +131,51 @@ function HistoryPage() {
           />
         ))}
       </ul>
+    </div>
+  )
+}
+
+interface FilterButtonGroupProps<TValue extends string> {
+  label: string
+  options: { value: TValue; label: string }[]
+  active: TValue
+  onSelect: (value: TValue) => void
+}
+
+/**
+ * A labelled row of mutually exclusive filter buttons (radio-style),
+ * matching the theme picker's segmented-buttons pattern.
+ */
+function FilterButtonGroup<TValue extends string>({
+  label,
+  options,
+  active,
+  onSelect,
+}: FilterButtonGroupProps<TValue>) {
+  return (
+    <div
+      className="flex items-center gap-2"
+      role="radiogroup"
+      aria-label={label}
+    >
+      <span className="text-sm text-muted-foreground">{label}</span>
+      {options.map((option) => (
+        <Button
+          key={option.value}
+          type="button"
+          role="radio"
+          size="sm"
+          aria-checked={active === option.value}
+          variant={active === option.value ? 'default' : 'secondary'}
+          className={cn(
+            active === option.value &&
+              'bg-button-purple hover:bg-button-purple-hover',
+          )}
+          onClick={() => onSelect(option.value)}
+        >
+          {option.label}
+        </Button>
+      ))}
     </div>
   )
 }
