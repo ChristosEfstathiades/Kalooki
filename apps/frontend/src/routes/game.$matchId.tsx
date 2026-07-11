@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { currentUserQueryOptions } from '#/lib/auth'
 import { getStoredToken } from '#/lib/auth-token'
 import { getSocket } from '#/lib/socket'
-import { fetchGameView, sendGameAction } from '#/lib/game'
+import { fetchGameView, formatChips, sendGameAction } from '#/lib/game'
 import PlayingCard, { CardBack } from '#/components/game/PlayingCard'
 import MatchChatPanel from '#/components/chat/MatchChatPanel'
 import UserAvatar from '#/components/UserAvatar'
@@ -364,6 +364,11 @@ function OpponentSeat({ player, view }: OpponentSeatProps) {
           {player.eliminated
             ? 'Out'
             : `${player.handCount} cards · ${player.score} pts`}
+          {view.rules.stakes && (
+            <span className="ml-1">
+              · {formatChips(player.chips)} chips
+            </span>
+          )}
           {player.handCount === 1 && !player.eliminated && (
             <span className="ml-1 font-semibold text-button-red-hover">
               Last card!
@@ -536,6 +541,9 @@ function OwnArea({
         <p className="m-0 text-sm font-medium">{statusText}</p>
         <p className="m-0 text-xs text-muted-foreground">
           {me ? `Your score: ${me.score}` : ''}
+          {me && view.rules.stakes
+            ? ` · chips: ${formatChips(me.chips)}`
+            : ''}
           {me?.hasComeDown ? ' · down' : ''}
           {lastEvent ? ` · ${lastEvent}` : ''}
         </p>
@@ -642,6 +650,11 @@ function RoundEndOverlay({
     (player) => player.userId === view.winnerUserId,
   )?.username
 
+  const stakes = view.rules.stakes
+  const winnerChips = view.players.find(
+    (player) => player.userId === view.winnerUserId,
+  )?.chips
+
   const usernameOf = (userId: number) =>
     view.players.find((player) => player.userId === userId)?.username ??
     `Player ${userId}`
@@ -652,7 +665,11 @@ function RoundEndOverlay({
         <h2 className="m-0 text-xl font-bold">
           {finished
             ? winnerName
-              ? `${winnerName} wins the game`
+              ? `${winnerName} wins the game${
+                  stakes && winnerChips !== undefined
+                    ? ` and ${winnerChips} chips`
+                    : ''
+                }`
               : 'Game over'
             : `Round ${latest?.roundNumber ?? view.roundNumber} finished`}
         </h2>
@@ -663,6 +680,7 @@ function RoundEndOverlay({
                 <th className="py-1 font-medium">Player</th>
                 <th className="py-1 font-medium">Round</th>
                 <th className="py-1 font-medium">Total</th>
+                {stakes && <th className="py-1 font-medium">Chips</th>}
               </tr>
             </thead>
             <tbody>
@@ -674,12 +692,17 @@ function RoundEndOverlay({
                       {usernameOf(userId)}
                       {latest.winnerUserId === userId && (
                         <span className="ml-1 text-xs text-muted-foreground">
-                          (called up)
+                          {latest.calledKalooki ? '(kalooki!)' : '(called up)'}
                         </span>
                       )}
                     </td>
                     <td className="py-1">+{latest.penalties[userId] ?? 0}</td>
                     <td className="py-1">{latest.totals[userId]}</td>
+                    {stakes && (
+                      <td className="py-1">
+                        {formatChips(latest.chips[userId] ?? 0)}
+                      </td>
+                    )}
                   </tr>
                 )
               })}
@@ -687,11 +710,37 @@ function RoundEndOverlay({
           </table>
         )}
 
+        {finished && stakes && (
+          <div className="mt-4 rounded-md border border-border bg-muted p-3">
+            <p className="m-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Final chips
+            </p>
+            <p className="m-0 mt-1 text-xs text-muted-foreground">
+              Round money as it was won, plus every stake ({stakes.stake}) and
+              buy-in ({stakes.rebuy} each) collected by the winner.
+            </p>
+            <ul className="m-0 mt-2 list-none space-y-0.5 p-0 text-sm">
+              {view.players.map((player) => (
+                <li
+                  key={player.userId}
+                  className={cn(
+                    player.userId === view.winnerUserId && 'font-semibold',
+                  )}
+                >
+                  {player.username}: {formatChips(player.chips)} chips
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {mustDecide && (
           <div className="mt-4 rounded-md border border-border bg-muted p-3">
             <p className="m-0 text-sm">
-              You are over {view.rules.scoreLimit} points. Use your buy-in to
+              You are over {view.rules.scoreLimit} points. Use a buy-in to
               rejoin on the highest remaining score?
+              {stakes &&
+                ` Buying in costs ${stakes.rebuy} chips, paid to the eventual winner.`}
             </p>
             <div className="mt-2 flex gap-2">
               <Button

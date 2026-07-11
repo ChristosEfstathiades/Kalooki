@@ -138,9 +138,41 @@ function RulesPage() {
           <li>Number of decks (2–4)</li>
           <li>Number of jokers (0–4)</li>
           <li>Points needed to come down (default 40)</li>
+          <li>Buy-ins per player (none to unlimited, default 1)</li>
+          <li>Play money (see below)</li>
         </ul>
         <p className="m-0">
           Public matches always use the classic rules on this page.
+        </p>
+      </ContentSection>
+
+      <ContentSection heading="Play money in private games">
+        <p className="m-0">
+          A private game can be played for <strong>chips</strong> — play money
+          tracked on the scoresheet, never a real balance. The host sets four
+          amounts before the game:
+        </p>
+        <ul className="m-0 list-disc space-y-1 pl-5">
+          <li>
+            <strong>Stake</strong> — put up by every player; the winner
+            collects them all at the end.
+          </li>
+          <li>
+            <strong>Buy-in cost</strong> — paid for each buy-in used, also
+            collected by the winner.
+          </li>
+          <li>
+            <strong>Each call</strong> — paid to the round&apos;s caller by
+            every other player still in the game, round by round.
+          </li>
+          <li>
+            <strong>Kalooki</strong> — paid instead of the call amount when
+            the caller lays all thirteen cards in a single turn.
+          </li>
+        </ul>
+        <p className="m-0">
+          Chips are settled on the final scoresheet and saved to your match
+          history — nothing carries over between games.
         </p>
       </ContentSection>
     </ContentPage>

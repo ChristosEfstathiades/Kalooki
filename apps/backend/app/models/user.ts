@@ -7,7 +7,7 @@ import type { LucidModel } from '@adonisjs/lucid/types/model'
 
 export default class User extends compose(
   UserSchema,
-  withAuthFinder(hash, { uids: ['email', 'username'] }),
+  withAuthFinder(hash, { uids: ['email', 'username'] })
 ) {
   static accessTokens = DbAccessTokensProvider.forModel(User)
   declare currentAccessToken?: AccessToken
@@ -26,7 +26,7 @@ export default class User extends compose(
   static findForAuth<T extends LucidModel>(
     this: T,
     _uids: string[],
-    value: string,
+    value: string
   ): Promise<InstanceType<T> | null> {
     return this.query()
       .where((query) => {

@@ -120,10 +120,7 @@ test.group('Account deletion', (group) => {
     assert.isNotNull(await User.findBy('email', 'player.two@example.com'))
   })
 
-  test('purge removes the avatar file and cascades to related rows', async ({
-    client,
-    assert,
-  }) => {
+  test('purge removes the avatar file and cascades to related rows', async ({ client, assert }) => {
     const signup = await client.post('/api/v1/auth/signup').json(signupPayload())
     const token = tokenFrom(signup.body())
     const other = await client
@@ -143,10 +140,7 @@ test.group('Account deletion', (group) => {
     const avatarFile = join(avatarDirectory(), avatarUrl.split('/').at(-1) ?? '')
     await access(avatarFile)
 
-    await client
-      .post('/api/v1/friend-requests')
-      .bearerToken(token)
-      .json({ username: 'player_two' })
+    await client.post('/api/v1/friend-requests').bearerToken(token).json({ username: 'player_two' })
     const requests = await client.get('/api/v1/friend-requests').bearerToken(otherToken)
     const requestId = dataOf<{ incoming: { id: number }[] }>(requests).incoming[0].id
     await client.post(`/api/v1/friend-requests/${requestId}/accept`).bearerToken(otherToken)

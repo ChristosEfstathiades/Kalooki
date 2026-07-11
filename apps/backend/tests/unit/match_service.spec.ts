@@ -2,15 +2,19 @@ import { test } from '@japa/runner'
 import {
   applyGameAction,
   configureMatchService,
+  configureScheduledLobbyStore,
   createLobby,
   joinLobby,
   joinPublicQueue,
+  leaveLobby,
+  lobbyViewForGroup,
   matchForUser,
   onMatchFinished,
   playerDisconnected,
   playerReconnected,
   redactedView,
   resetMatchService,
+  restoreScheduledLobby,
   startLobby,
 } from '#services/game/match_service'
 import { CLASSIC_RULES, GameError } from '#services/game/engine'
@@ -176,5 +180,103 @@ test.group('Match service', (group) => {
 
     joinLobby(7, identity(2))
     assert.throws(() => startLobby(7, 2), /Only the game creator/)
+  })
+})
+
+test.group('Match service — scheduled lobbies', (group) => {
+  group.each.setup(() => {
+    setup()
+    return () => resetMatchService()
+  })
+
+  test('nobody can join or start a scheduled game before it opens', ({ assert }) => {
+    createLobby(7, identity(1), CLASSIC_RULES, Date.now() + 60 * 60 * 1000)
+
+    const view = lobbyViewForGroup(7)
+    assert.isNotNull(view)
+    assert.lengthOf(view?.players ?? [], 0)
+    assert.isNotNull(view?.opensAt)
+
+    assert.throws(() => joinLobby(7, identity(1)), /not opened/)
+    assert.throws(() => joinLobby(7, identity(2)), /not opened/)
+    assert.throws(() => startLobby(7, 1), /not opened/)
+  })
+
+  test('once the scheduled time passes the lobby is joinable and startable', async ({ assert }) => {
+    createLobby(7, identity(1), CLASSIC_RULES, Date.now() + 20)
+    assert.throws(() => joinLobby(7, identity(2)), /not opened/)
+
+    await new Promise((resolve) => setTimeout(resolve, 40))
+
+    joinLobby(7, identity(1))
+    joinLobby(7, identity(2))
+    const match = startLobby(7, 1)
+    assert.equal(match.kind, 'private')
+    assert.isNull(lobbyViewForGroup(7))
+  })
+
+  test('the owner can cancel a scheduled game', ({ assert }) => {
+    createLobby(7, identity(1), CLASSIC_RULES, Date.now() + 60 * 60 * 1000)
+    leaveLobby(7, 1)
+    assert.isNull(lobbyViewForGroup(7))
+  })
+
+  test('scheduling does not conflict with the owner being in a game', ({ assert }) => {
+    startTwoPlayerMatch()
+    // Owner of group 8 is mid-game in group 7; scheduling is fine, an
+    // immediate lobby is not (it would seat them twice)
+    createLobby(8, identity(1), CLASSIC_RULES, Date.now() + 60 * 60 * 1000)
+    assert.isNotNull(lobbyViewForGroup(8))
+    assert.throws(() => createLobby(9, identity(1), CLASSIC_RULES), /already in a game/)
+  })
+
+  test('scheduled lobbies are saved to the store and removed on start or cancel', async ({
+    assert,
+  }) => {
+    const saved: number[] = []
+    const removed: number[] = []
+    configureScheduledLobbyStore({
+      save: (entry) => saved.push(entry.groupId),
+      remove: (groupId) => removed.push(groupId),
+    })
+
+    createLobby(7, identity(1), CLASSIC_RULES, Date.now() + 20)
+    assert.deepEqual(saved, [7])
+
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    joinLobby(7, identity(1))
+    joinLobby(7, identity(2))
+    startLobby(7, 1)
+    assert.deepEqual(removed, [7])
+
+    createLobby(8, identity(3), CLASSIC_RULES, Date.now() + 60 * 60 * 1000)
+    leaveLobby(8, 3)
+    assert.deepEqual(removed, [7, 8])
+  })
+
+  test('restoring brings back pending schedules but drops lapsed ones', ({ assert }) => {
+    const removed: number[] = []
+    configureScheduledLobbyStore({
+      save: () => {},
+      remove: (groupId) => removed.push(groupId),
+    })
+
+    restoreScheduledLobby({
+      groupId: 7,
+      ownerId: 1,
+      rules: CLASSIC_RULES,
+      opensAt: Date.now() + 60 * 60 * 1000,
+    })
+    assert.equal(lobbyViewForGroup(7)?.ownerId, 1)
+
+    // Opened more than its lifetime ago: discarded, not restored
+    restoreScheduledLobby({
+      groupId: 8,
+      ownerId: 2,
+      rules: CLASSIC_RULES,
+      opensAt: Date.now() - 25 * 60 * 60 * 1000,
+    })
+    assert.isNull(lobbyViewForGroup(8))
+    assert.deepEqual(removed, [8])
   })
 })

@@ -4,6 +4,7 @@ import { queryOptions, useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react'
 import { api } from '#/lib/api'
 import { currentUserQueryOptions } from '#/lib/auth'
+import { UNLIMITED_BUY_INS, formatChips } from '#/lib/game'
 import { Button } from '#/components/ui/button'
 import { Label } from '#/components/ui/label'
 import { cn } from '#/lib/utils'
@@ -225,6 +226,9 @@ function MatchRow({ match, currentUserId, expanded, onToggle }: MatchRowProps) {
                 ? `${winner.username} won`
                 : 'Finished'
               : 'Incomplete — no winner'}
+            {you && typeof you.chipsNet === 'number'
+              ? ` · ${formatChips(you.chipsNet)} chips`
+              : ''}
           </span>
         </span>
         {you && (
@@ -251,6 +255,8 @@ interface MatchDetailProps {
 }
 
 function MatchDetail({ match }: MatchDetailProps) {
+  const playMoney = match.rules.stakes != null
+
   return (
     <div className="space-y-4 border-t border-border px-4 py-3 text-sm">
       <section>
@@ -263,6 +269,7 @@ function MatchDetail({ match }: MatchDetailProps) {
               <th className="py-1 font-medium">Place</th>
               <th className="py-1 font-medium">Player</th>
               <th className="py-1 font-medium">Score</th>
+              {playMoney && <th className="py-1 font-medium">Chips</th>}
               <th className="py-1 font-medium"></th>
             </tr>
           </thead>
@@ -272,6 +279,13 @@ function MatchDetail({ match }: MatchDetailProps) {
                 <td className="py-1">{ordinal(player.placement)}</td>
                 <td className="py-1">{player.username}</td>
                 <td className="py-1">{player.finalScore}</td>
+                {playMoney && (
+                  <td className="py-1">
+                    {typeof player.chipsNet === 'number'
+                      ? formatChips(player.chipsNet)
+                      : '—'}
+                  </td>
+                )}
                 <td className="py-1 text-xs text-muted-foreground">
                   {player.leftEarly ? 'left early' : ''}
                 </td>
@@ -304,7 +318,14 @@ function MatchDetail({ match }: MatchDetailProps) {
                     key={round.roundNumber}
                     className="border-t border-border"
                   >
-                    <td className="py-1">{round.roundNumber}</td>
+                    <td className="py-1">
+                      {round.roundNumber}
+                      {round.calledKalooki && (
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          (kalooki)
+                        </span>
+                      )}
+                    </td>
                     {match.players.map((player) => (
                       <td key={player.id} className="py-1">
                         {player.id in round.totals ? (
@@ -313,6 +334,11 @@ function MatchDetail({ match }: MatchDetailProps) {
                             <span className="ml-1 text-xs text-muted-foreground">
                               (+{round.penalties[player.id] ?? 0})
                             </span>
+                            {playMoney && player.id in round.chips && (
+                              <span className="ml-1 text-xs text-muted-foreground">
+                                {formatChips(round.chips[player.id])}c
+                              </span>
+                            )}
                           </>
                         ) : (
                           '—'
@@ -330,7 +356,12 @@ function MatchDetail({ match }: MatchDetailProps) {
       <section className="text-xs text-muted-foreground">
         Rules: {match.rules.decks} decks · {match.rules.jokers} jokers · come
         down at {match.rules.comeDownThreshold} · out at{' '}
-        {match.rules.scoreLimit + 1}
+        {match.rules.scoreLimit + 1} · buy-ins:{' '}
+        {match.rules.buyInsPerPlayer === UNLIMITED_BUY_INS
+          ? 'unlimited'
+          : match.rules.buyInsPerPlayer}
+        {match.rules.stakes &&
+          ` · play money (chips): stake ${match.rules.stakes.stake}, buy-in ${match.rules.stakes.rebuy}, kalooki ${match.rules.stakes.kalooki}, each call ${match.rules.stakes.call}`}
       </section>
     </div>
   )

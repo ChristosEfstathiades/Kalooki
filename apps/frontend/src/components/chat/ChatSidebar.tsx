@@ -10,6 +10,7 @@ import {
 } from '#/lib/chat'
 import { currentUserQueryOptions } from '#/lib/auth'
 import { groupsQueryOptions, useSendFriendRequest } from '#/lib/social'
+import LobbyPinnedBanner from '#/components/game/LobbyPinnedBanner'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { cn } from '#/lib/utils'
@@ -59,6 +60,10 @@ export default function ChatSidebar() {
           />
         ))}
       </div>
+
+      {channel.type === 'group' && (
+        <LobbyPinnedBanner groupId={channel.groupId} />
+      )}
 
       <ChatConversation channel={channel} />
     </aside>

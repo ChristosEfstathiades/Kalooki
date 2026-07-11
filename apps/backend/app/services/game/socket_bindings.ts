@@ -9,7 +9,7 @@ import {
   joinPublicQueue,
   leaveLobby,
   leavePublicQueue,
-  lobbyForGroup,
+  lobbyViewForGroup,
   matchForUser,
   playerDisconnected,
   playerReconnected,
@@ -19,8 +19,9 @@ import {
 } from '#services/game/match_service'
 import { isGroupMember } from '#services/group_service'
 import { chatRoom } from '#services/socket_service'
+import { UNLIMITED_BUY_INS } from '#services/game/engine'
 import type User from '#models/user'
-import type { GameRules } from '#services/game/engine'
+import type { GameRules, MatchStakes } from '#services/game/engine'
 import type { GameAction, PlayerIdentity } from '#services/game/match_service'
 import type { Server, Socket } from 'socket.io'
 
@@ -74,17 +75,22 @@ async function acked(ack: Ack | undefined, handler: () => Promise<unknown>): Pro
 }
 
 /**
+ * Clamps an untrusted value to an integer in [min, max], falling back
+ * when it is not an integer at all.
+ */
+function intIn(value: unknown, min: number, max: number, fallback: number): number {
+  const parsed = typeof value === 'number' && Number.isInteger(value) ? value : fallback
+  return Math.min(max, Math.max(min, parsed))
+}
+
+/**
  * Parses custom rules from an untrusted lobby payload, bounded to the
  * options private games may change (docs/Kalooki.md): timers, decks,
- * jokers, and the come-down threshold.
+ * jokers, the come-down threshold, buy-ins per player, and optional
+ * play-money stakes.
  */
 function parseCustomRules(payload: unknown): GameRules {
   const input = (payload ?? {}) as Record<string, unknown>
-
-  const intIn = (value: unknown, min: number, max: number, fallback: number): number => {
-    const parsed = typeof value === 'number' && Number.isInteger(value) ? value : fallback
-    return Math.min(max, Math.max(min, parsed))
-  }
 
   return {
     ...CLASSIC_RULES,
@@ -94,7 +100,44 @@ function parseCustomRules(payload: unknown): GameRules {
     moveTimeBankMs:
       intIn(input.moveTimeMinutes, 5, 120, CLASSIC_RULES.moveTimeBankMs / 60000) * 60000,
     rejoinBudgetMs: intIn(input.rejoinMinutes, 1, 15, CLASSIC_RULES.rejoinBudgetMs / 60000) * 60000,
+    buyInsPerPlayer:
+      input.buyInsPerPlayer === UNLIMITED_BUY_INS
+        ? UNLIMITED_BUY_INS
+        : intIn(input.buyInsPerPlayer, 0, 3, CLASSIC_RULES.buyInsPerPlayer),
+    stakes: parseStakes(input.stakes),
   }
+}
+
+/**
+ * Parses play-money amounts (chips) from an untrusted payload; absent
+ * or malformed input means the game is not played for chips. Defaults
+ * mirror the example scoresheet (stake 4, rebuy 4, kalooki 2, call 1).
+ */
+function parseStakes(value: unknown): MatchStakes | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+  const input = value as Record<string, unknown>
+  return {
+    stake: intIn(input.stake, 0, 1000, 4),
+    rebuy: intIn(input.rebuy, 0, 1000, 4),
+    kalooki: intIn(input.kalooki, 0, 1000, 2),
+    call: intIn(input.call, 0, 1000, 1),
+  }
+}
+
+/** Hours ahead a private game may be scheduled (docs/features.md). */
+const SCHEDULE_HOUR_OPTIONS = [1, 3, 6, 12, 24]
+
+/**
+ * Parses the optional schedule delay from an untrusted lobby payload:
+ * one of the fixed hour options, anything else meaning "open now".
+ */
+function parseOpensAt(value: unknown): number | null {
+  if (typeof value !== 'number' || !SCHEDULE_HOUR_OPTIONS.includes(value)) {
+    return null
+  }
+  return Date.now() + value * 60 * 60 * 1000
 }
 
 /**
@@ -135,8 +178,9 @@ export function bindGameHandlers(io: Server, socket: Socket, user: User): void {
         throw new GameError('Only the group owner can start a game', 'E_NOT_GROUP_OWNER')
       }
       const rules = parseCustomRules((payload as { rules?: unknown }).rules)
-      createLobby(groupId, identityOf(user), rules)
-      return lobbyForGroup(groupId)
+      const opensAt = parseOpensAt((payload as { scheduleHours?: unknown }).scheduleHours)
+      createLobby(groupId, identityOf(user), rules, opensAt)
+      return lobbyViewForGroup(groupId)
     })
   })
 
@@ -150,7 +194,7 @@ export function bindGameHandlers(io: Server, socket: Socket, user: User): void {
         throw new GameError('Group not found', 'E_GROUP_NOT_FOUND')
       }
       joinLobby(groupId, identityOf(user))
-      return lobbyForGroup(groupId)
+      return lobbyViewForGroup(groupId)
     })
   })
 
@@ -181,7 +225,7 @@ export function bindGameHandlers(io: Server, socket: Socket, user: User): void {
       if (typeof groupId !== 'number' || !(await isGroupMember(groupId, user.id))) {
         throw new GameError('Group not found', 'E_GROUP_NOT_FOUND')
       }
-      return lobbyForGroup(groupId)
+      return lobbyViewForGroup(groupId)
     })
   })
 

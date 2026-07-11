@@ -29,6 +29,20 @@ export interface MeldView {
   cards: MeldCardView[]
 }
 
+/** `buyInsPerPlayer` value meaning no limit on buy-ins. */
+export const UNLIMITED_BUY_INS = -1
+
+/**
+ * Play-money amounts (chips) for a private game; a per-match ledger
+ * only, nothing persists between games.
+ */
+export interface MatchStakesView {
+  stake: number
+  rebuy: number
+  kalooki: number
+  call: number
+}
+
 export interface GameRulesView {
   decks: number
   jokers: number
@@ -38,13 +52,16 @@ export interface GameRulesView {
   rejoinBudgetMs: number
   buyInsPerPlayer: number
   scoreLimit: number
+  stakes: MatchStakesView | null
 }
 
 export interface RoundResultView {
   roundNumber: number
   winnerUserId: number | null
+  calledKalooki: boolean
   penalties: Record<number, number>
   totals: Record<number, number>
+  chips: Record<number, number>
 }
 
 export interface GamePlayerView {
@@ -57,6 +74,7 @@ export interface GamePlayerView {
   hasComeDown: boolean
   score: number
   buyInsUsed: number
+  chips: number
   eliminated: boolean
   removed: boolean
   connected: boolean
@@ -119,6 +137,27 @@ export interface LobbyView {
     avatarUrl: string | null
     initials: string
   }[]
+  /** Epoch ms a scheduled lobby opens for joining; null = open now. */
+  opensAt: number | null
+}
+
+/** Whether a lobby can be joined yet (scheduled ones open later). */
+export function lobbyIsOpen(lobby: LobbyView): boolean {
+  return lobby.opensAt === null || lobby.opensAt <= Date.now()
+}
+
+/**
+ * A short countdown for a scheduled lobby, e.g. "2h 05m" or "3m".
+ */
+export function formatOpensIn(opensAt: number): string {
+  const remainingMs = Math.max(0, opensAt - Date.now())
+  const totalMinutes = Math.ceil(remainingMs / 60000)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (hours === 0) {
+    return `${minutes}m`
+  }
+  return `${hours}h ${String(minutes).padStart(2, '0')}m`
 }
 
 export interface CustomRulesInput {
@@ -127,6 +166,8 @@ export interface CustomRulesInput {
   comeDownThreshold: number
   moveTimeMinutes: number
   rejoinMinutes: number
+  buyInsPerPlayer: number
+  stakes: MatchStakesView | null
 }
 
 interface Ack<T> {
@@ -183,8 +224,13 @@ export function fetchLobby(groupId: number): Promise<LobbyView | null> {
 export function createLobby(
   groupId: number,
   rules: CustomRulesInput,
+  scheduleHours = 0,
 ): Promise<LobbyView | null> {
-  return call<LobbyView | null>('match:createLobby', { groupId, rules })
+  return call<LobbyView | null>('match:createLobby', {
+    groupId,
+    rules,
+    scheduleHours,
+  })
 }
 
 export function joinLobby(groupId: number): Promise<LobbyView | null> {
@@ -207,4 +253,11 @@ export function cardLabel(card: GameCard): string {
     return 'Joker'
   }
   return `${String(card.rank)} of ${card.suit}`
+}
+
+/**
+ * A signed chips amount for display: +4, 0, -6.
+ */
+export function formatChips(amount: number): string {
+  return amount > 0 ? `+${amount}` : String(amount)
 }

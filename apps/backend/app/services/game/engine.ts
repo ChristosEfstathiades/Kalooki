@@ -25,6 +25,30 @@ export class GameError extends Error {
   }
 }
 
+/** `rules.buyInsPerPlayer` value meaning no limit on buy-ins. */
+export const UNLIMITED_BUY_INS = -1
+
+/**
+ * Play-money amounts for a private game, in chips. The money is a
+ * per-match ledger only — nothing persists between games. Calls and
+ * kalookis are paid to the round's caller as they happen; stakes and
+ * buy-in money go to the game's winner at the end.
+ */
+export interface MatchStakes {
+  /** Staked by every player at the start; the winner collects all. */
+  stake: number
+  /** Cost of each buy-in, paid into the pot the winner collects. */
+  rebuy: number
+  /**
+   * Paid to the caller by every other active player when the round is
+   * won with a kalooki (all thirteen cards laid in one turn). Replaces
+   * the per-call payment for that round.
+   */
+  kalooki: number
+  /** Paid to the caller by every other active player each round. */
+  call: number
+}
+
 export interface GameRules {
   /** Standard decks in play (2-4). */
   decks: number
@@ -38,10 +62,15 @@ export interface GameRules {
   overtimePerTurnMs: number
   /** Total pause budget a disconnected player gets (not refreshed). */
   rejoinBudgetMs: number
-  /** Buy-ins each player may use after busting the score limit. */
+  /**
+   * Buy-ins each player may use after busting the score limit
+   * (UNLIMITED_BUY_INS for no limit).
+   */
   buyInsPerPlayer: number
   /** Penalty points that eliminate a player (out on limit+1). */
   scoreLimit: number
+  /** Play-money amounts, or null when not playing for chips. */
+  stakes: MatchStakes | null
 }
 
 /** The fixed classic ruleset used by all public matches. */
@@ -54,6 +83,7 @@ export const CLASSIC_RULES: GameRules = {
   rejoinBudgetMs: 5 * 60 * 1000,
   buyInsPerPlayer: 1,
   scoreLimit: 150,
+  stakes: null,
 }
 
 export type GamePhase = 'awaitingDraw' | 'acting' | 'roundEnd' | 'finished'
@@ -69,6 +99,14 @@ export interface PlayerState {
   hasComeDown: boolean
   score: number
   buyInsUsed: number
+  /** Net play-money chips won or lost so far (0 without stakes). */
+  chips: number
+  /**
+   * Whether the player had already come down when their current turn
+   * began; null between turns. Calling while this is false is a
+   * kalooki: all thirteen cards laid in one turn.
+   */
+  comeDownAtTurnStart: boolean | null
   /** Out of the game (score over the limit, or removed). */
   eliminated: boolean
   /** Removed by move/rejoin timeout or by quitting. */
@@ -89,10 +127,14 @@ export interface RoundResult {
   roundNumber: number
   /** Winner of the round (null when the round was aborted). */
   winnerUserId: number | null
+  /** True when the caller laid all thirteen cards in one turn. */
+  calledKalooki: boolean
   /** Penalty points added this round, per user id. */
   penalties: Record<number, number>
   /** Cumulative scores after the round, per user id. */
   totals: Record<number, number>
+  /** Chips won or lost this round, per user id (empty without stakes). */
+  chips: Record<number, number>
 }
 
 export interface GameState {
@@ -129,6 +171,8 @@ export function createGame(userIds: number[], rules: GameRules, rng: Rng): GameS
       hasComeDown: false,
       score: 0,
       buyInsUsed: 0,
+      chips: 0,
+      comeDownAtTurnStart: null,
       eliminated: false,
       removed: false,
       pendingDiscardCardId: null,
@@ -182,6 +226,7 @@ function dealRound(state: GameState, rng: Rng): void {
   for (const player of state.players) {
     player.hand = []
     player.hasComeDown = false
+    player.comeDownAtTurnStart = null
     player.pendingDiscardCardId = null
     player.pendingJokerCardId = null
     if (!player.eliminated) {
@@ -251,8 +296,20 @@ export function drawFromDeck(state: GameState, userId: number, rng: Rng): Card {
 
   const card = state.deck.shift() as Card
   player.hand.push(card)
+  markTurnStart(player)
   state.phase = 'acting'
   return card
+}
+
+/**
+ * Snapshots whether the player had come down before this turn (for
+ * kalooki detection). Only the first draw of the turn counts — a
+ * returned discard and re-draw stays within the same turn.
+ */
+function markTurnStart(player: PlayerState): void {
+  if (player.comeDownAtTurnStart === null) {
+    player.comeDownAtTurnStart = player.hasComeDown
+  }
 }
 
 /**
@@ -270,6 +327,7 @@ export function takeDiscard(state: GameState, userId: number): Card {
   state.discardPile.pop()
   player.hand.push(card)
   player.pendingDiscardCardId = card.id
+  markTurnStart(player)
   state.phase = 'acting'
   return card
 }
@@ -539,14 +597,17 @@ export function discard(state: GameState, userId: number, cardId: number, rng: R
     return
   }
 
+  player.comeDownAtTurnStart = null
   state.currentPlayerIndex = nextActiveIndex(state, state.currentPlayerIndex)
   state.phase = 'awaitingDraw'
 }
 
 /**
  * Scores the round: everyone but the caller adds up the cards left in
- * hand. Players over the limit may buy back in (once in classic play,
- * never when fewer than 3 players would remain in the game).
+ * hand. In a play-money game every other active player pays the caller
+ * the call amount — or the kalooki amount instead when the caller laid
+ * all thirteen cards in one turn. Players over the limit may buy back
+ * in (never when fewer than 3 players would remain in the game).
  */
 function endRound(state: GameState, winnerUserId: number | null, rng: Rng): void {
   const penalties: Record<number, number> = {}
@@ -562,11 +623,29 @@ function endRound(state: GameState, winnerUserId: number | null, rng: Rng): void
     totals[player.userId] = player.score
   }
 
+  const winner = winnerUserId === null ? null : playerState(state, winnerUserId)
+  const calledKalooki = winner !== null && winner.comeDownAtTurnStart === false
+  const chips: Record<number, number> = {}
+  if (state.rules.stakes && winner) {
+    const payment = calledKalooki ? state.rules.stakes.kalooki : state.rules.stakes.call
+    for (const player of activePlayers(state)) {
+      if (player.userId === winner.userId) {
+        continue
+      }
+      player.chips -= payment
+      winner.chips += payment
+      chips[player.userId] = -payment
+    }
+    chips[winner.userId] = payment * Object.keys(chips).length
+  }
+
   state.roundResults.push({
     roundNumber: state.roundNumber,
     winnerUserId,
+    calledKalooki,
     penalties,
     totals,
+    chips,
   })
 
   // Who busted, and who may buy back in
@@ -574,9 +653,10 @@ function endRound(state: GameState, winnerUserId: number | null, rng: Rng): void
   const survivors = activePlayers(state).length - busted.length
   state.pendingBuyIns = []
   for (const player of busted) {
-    const canBuyIn =
-      player.buyInsUsed < state.rules.buyInsPerPlayer && survivors + busted.length > 2
-    if (canBuyIn) {
+    const buyInsLeft =
+      state.rules.buyInsPerPlayer === UNLIMITED_BUY_INS ||
+      player.buyInsUsed < state.rules.buyInsPerPlayer
+    if (buyInsLeft && survivors + busted.length > 2) {
       state.pendingBuyIns.push(player.userId)
     } else {
       player.eliminated = true
@@ -625,13 +705,37 @@ export function decideBuyIn(state: GameState, userId: number, accept: boolean, r
  * deal the next round.
  */
 function concludeRound(state: GameState, rng: Rng): void {
-  const remaining = activePlayers(state)
-  if (remaining.length <= 1) {
-    state.phase = 'finished'
-    state.winnerUserId = remaining[0]?.userId ?? null
+  if (activePlayers(state).length <= 1) {
+    finishGame(state)
     return
   }
   dealRound(state, rng)
+}
+
+/**
+ * Marks the game finished and, in a play-money game, settles the
+ * winner-takes-all money: every other player owes the winner the game
+ * stake plus the cost of each buy-in they used (the scoresheet's
+ * "buy-in money"). Round money was already paid as it happened. When
+ * nobody remained to win, nothing is settled.
+ */
+function finishGame(state: GameState): void {
+  state.phase = 'finished'
+  state.winnerUserId = activePlayers(state)[0]?.userId ?? null
+
+  const stakes = state.rules.stakes
+  if (!stakes || state.winnerUserId === null) {
+    return
+  }
+  const winner = playerState(state, state.winnerUserId)
+  for (const player of state.players) {
+    if (player.userId === winner.userId) {
+      continue
+    }
+    const owed = stakes.stake + stakes.rebuy * player.buyInsUsed
+    player.chips -= owed
+    winner.chips += owed
+  }
 }
 
 /**
@@ -652,14 +756,13 @@ export function removePlayer(state: GameState, userId: number, rng: Rng): void {
   player.removed = true
   state.deck = shuffle([...state.deck, ...player.hand], rng)
   player.hand = []
+  player.comeDownAtTurnStart = null
   player.pendingDiscardCardId = null
   player.pendingJokerCardId = null
   state.pendingBuyIns = state.pendingBuyIns.filter((pendingId) => pendingId !== userId)
 
-  const remaining = activePlayers(state)
-  if (remaining.length <= 1) {
-    state.phase = 'finished'
-    state.winnerUserId = remaining[0]?.userId ?? null
+  if (activePlayers(state).length <= 1) {
+    finishGame(state)
     return
   }
 

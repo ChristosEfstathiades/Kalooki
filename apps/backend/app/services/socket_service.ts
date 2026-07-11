@@ -1,16 +1,23 @@
 import { Server } from 'socket.io'
+import { DateTime } from 'luxon'
 import { Secret } from '@adonisjs/core/helpers'
 import { Exception } from '@adonisjs/core/exceptions'
 import logger from '@adonisjs/core/services/logger'
+import ScheduledGame from '#models/scheduled_game'
 import User from '#models/user'
 import { groupIdsOf, isGroupMember } from '#services/group_service'
 import { assertMatchChatAccess, postChatMessage } from '#services/chat_service'
-import { onMatchFinished } from '#services/game/match_service'
+import {
+  configureScheduledLobbyStore,
+  onMatchFinished,
+  restoreScheduledLobby,
+} from '#services/game/match_service'
 import { bindGameHandlers, bindMatchEmitter } from '#services/game/socket_bindings'
 import { chatMessageShape } from '#transformers/chat_message_transformer'
 import type { Socket } from 'socket.io'
 import type { Server as NodeHttpServer } from 'node:http'
 import type { ChatChannel } from '#services/chat_service'
+import type { GameRules } from '#services/game/engine'
 
 /**
  * Socket.IO server attached to the AdonisJS HTTP server
@@ -100,6 +107,7 @@ export function bootSocketServer(nodeServer: NodeHttpServer): Server {
   })
 
   bindMatchEmitter(io)
+  wireScheduledLobbyPersistence()
 
   // A game's chat closes with the game: kick every socket out of the
   // room so nobody receives (or can be sent) further messages.
@@ -133,6 +141,51 @@ export async function closeSocketServer(): Promise<void> {
     await io.close()
     io = null
   }
+}
+
+/**
+ * Backs the match service's scheduled lobbies with the database and
+ * restores pending schedules from earlier runs, so a game planned
+ * hours ahead survives a server restart (live lobbies do not).
+ */
+function wireScheduledLobbyPersistence(): void {
+  configureScheduledLobbyStore({
+    save: (entry) => {
+      ScheduledGame.updateOrCreate(
+        { groupId: entry.groupId },
+        {
+          ownerUserId: entry.ownerId,
+          rules: JSON.stringify(entry.rules),
+          opensAt: DateTime.fromMillis(entry.opensAt),
+        }
+      ).catch((error: unknown) => {
+        logger.error({ err: error }, 'Failed to persist scheduled game')
+      })
+    },
+    remove: (groupId) => {
+      ScheduledGame.query()
+        .where('groupId', groupId)
+        .delete()
+        .catch((error: unknown) => {
+          logger.error({ err: error }, 'Failed to delete scheduled game')
+        })
+    },
+  })
+
+  ScheduledGame.all()
+    .then((scheduled) => {
+      for (const entry of scheduled) {
+        restoreScheduledLobby({
+          groupId: entry.groupId,
+          ownerId: entry.ownerUserId,
+          rules: JSON.parse(entry.rules) as GameRules,
+          opensAt: entry.opensAt.toMillis(),
+        })
+      }
+    })
+    .catch((error: unknown) => {
+      logger.error({ err: error }, 'Failed to restore scheduled games')
+    })
 }
 
 /**

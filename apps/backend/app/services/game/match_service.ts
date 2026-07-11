@@ -111,6 +111,7 @@ export interface ClientGameView {
     hasComeDown: boolean
     score: number
     buyInsUsed: number
+    chips: number
     eliminated: boolean
     removed: boolean
     connected: boolean
@@ -135,8 +136,34 @@ interface PrivateLobby {
   ownerId: number
   rules: GameRules
   players: PlayerIdentity[]
+  /**
+   * Epoch ms a scheduled lobby opens for joining; null means joinable
+   * immediately. Nobody — the owner included — is in a scheduled lobby
+   * until it opens.
+   */
+  opensAt: number | null
+  /** Fires the open broadcast, then expiry, for scheduled lobbies. */
+  openTimer: NodeJS.Timeout | null
 }
 const lobbies = new Map<number, PrivateLobby>()
+
+/** A scheduled lobby nobody started is dropped this long after opening. */
+const SCHEDULED_LOBBY_TTL_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Persistence for scheduled lobbies so they survive a restart (live
+ * lobbies stay in-memory only). Wired at boot; both calls are
+ * fire-and-forget from the service's point of view.
+ */
+export interface ScheduledLobbyStore {
+  save(entry: { groupId: number; ownerId: number; rules: GameRules; opensAt: number }): void
+  remove(groupId: number): void
+}
+let scheduledStore: ScheduledLobbyStore | null = null
+
+export function configureScheduledLobbyStore(store: ScheduledLobbyStore | null): void {
+  scheduledStore = store
+}
 
 /** Queue fills for this long once it can start, so more can join. */
 let queueCountdownMs = 10 * 1000
@@ -180,7 +207,13 @@ export function resetMatchService(): void {
     clearTimeout(queueCountdown)
     queueCountdown = null
   }
+  for (const lobby of lobbies.values()) {
+    if (lobby.openTimer) {
+      clearTimeout(lobby.openTimer)
+    }
+  }
   lobbies.clear()
+  scheduledStore = null
 }
 
 /**
@@ -274,11 +307,23 @@ export function lobbyForGroup(groupId: number): PrivateLobby | null {
   return lobbies.get(groupId) ?? null
 }
 
+/** Whether a lobby can be joined yet (scheduled ones open later). */
+function lobbyIsOpen(lobby: PrivateLobby): boolean {
+  return lobby.opensAt === null || lobby.opensAt <= Date.now()
+}
+
 /**
- * Opens a lobby for the group with the given rules. Only one game or
- * lobby can exist per group at a time (docs/features.md).
+ * Opens a lobby for the group with the given rules, either joinable
+ * immediately or scheduled to open at a future time (nobody joins a
+ * scheduled lobby until then). Only one game or lobby can exist per
+ * group at a time (docs/features.md).
  */
-export function createLobby(groupId: number, owner: PlayerIdentity, rules: GameRules): void {
+export function createLobby(
+  groupId: number,
+  owner: PlayerIdentity,
+  rules: GameRules,
+  opensAt: number | null = null
+): void {
   if (lobbies.has(groupId)) {
     throw new GameError('This group already has a game being set up', 'E_LOBBY_EXISTS')
   }
@@ -287,12 +332,101 @@ export function createLobby(groupId: number, owner: PlayerIdentity, rules: GameR
       throw new GameError('This group already has a game in progress', 'E_GAME_IN_PROGRESS')
     }
   }
-  if (matchForUser(owner.id)) {
+  // Scheduling doesn't seat the owner, so being in a game is only a
+  // conflict for a lobby that opens right away
+  if (opensAt === null && matchForUser(owner.id)) {
     throw new GameError('You are already in a game', 'E_ALREADY_IN_GAME')
   }
 
-  lobbies.set(groupId, { groupId, ownerId: owner.id, rules, players: [owner] })
+  const lobby: PrivateLobby = {
+    groupId,
+    ownerId: owner.id,
+    rules,
+    players: opensAt === null ? [owner] : [],
+    opensAt,
+    openTimer: null,
+  }
+  lobbies.set(groupId, lobby)
+  if (opensAt !== null) {
+    scheduledStore?.save({ groupId, ownerId: owner.id, rules, opensAt })
+    armLobbyTimers(lobby)
+  }
   broadcastLobby(groupId)
+}
+
+/**
+ * Rebuilds a scheduled lobby from persistence at boot. The player list
+ * starts empty (it is never persisted); a schedule whose post-open
+ * lifetime already lapsed is discarded instead.
+ */
+export function restoreScheduledLobby(entry: {
+  groupId: number
+  ownerId: number
+  rules: GameRules
+  opensAt: number
+}): void {
+  if (lobbies.has(entry.groupId) || entry.opensAt + SCHEDULED_LOBBY_TTL_MS <= Date.now()) {
+    scheduledStore?.remove(entry.groupId)
+    return
+  }
+  const lobby: PrivateLobby = {
+    groupId: entry.groupId,
+    ownerId: entry.ownerId,
+    rules: entry.rules,
+    players: [],
+    opensAt: entry.opensAt,
+    openTimer: null,
+  }
+  lobbies.set(entry.groupId, lobby)
+  armLobbyTimers(lobby)
+}
+
+/**
+ * Timers for a scheduled lobby: broadcast the moment it opens (pinned
+ * banners flip to joinable), then drop it if nobody has started the
+ * game within its post-open lifetime.
+ */
+function armLobbyTimers(lobby: PrivateLobby): void {
+  if (lobby.opensAt === null) {
+    return
+  }
+  if (lobby.openTimer) {
+    clearTimeout(lobby.openTimer)
+    lobby.openTimer = null
+  }
+
+  const now = Date.now()
+  if (now < lobby.opensAt) {
+    lobby.openTimer = setTimeout(() => {
+      lobby.openTimer = null
+      broadcastLobby(lobby.groupId)
+      armLobbyTimers(lobby)
+    }, lobby.opensAt - now)
+    return
+  }
+
+  lobby.openTimer = setTimeout(
+    () => {
+      lobby.openTimer = null
+      if (lobbies.get(lobby.groupId) === lobby) {
+        removeLobby(lobby)
+        broadcastLobby(lobby.groupId)
+      }
+    },
+    lobby.opensAt + SCHEDULED_LOBBY_TTL_MS - now
+  )
+}
+
+/** Drops a lobby, clearing its timer and persisted schedule. */
+function removeLobby(lobby: PrivateLobby): void {
+  if (lobby.openTimer) {
+    clearTimeout(lobby.openTimer)
+    lobby.openTimer = null
+  }
+  lobbies.delete(lobby.groupId)
+  if (lobby.opensAt !== null) {
+    scheduledStore?.remove(lobby.groupId)
+  }
 }
 
 /**
@@ -302,6 +436,9 @@ export function joinLobby(groupId: number, identity: PlayerIdentity): void {
   const lobby = lobbies.get(groupId)
   if (!lobby) {
     throw new GameError('There is no game being set up in this group', 'E_NO_LOBBY')
+  }
+  if (!lobbyIsOpen(lobby)) {
+    throw new GameError('This game has not opened for joining yet', 'E_LOBBY_NOT_OPEN')
   }
   if (matchForUser(identity.id)) {
     throw new GameError('You are already in a game', 'E_ALREADY_IN_GAME')
@@ -316,7 +453,8 @@ export function joinLobby(groupId: number, identity: PlayerIdentity): void {
 }
 
 /**
- * Leaves a lobby. If the owner leaves, the lobby is cancelled.
+ * Leaves a lobby. If the owner leaves, the lobby (or scheduled game)
+ * is cancelled.
  */
 export function leaveLobby(groupId: number, userId: number): void {
   const lobby = lobbies.get(groupId)
@@ -324,7 +462,7 @@ export function leaveLobby(groupId: number, userId: number): void {
     return
   }
   if (lobby.ownerId === userId) {
-    lobbies.delete(groupId)
+    removeLobby(lobby)
   } else {
     lobby.players = lobby.players.filter((player) => player.id !== userId)
   }
@@ -332,7 +470,8 @@ export function leaveLobby(groupId: number, userId: number): void {
 }
 
 /**
- * Starts the lobby's match. Owner only, 2+ players.
+ * Starts the lobby's match. Owner only, 2+ players, and never before a
+ * scheduled lobby has opened.
  */
 export function startLobby(groupId: number, userId: number): ActiveMatch {
   const lobby = lobbies.get(groupId)
@@ -342,11 +481,14 @@ export function startLobby(groupId: number, userId: number): ActiveMatch {
   if (lobby.ownerId !== userId) {
     throw new GameError('Only the game creator can start it', 'E_NOT_LOBBY_OWNER')
   }
+  if (!lobbyIsOpen(lobby)) {
+    throw new GameError('This game has not opened for joining yet', 'E_LOBBY_NOT_OPEN')
+  }
   if (lobby.players.length < 2) {
     throw new GameError('At least 2 players are needed to start', 'E_NOT_ENOUGH_PLAYERS')
   }
 
-  lobbies.delete(groupId)
+  removeLobby(lobby)
   const match = createMatch(lobby.players, lobby.rules, 'private', groupId)
   broadcastLobby(groupId)
   return match
@@ -357,19 +499,28 @@ export interface LobbyView {
   ownerId: number
   rules: GameRules
   players: PlayerIdentity[]
+  opensAt: number | null
 }
 
-function broadcastLobby(groupId: number): void {
+/**
+ * The serializable view of a group's lobby (never the raw lobby — that
+ * holds a live timer handle), or null when none exists.
+ */
+export function lobbyViewForGroup(groupId: number): LobbyView | null {
   const lobby = lobbies.get(groupId)
-  const view: LobbyView | null = lobby
+  return lobby
     ? {
         groupId: lobby.groupId,
         ownerId: lobby.ownerId,
         rules: lobby.rules,
         players: lobby.players,
+        opensAt: lobby.opensAt,
       }
     : null
-  emitter.toGroup(groupId, 'lobby:state', { groupId, lobby: view })
+}
+
+function broadcastLobby(groupId: number): void {
+  emitter.toGroup(groupId, 'lobby:state', { groupId, lobby: lobbyViewForGroup(groupId) })
 }
 
 /* -------------------------------------------------------------------
@@ -720,6 +871,7 @@ export function redactedView(match: ActiveMatch, viewerUserId: number): ClientGa
         hasComeDown: player.hasComeDown,
         score: player.score,
         buyInsUsed: player.buyInsUsed,
+        chips: player.chips,
         eliminated: player.eliminated,
         removed: player.removed,
         connected: runtime?.connected ?? true,

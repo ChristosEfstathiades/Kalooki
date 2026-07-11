@@ -10,6 +10,11 @@ import type { GameRules, RoundResult } from '#services/game/engine'
  */
 export default class MatchTransformer extends BaseTransformer<Match> {
   toObject() {
+    // Matches recorded before play money predate the stakes/chips
+    // fields, so fill in the defaults for a chip-less game
+    const rules = JSON.parse(this.resource.rules) as GameRules
+    const scoresheet = JSON.parse(this.resource.scoresheet) as RoundResult[]
+
     return {
       ...this.pick(this.resource, ['id', 'kind', 'winnerUserId']),
       // SQLite hands booleans back as 0/1
@@ -20,8 +25,12 @@ export default class MatchTransformer extends BaseTransformer<Match> {
         0,
         Math.round(this.resource.endedAt.diff(this.resource.startedAt).as('seconds'))
       ),
-      rules: JSON.parse(this.resource.rules) as GameRules,
-      scoresheet: JSON.parse(this.resource.scoresheet) as RoundResult[],
+      rules: { ...rules, stakes: rules.stakes ?? null },
+      scoresheet: scoresheet.map((round) => ({
+        ...round,
+        calledKalooki: round.calledKalooki ?? false,
+        chips: round.chips ?? {},
+      })),
       players: this.resource.matchPlayers
         .slice()
         .sort((a, b) => a.placement - b.placement)
@@ -30,6 +39,7 @@ export default class MatchTransformer extends BaseTransformer<Match> {
           placement: matchPlayer.placement,
           finalScore: matchPlayer.finalScore,
           leftEarly: Boolean(matchPlayer.leftEarly),
+          chipsNet: matchPlayer.chipsNet,
         })),
     }
   }

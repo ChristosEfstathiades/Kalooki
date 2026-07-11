@@ -64,14 +64,18 @@ function standardSheet(alice: User, bobby: User): RoundResult[] {
     {
       roundNumber: 1,
       winnerUserId: alice.id,
+      calledKalooki: false,
       penalties: { [alice.id]: 0, [bobby.id]: 25 },
       totals: { [alice.id]: 0, [bobby.id]: 25 },
+      chips: {},
     },
     {
       roundNumber: 2,
       winnerUserId: bobby.id,
+      calledKalooki: false,
       penalties: { [alice.id]: 30, [bobby.id]: 0 },
       totals: { [alice.id]: 30, [bobby.id]: 25 },
+      chips: {},
     },
   ]
 }

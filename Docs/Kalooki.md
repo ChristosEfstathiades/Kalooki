@@ -123,3 +123,16 @@ private matches can edit rules such as:
 - Number of decks (2-4)
 - number of jokers (0-4)
 - how many points they need to initially come down (default 40)
+- buy-ins per player (0-3 or unlimited, default 1; still never allowed when only 2 players remain)
+- play money (see below)
+
+## Play money (private games only)
+
+A private game can optionally be played for **chips** — play money that exists only as a ledger on that match's scoresheet. No balance is stored on user accounts, nothing carries over between games, and public matches never use it. When play money is on, the host must set four amounts before opening the lobby (defaults mirror the example scoresheet: 4 / 4 / 2 / 1):
+
+- **Stake** — put up by every player at the start; the winner collects all of them at the end of the game.
+- **Buy-in (rebuy) cost** — paid for each buy-in a player uses, collected by the eventual winner at the end (a winner's own buy-ins therefore cost them nothing).
+- **Each call** — paid to the round's caller by every other player still in the game, settled round by round as it happens.
+- **Kalooki** — paid *instead of* the call amount when the caller wins the round with a kalooki: laying all thirteen cards in a single turn.
+
+Eliminated players stop paying round money from the round after they are out, but everyone — including players who quit or timed out — still owes the winner their stake and buy-in money. If a game ends with no winner (nobody remained), stakes and buy-ins are not settled. All amounts are whole numbers of chips and every game's ledger sums to zero.

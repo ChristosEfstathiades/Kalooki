@@ -2,6 +2,7 @@ import { test } from '@japa/runner'
 import {
   CLASSIC_RULES,
   GameError,
+  UNLIMITED_BUY_INS,
   activePlayers,
   createGame,
   decideBuyIn,
@@ -15,7 +16,7 @@ import {
   takeDiscard,
   takeJoker,
 } from '#services/game/engine'
-import type { GameState } from '#services/game/engine'
+import type { GameRules, GameState } from '#services/game/engine'
 import type { Card, Rank, Rng, Suit } from '#services/game/cards'
 
 /** Deterministic rng: always picks the first option / no-op shuffles. */
@@ -437,6 +438,206 @@ test.group('Engine — scoring, buy-ins, and winning', () => {
     assert.isTrue(other.eliminated)
     assert.equal(state.phase, 'finished')
     assert.equal(state.winnerUserId, userId)
+  })
+})
+
+/** Classic rules plus the example-scoresheet chip amounts. */
+const STAKED_RULES: GameRules = {
+  ...CLASSIC_RULES,
+  stakes: { stake: 4, rebuy: 4, kalooki: 2, call: 1 },
+}
+
+/**
+ * Fresh staked game (rule overrides allowed). Player user ids are 1..n.
+ */
+function makeStakedGame(playerCount: number, overrides: Partial<GameRules> = {}): GameState {
+  return createGame(
+    Array.from({ length: playerCount }, (_, index) => index + 1),
+    { ...STAKED_RULES, ...overrides },
+    rng
+  )
+}
+
+/**
+ * Thirteen cards in three valid sets (4 kings, 4 queens, 2-6 hearts
+ * run) — a hand that can call kalooki in one turn.
+ */
+function kalookiHand(): Card[][] {
+  return [
+    [card('K', 'hearts'), card('K', 'clubs'), card('K', 'spades'), card('K', 'diamonds')],
+    [card('Q', 'hearts'), card('Q', 'clubs'), card('Q', 'spades'), card('Q', 'diamonds')],
+    [card(2, 'hearts'), card(3, 'hearts'), card(4, 'hearts'), card(5, 'hearts'), card(6, 'hearts')],
+  ]
+}
+
+test.group('Engine — play money', () => {
+  test('each round the caller collects the call amount from every other active player', ({
+    assert,
+  }) => {
+    const state = makeStakedGame(3)
+    const userId = state.players[state.currentPlayerIndex].userId
+    const others = state.players.filter((player) => player.userId !== userId)
+    others[0].hand = [card(5, 'hearts')]
+    others[1].hand = [card(9, 'clubs')]
+    setTurn(state, userId, [card(2, 'hearts')])
+
+    discard(state, userId, playerState(state, userId).hand[0].id, rng)
+
+    const result = state.roundResults[0]
+    assert.isFalse(result.calledKalooki)
+    assert.equal(result.chips[userId], 2)
+    assert.equal(result.chips[others[0].userId], -1)
+    assert.equal(result.chips[others[1].userId], -1)
+    assert.equal(playerState(state, userId).chips, 2)
+    assert.equal(others[0].chips, -1)
+  })
+
+  test('calling with all thirteen in one turn pays the kalooki amount instead', ({ assert }) => {
+    const state = makeStakedGame(3)
+    const userId = state.players[state.currentPlayerIndex].userId
+    const melds = kalookiHand()
+    playerState(state, userId).hand = melds.flat()
+
+    const drawn = drawFromDeck(state, userId, rng)
+    layMelds(
+      state,
+      userId,
+      melds.map((meld) => meld.map((meldCard) => meldCard.id))
+    )
+    discard(state, userId, drawn.id, rng)
+
+    const result = state.roundResults[0]
+    assert.isTrue(result.calledKalooki)
+    assert.equal(result.chips[userId], 4)
+    assert.equal(playerState(state, userId).chips, 4)
+    for (const other of state.players.filter((player) => player.userId !== userId)) {
+      assert.equal(other.chips, -2)
+    }
+  })
+
+  test('a player who came down on an earlier turn does not call a kalooki', ({ assert }) => {
+    const state = makeStakedGame(2)
+    const userId = state.players[state.currentPlayerIndex].userId
+    const player = playerState(state, userId)
+    player.hasComeDown = true
+    player.hand = [card(2, 'hearts'), card(2, 'clubs')]
+    state.phase = 'awaitingDraw'
+
+    const drawn = drawFromDeck(state, userId, rng)
+    discard(state, userId, drawn.id, rng)
+    // Next turn: come-down happened before, so calling is a plain call
+    state.currentPlayerIndex = state.players.findIndex((candidate) => candidate.userId === userId)
+    state.phase = 'awaitingDraw'
+    const drawnAgain = drawFromDeck(state, userId, rng)
+    playerState(state, userId).hand = [drawnAgain]
+    discard(state, userId, drawnAgain.id, rng)
+
+    const result = state.roundResults[0]
+    assert.isFalse(result.calledKalooki)
+    assert.equal(result.chips[userId], 1)
+  })
+
+  test('eliminated players stop paying round money', ({ assert }) => {
+    const state = makeStakedGame(3)
+    const userId = state.players[state.currentPlayerIndex].userId
+    const others = state.players.filter((player) => player.userId !== userId)
+    others[0].eliminated = true
+    others[0].hand = []
+    others[1].hand = [card(9, 'clubs')]
+    setTurn(state, userId, [card(2, 'hearts')])
+
+    discard(state, userId, playerState(state, userId).hand[0].id, rng)
+
+    const result = state.roundResults[0]
+    assert.equal(result.chips[userId], 1)
+    assert.notProperty(result.chips, String(others[0].userId))
+    assert.equal(others[0].chips, 0)
+  })
+
+  test('the winner collects every stake and buy-in at the end', ({ assert }) => {
+    const state = makeStakedGame(3)
+    const userId = state.players[state.currentPlayerIndex].userId
+    const others = state.players.filter((player) => player.userId !== userId)
+    others[0].buyInsUsed = 1
+
+    removePlayer(state, others[0].userId, rng)
+    removePlayer(state, others[1].userId, rng)
+
+    assert.equal(state.phase, 'finished')
+    assert.equal(state.winnerUserId, userId)
+    // Loser stakes (4 + 4) plus one buy-in (4)
+    assert.equal(playerState(state, userId).chips, 12)
+    assert.equal(others[0].chips, -8)
+    assert.equal(others[1].chips, -4)
+    const total = state.players.reduce((sum, player) => sum + player.chips, 0)
+    assert.equal(total, 0)
+  })
+
+  test("the winner's own buy-in costs them nothing", ({ assert }) => {
+    const state = makeStakedGame(2)
+    const userId = state.players[state.currentPlayerIndex].userId
+    const other = state.players.find((player) => player.userId !== userId)
+    if (!other) {
+      throw new Error('expected a second player')
+    }
+    playerState(state, userId).buyInsUsed = 1
+
+    removePlayer(state, other.userId, rng)
+
+    assert.equal(state.winnerUserId, userId)
+    assert.equal(playerState(state, userId).chips, 4)
+    assert.equal(other.chips, -4)
+  })
+
+  test('without stakes no chips ever move', ({ assert }) => {
+    const state = makeGame(2)
+    const userId = state.players[state.currentPlayerIndex].userId
+    const other = state.players.find((player) => player.userId !== userId)
+    if (!other) {
+      throw new Error('expected a second player')
+    }
+    other.hand = [card(5, 'hearts')]
+    setTurn(state, userId, [card(2, 'hearts')])
+
+    discard(state, userId, playerState(state, userId).hand[0].id, rng)
+
+    assert.deepEqual(state.roundResults[0].chips, {})
+    assert.equal(playerState(state, userId).chips, 0)
+  })
+})
+
+test.group('Engine — configurable buy-ins', () => {
+  test('zero buy-ins eliminates on the first bust', ({ assert }) => {
+    const state = makeStakedGame(3, { buyInsPerPlayer: 0 })
+    const userId = state.players[state.currentPlayerIndex].userId
+    const others = state.players.filter((player) => player.userId !== userId)
+    others[0].score = 145
+    others[0].hand = [card('K', 'hearts')] // 155 → bust
+    others[1].hand = [card(5, 'hearts')]
+    setTurn(state, userId, [card(2, 'hearts')])
+
+    discard(state, userId, playerState(state, userId).hand[0].id, rng)
+
+    assert.isTrue(others[0].eliminated)
+    assert.lengthOf(state.pendingBuyIns, 0)
+  })
+
+  test('unlimited buy-ins keep offering re-entry', ({ assert }) => {
+    const state = makeStakedGame(3, { buyInsPerPlayer: UNLIMITED_BUY_INS })
+    const userId = state.players[state.currentPlayerIndex].userId
+    const others = state.players.filter((player) => player.userId !== userId)
+    others[0].score = 145
+    others[0].buyInsUsed = 5
+    others[0].hand = [card('K', 'hearts')] // 155 → bust
+    others[1].hand = [card(5, 'hearts')]
+    setTurn(state, userId, [card(2, 'hearts')])
+
+    discard(state, userId, playerState(state, userId).hand[0].id, rng)
+
+    assert.deepEqual(state.pendingBuyIns, [others[0].userId])
+    decideBuyIn(state, others[0].userId, true, rng)
+    assert.equal(others[0].buyInsUsed, 6)
+    assert.isFalse(others[0].eliminated)
   })
 })
 

@@ -64,6 +64,8 @@ export async function recordMatch(match: ActiveMatch): Promise<Match> {
         placement: placementByUser.get(player.userId) ?? match.state.players.length,
         finalScore: player.score,
         leftEarly: player.removed,
+        // Net play money; null distinguishes "no stakes" from "broke even"
+        chipsNet: match.rules.stakes ? player.chips : null,
       })),
       { client: trx }
     )

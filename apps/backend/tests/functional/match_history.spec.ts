@@ -216,7 +216,12 @@ test.group('Match history filters', (group) => {
   test('rejects an unknown kind', async ({ client }) => {
     const { alice } = await seedHistory()
 
-    const response = await client.get('/api/v1/matches').qs({ kind: 'ranked' }).loginAs(alice)
+    // Deliberately invalid: the cast smuggles a bad kind past the
+    // typed client so the server-side validator is what rejects it
+    const response = await client
+      .get('/api/v1/matches')
+      .qs({ kind: 'ranked' as 'public' })
+      .loginAs(alice)
 
     response.assertStatus(422)
   })
