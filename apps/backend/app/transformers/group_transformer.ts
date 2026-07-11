@@ -10,6 +10,7 @@ export default class GroupTransformer extends BaseTransformer<Group> {
     return {
       ...this.pick(this.resource, ['id', 'name', 'ownerId', 'createdAt']),
       memberCount: Number(this.resource.$extras.members_count ?? 0),
+      memberIds: this.resource.members.map((member) => member.id),
     }
   }
 }

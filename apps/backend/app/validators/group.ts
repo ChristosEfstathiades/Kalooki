@@ -1,10 +1,25 @@
 import vine from '@vinejs/vine'
 
 /**
- * Validator for creating a private group.
+ * Validator for creating a private group. Names only need to be unique
+ * among groups the requesting user already owns (passed through
+ * validation metadata), not globally.
  */
 export const createGroupValidator = vine.create({
-  name: vine.string().trim().minLength(3).maxLength(50),
+  name: vine
+    .string()
+    .trim()
+    .minLength(3)
+    .maxLength(50)
+    .unique({
+      table: 'groups',
+      column: 'name',
+      caseInsensitive: true,
+      filter: (db, _value, field) => {
+        const { ownerId } = field.meta as { ownerId: number }
+        db.where('owner_id', ownerId)
+      },
+    }),
 })
 
 /**

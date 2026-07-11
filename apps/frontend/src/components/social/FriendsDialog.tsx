@@ -1,12 +1,18 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { MoreVertical } from 'lucide-react'
+import { currentUserQueryOptions, extractApiErrors } from '#/lib/auth'
 import {
   friendRequestsQueryOptions,
   friendsQueryOptions,
+  groupsQueryOptions,
   useAcceptFriendRequest,
   useDeleteFriendRequest,
+  useInviteToGroup,
   useRemoveFriend,
 } from '#/lib/social'
 import UserAvatar from '#/components/UserAvatar'
+import FormErrors from '#/components/FormErrors'
 import { Button } from '#/components/ui/button'
 import {
   Dialog,
@@ -15,7 +21,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '#/components/ui/dialog'
-import type { PublicUser } from '#/lib/social'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '#/components/ui/dropdown-menu'
+import type { Group, PublicUser } from '#/lib/social'
 
 interface FriendsDialogProps {
   open: boolean
@@ -50,14 +65,34 @@ export default function FriendsDialog({
   open,
   onOpenChange,
 }: FriendsDialogProps) {
+  const { data: currentUser } = useQuery(currentUserQueryOptions)
   const friends = useQuery(friendsQueryOptions)
   const requests = useQuery(friendRequestsQueryOptions)
+  const groups = useQuery(groupsQueryOptions)
   const acceptRequest = useAcceptFriendRequest()
   const deleteRequest = useDeleteFriendRequest()
   const removeFriend = useRemoveFriend()
+  const inviteToGroup = useInviteToGroup()
+
+  const [inviteError, setInviteError] = useState<string[]>([])
 
   const incoming = requests.data?.incoming ?? []
   const outgoing = requests.data?.outgoing ?? []
+  const ownedGroups = (groups.data ?? []).filter(
+    (group) => group.ownerId === currentUser?.id,
+  )
+
+  const submitInvite = async (group: Group, friend: PublicUser) => {
+    setInviteError([])
+    try {
+      await inviteToGroup.mutateAsync({
+        groupId: group.id,
+        username: friend.username,
+      })
+    } catch (error) {
+      setInviteError(extractApiErrors(error))
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -125,6 +160,7 @@ export default function FriendsDialog({
           <h3 className="m-0 text-sm font-semibold text-muted-foreground">
             Your friends {friends.data ? `(${friends.data.length})` : ''}
           </h3>
+          <FormErrors errors={inviteError} />
           {friends.data && friends.data.length === 0 ? (
             <p className="my-2 text-sm text-muted-foreground">
               No friends yet — send a request by username to get started.
@@ -133,14 +169,14 @@ export default function FriendsDialog({
             <ul className="m-0 list-none divide-y divide-border p-0">
               {(friends.data ?? []).map((friend) => (
                 <UserRow key={friend.id} user={friend}>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={removeFriend.isPending}
-                    onClick={() => removeFriend.mutate(friend.id)}
-                  >
-                    Remove
-                  </Button>
+                  <FriendActionsMenu
+                    friend={friend}
+                    invitableGroups={ownedGroups.filter(
+                      (group) => !group.memberIds.includes(friend.id),
+                    )}
+                    onInvite={(group) => submitInvite(group, friend)}
+                    onRemove={() => removeFriend.mutate(friend.id)}
+                  />
                 </UserRow>
               ))}
             </ul>
@@ -148,5 +184,60 @@ export default function FriendsDialog({
         </section>
       </DialogContent>
     </Dialog>
+  )
+}
+
+interface FriendActionsMenuProps {
+  friend: PublicUser
+  invitableGroups: Group[]
+  onInvite: (group: Group) => void
+  onRemove: () => void
+}
+
+/**
+ * Per-friend "..." menu: remove the friend, or invite them to a group
+ * the current user owns that they aren't already a member of.
+ */
+function FriendActionsMenu({
+  friend,
+  invitableGroups,
+  onInvite,
+  onRemove,
+}: FriendActionsMenuProps) {
+  return (
+    // Non-modal: this menu is nested inside a modal Dialog, and two
+    // nested modal focus/pointer traps fight over outside-click
+    // detection — the Dialog ends up closing whenever the dropdown does.
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={`Actions for ${friend.username}`}
+        >
+          <MoreVertical aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {invitableGroups.length > 0 && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>Invite to group</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {invitableGroups.map((group) => (
+                <DropdownMenuItem
+                  key={group.id}
+                  onClick={() => onInvite(group)}
+                >
+                  {group.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        <DropdownMenuItem variant="destructive" onClick={onRemove}>
+          Remove friend
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

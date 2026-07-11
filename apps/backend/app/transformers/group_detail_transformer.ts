@@ -12,7 +12,11 @@ export default class GroupDetailTransformer extends BaseTransformer<Group> {
     return {
       ...this.pick(this.resource, ['id', 'name', 'ownerId', 'createdAt']),
       owner: publicUserShape(this.resource.owner),
-      members: this.resource.members.map(publicUserShape),
+      members: [...this.resource.members]
+        .sort(
+          (a, b) => Number(b.id === this.resource.ownerId) - Number(a.id === this.resource.ownerId)
+        )
+        .map(publicUserShape),
       pendingInvites: this.resource.invites.map((invite) => ({
         id: invite.id,
         createdAt: invite.createdAt.toISO(),

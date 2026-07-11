@@ -4,6 +4,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { api } from '#/lib/api'
+import type { Data } from '@KalookiOnline/backend/data'
 
 /**
  * Data layer for friends and private groups. Response types flow from
@@ -18,6 +19,8 @@ export interface PublicUser {
   initials: string
   chatColor: string | null
 }
+
+export type Group = Data.Group
 
 /** Pending requests and invites refresh on this interval until
  * realtime notifications arrive with the Socket.IO slice. */

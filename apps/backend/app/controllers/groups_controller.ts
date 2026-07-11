@@ -20,7 +20,11 @@ export default class GroupsController {
       return serialize({ groups: GroupTransformer.transform([]) })
     }
 
-    const groups = await Group.query().whereIn('id', groupIds).withCount('members').orderBy('name')
+    const groups = await Group.query()
+      .whereIn('id', groupIds)
+      .withCount('members')
+      .preload('members', (query) => query.select('id'))
+      .orderBy('name')
     return serialize({ groups: GroupTransformer.transform(groups) })
   }
 
@@ -29,7 +33,9 @@ export default class GroupsController {
    */
   async store({ auth, request, serialize }: HttpContext) {
     const user = auth.getUserOrFail()
-    const { name } = await request.validateUsing(createGroupValidator)
+    const { name } = await request.validateUsing(createGroupValidator, {
+      meta: { ownerId: user.id },
+    })
 
     const group = await db.transaction(async (trx) => {
       const created = await Group.create({ name, ownerId: user.id }, { client: trx })

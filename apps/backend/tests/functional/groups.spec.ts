@@ -70,6 +70,44 @@ test.group('Groups', (group) => {
     asStranger.assertStatus(404)
   })
 
+  test('a user cannot own two groups with the same name, but different owners can', async ({
+    client,
+  }) => {
+    const alice = await makeUser('alice')
+    const bobby = await makeUser('bobby')
+    await makeGroup(alice, 'Friday Kalooki')
+
+    const duplicate = await client
+      .post('/api/v1/groups')
+      .json({ name: 'Friday Kalooki' })
+      .loginAs(alice)
+    duplicate.assertStatus(422)
+
+    const caseInsensitiveDuplicate = await client
+      .post('/api/v1/groups')
+      .json({ name: 'friday kalooki' })
+      .loginAs(alice)
+    caseInsensitiveDuplicate.assertStatus(422)
+
+    const sameNameOtherOwner = await client
+      .post('/api/v1/groups')
+      .json({ name: 'Friday Kalooki' })
+      .loginAs(bobby)
+    sameNameOtherOwner.assertStatus(200)
+  })
+
+  test('the owner is always listed first among the group members', async ({ client, assert }) => {
+    const alice = await makeUser('alice')
+    const zach = await makeUser('zach')
+    const kalookiGroup = await makeGroup(alice, 'Card Sharks')
+    await GroupMember.create({ groupId: kalookiGroup.id, userId: zach.id })
+
+    const detail = await client.get(`/api/v1/groups/${kalookiGroup.id}`).loginAs(alice)
+    const members = dataOf<{ group: { members: { username: string }[] } }>(detail).group.members
+    assert.equal(members[0].username, 'alice')
+    assert.equal(members[1].username, 'zach')
+  })
+
   test('owner deleting the group disbands it for everyone', async ({ client, assert }) => {
     const alice = await makeUser('alice')
     const bobby = await makeUser('bobby')
