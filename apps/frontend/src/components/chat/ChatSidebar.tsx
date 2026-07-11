@@ -9,7 +9,12 @@ import {
   useReportMessage,
 } from '#/lib/chat'
 import { currentUserQueryOptions } from '#/lib/auth'
-import { groupsQueryOptions, useSendFriendRequest } from '#/lib/social'
+import {
+  friendRequestsQueryOptions,
+  friendsQueryOptions,
+  groupsQueryOptions,
+  useSendFriendRequest,
+} from '#/lib/social'
 import LobbyPinnedBanner from '#/components/game/LobbyPinnedBanner'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
@@ -105,8 +110,18 @@ interface ChatConversationProps {
 export function ChatConversation({ channel }: ChatConversationProps) {
   const { data: currentUser } = useQuery(currentUserQueryOptions)
   const history = useQuery(chatHistoryQueryOptions(channel))
+  const { data: friends } = useQuery(friendsQueryOptions)
+  const { data: friendRequests } = useQuery(friendRequestsQueryOptions)
   const sendFriendRequest = useSendFriendRequest()
   const reportMessage = useReportMessage()
+
+  // No point offering a friend request to existing friends or anyone
+  // with a request already pending in either direction
+  const noRequestNeededIds = new Set<number>([
+    ...(friends ?? []).map((friend) => friend.id),
+    ...(friendRequests?.outgoing ?? []).map((request) => request.recipient.id),
+    ...(friendRequests?.incoming ?? []).map((request) => request.sender.id),
+  ])
 
   const [draft, setDraft] = useState('')
   const [sendError, setSendError] = useState<string | null>(null)
@@ -167,58 +182,74 @@ export function ChatConversation({ channel }: ChatConversationProps) {
             No messages in the last 30 days. Say hello.
           </p>
         )}
-        {messages.map((message) => (
-          <div key={message.id} className="relative text-sm">
-            <button
-              type="button"
-              className="font-semibold hover:underline"
-              style={{
-                color: chatNameColor(
-                  message.user.chatColor ?? usernameColor(message.user.username),
-                ),
-              }}
-              onClick={() =>
-                setMenuMessageId(
-                  menuMessageId === message.id ? null : message.id,
-                )
-              }
-            >
-              {message.user.username}
-            </button>
-            {': '}
-            <span className="break-words">{message.body}</span>
-            {menuMessageId === message.id &&
-              message.user.id !== currentUser?.id && (
-                <span className="absolute left-0 z-10 mt-5 flex gap-1 rounded-md border border-border bg-popover p-1 shadow-md">
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={() =>
-                      runAction(
-                        () =>
-                          sendFriendRequest.mutateAsync(message.user.username),
-                        `Friend request sent to ${message.user.username}`,
-                      )
-                    }
-                  >
-                    Send friend request
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={() =>
-                      runAction(
-                        () => reportMessage.mutateAsync(message.id),
-                        'Report submitted for moderator review',
-                      )
-                    }
-                  >
-                    Report message
-                  </Button>
-                </span>
-              )}
-          </div>
-        ))}
+        {messages.map((message) => {
+          const author = message.user
+          if (author === null) {
+            // A server-authored line (e.g. a disconnect countdown)
+            return (
+              <p
+                key={message.id}
+                className="m-0 text-center text-xs text-destructive italic"
+              >
+                {message.body}
+              </p>
+            )
+          }
+          return (
+            <div key={message.id} className="relative text-sm">
+              <button
+                type="button"
+                className="font-semibold hover:underline"
+                style={{
+                  color: chatNameColor(
+                    author.chatColor ?? usernameColor(author.username),
+                  ),
+                }}
+                onClick={() =>
+                  setMenuMessageId(
+                    menuMessageId === message.id ? null : message.id,
+                  )
+                }
+              >
+                {author.username}
+              </button>
+              {': '}
+              <span className="break-words">{message.body}</span>
+              {menuMessageId === message.id &&
+                author.id !== currentUser?.id && (
+                  <span className="absolute left-0 z-10 mt-5 flex gap-1 rounded-md border border-border bg-popover p-1 shadow-md">
+                    {!noRequestNeededIds.has(author.id) && (
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        onClick={() =>
+                          runAction(
+                            () =>
+                              sendFriendRequest.mutateAsync(author.username),
+                            `Friend request sent to ${author.username}`,
+                          )
+                        }
+                      >
+                        Send friend request
+                      </Button>
+                    )}
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      onClick={() =>
+                        runAction(
+                          () => reportMessage.mutateAsync(message.id),
+                          'Report submitted for moderator review',
+                        )
+                      }
+                    >
+                      Report message
+                    </Button>
+                  </span>
+                )}
+            </div>
+          )
+        })}
       </div>
 
       {(feedback ?? sendError) && (

@@ -115,6 +115,8 @@ if this 60 seconds runs out then they are removed from the game and cannot rejoi
 
 if a user disconnects the game pauses and they have 5 minutes to rejoin, if they disconnect again then they don't get a fresh 5 minutes they get whatever time was left when they reconnected. if this timer runs out then they are removed.
 
+while a player is disconnected the table chat gets automatic countdown messages: one when they drop (showing their remaining rejoin time), one at each milestone of time left (5, 4, 3, 2 and 1 minutes, then 30 and 10 seconds), and finally an alert that they were kicked from the game — or that they reconnected.
+
 ## Custom rules for private games
 
 private matches can edit rules such as:

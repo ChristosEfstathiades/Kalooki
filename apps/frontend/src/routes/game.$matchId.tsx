@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { currentUserQueryOptions } from '#/lib/auth'
@@ -17,6 +17,7 @@ import type {
   GameView,
   MeldView,
   RoundResultView,
+  Suit,
 } from '#/lib/game'
 
 export const Route = createFileRoute('/game/$matchId')({
@@ -27,6 +28,103 @@ export const Route = createFileRoute('/game/$matchId')({
   },
   component: GamePage,
 })
+
+/** How long the round-end scoresheet popup stays up between rounds. */
+const ROUND_POPUP_MS = 5000
+
+type SortMode = 'rank' | 'suit'
+
+/**
+ * Display order of the hand. Cards picked up during your turn wait in
+ * `fresh` (right of the sorted hand) and only fold into `base` when the
+ * turn ends with them still in hand, or when a sort button is pressed.
+ */
+interface HandOrder {
+  base: number[]
+  fresh: number[]
+}
+
+const PICTURE_RANKS: Record<string, number> = { J: 11, Q: 12, K: 13, A: 14 }
+
+/** Sort value of a card's rank: ace high, jokers above everything. */
+function rankValue(card: GameCard): number {
+  if (card.isJoker) {
+    return 15
+  }
+  if (typeof card.rank === 'number') {
+    return card.rank
+  }
+  return card.rank === null ? 0 : PICTURE_RANKS[card.rank]
+}
+
+const SUIT_ORDER: Record<Suit, number> = {
+  spades: 0,
+  hearts: 1,
+  clubs: 2,
+  diamonds: 3,
+}
+
+/** Sort value of a card's suit; jokers group after the suits. */
+function suitValue(card: GameCard): number {
+  return card.suit === null ? 4 : SUIT_ORDER[card.suit]
+}
+
+/**
+ * Card ids sorted by rank (highest first) or by suit (highest first
+ * within each suit).
+ */
+function sortedIds(cards: GameCard[], mode: SortMode): number[] {
+  return [...cards]
+    .sort((a, b) =>
+      mode === 'rank'
+        ? rankValue(b) - rankValue(a) || suitValue(a) - suitValue(b)
+        : suitValue(a) - suitValue(b) || rankValue(b) - rankValue(a),
+    )
+    .map((card) => card.id)
+}
+
+/**
+ * Fits the display order to the server's hand: dropped cards are
+ * pruned, cards picked up mid-turn queue in `fresh`, and once the turn
+ * is over any kept pickups settle into the (sorted) hand.
+ */
+function reconcileHandOrder(
+  previous: HandOrder,
+  hand: GameCard[],
+  myTurnActive: boolean,
+  sortMode: SortMode | null,
+): HandOrder {
+  const idsInHand = new Set(hand.map((card) => card.id))
+  const base = previous.base.filter((id) => idsInHand.has(id))
+  const fresh = previous.fresh.filter((id) => idsInHand.has(id))
+  const known = new Set([...base, ...fresh])
+  const incoming = hand
+    .filter((card) => !known.has(card.id))
+    .map((card) => card.id)
+
+  const unchanged =
+    incoming.length === 0 &&
+    base.length === previous.base.length &&
+    fresh.length === previous.fresh.length
+
+  // A whole new hand (first load or a fresh deal) settles immediately
+  if (base.length === 0 && fresh.length === 0) {
+    return { base: sortMode ? sortedIds(hand, sortMode) : incoming, fresh: [] }
+  }
+  if (myTurnActive) {
+    return unchanged ? previous : { base, fresh: [...fresh, ...incoming] }
+  }
+  if (unchanged && fresh.length === 0) {
+    return previous
+  }
+  // Turn over with pickups still in hand: fold them in
+  return {
+    base: sortMode
+      ? sortedIds(hand, sortMode)
+      : [...base, ...fresh, ...incoming],
+    fresh: [],
+  }
+}
 
 /**
  * The live Kalooki table: opponents around the top of the felt, sets
@@ -42,6 +140,10 @@ function GamePage() {
   const [selectedCardIds, setSelectedCardIds] = useState<number[]>([])
   const [stagedMelds, setStagedMelds] = useState<number[][]>([])
   const [chatOpen, setChatOpen] = useState(false)
+  const [sortMode, setSortMode] = useState<SortMode | null>(null)
+  const [handOrder, setHandOrder] = useState<HandOrder>({ base: [], fresh: [] })
+  const [roundPopupOpen, setRoundPopupOpen] = useState(false)
+  const seenResultsRef = useRef<number | null>(null)
 
   // Initial view + live updates
   useEffect(() => {
@@ -75,6 +177,49 @@ function GamePage() {
       socket.off('game:state', onState)
     }
   }, [matchId])
+
+  // Pop the round-end scoresheet for a few seconds whenever a new
+  // round result arrives (skipping whatever history loads with the page)
+  const resultsCount = view?.roundResults.length ?? null
+  useEffect(() => {
+    if (resultsCount === null) {
+      return
+    }
+    if (seenResultsRef.current === null) {
+      seenResultsRef.current = resultsCount
+      return
+    }
+    if (resultsCount > seenResultsRef.current) {
+      seenResultsRef.current = resultsCount
+      setRoundPopupOpen(true)
+      const timer = setTimeout(() => setRoundPopupOpen(false), ROUND_POPUP_MS)
+      return () => clearTimeout(timer)
+    }
+  }, [resultsCount])
+
+  // Keep the displayed hand order in step with the server's hand
+  const hand = view?.you.hand
+  const myTurnActive =
+    view !== null &&
+    view.currentPlayerUserId === currentUser?.id &&
+    (view.phase === 'awaitingDraw' || view.phase === 'acting')
+  useEffect(() => {
+    if (hand) {
+      setHandOrder((previous) =>
+        reconcileHandOrder(previous, hand, myTurnActive, sortMode),
+      )
+    }
+  }, [hand, myTurnActive, sortMode])
+
+  const applySort = useCallback(
+    (mode: SortMode) => {
+      setSortMode(mode)
+      if (hand) {
+        setHandOrder({ base: sortedIds(hand, mode), fresh: [] })
+      }
+    },
+    [hand],
+  )
 
   const act = useCallback(
     async (action: GameAction) => {
@@ -113,6 +258,19 @@ function GamePage() {
   const unstagedSelected = selectedCardIds.filter(
     (id) => !stagedIds.includes(id),
   )
+
+  // The hand in display order: settled cards first, this turn's
+  // pickups on the right, then anything the order state hasn't seen yet
+  const cardsById = new Map(handCards.map((card) => [card.id, card]))
+  const displayHand: GameCard[] = []
+  for (const id of [...handOrder.base, ...handOrder.fresh]) {
+    const card = cardsById.get(id)
+    if (card) {
+      displayHand.push(card)
+      cardsById.delete(id)
+    }
+  }
+  displayHand.push(...cardsById.values())
 
   const toggleCard = (cardId: number) => {
     if (stagedIds.includes(cardId)) {
@@ -224,12 +382,14 @@ function GamePage() {
         <OwnArea
           me={me}
           view={view}
-          handCards={handCards}
+          handCards={displayHand}
           selectedCardIds={selectedCardIds}
           stagedMelds={stagedMelds}
           isMyTurn={isMyTurn}
           error={error}
           lastEvent={lastEvent}
+          sortMode={sortMode}
+          onSort={applySort}
           onToggleCard={toggleCard}
           onStage={stageSelected}
           onClearStaged={() => {
@@ -245,11 +405,18 @@ function GamePage() {
         />
       </section>
 
-      {(view.phase === 'roundEnd' || view.phase === 'finished') && (
+      {(view.phase === 'roundEnd' ||
+        view.phase === 'finished' ||
+        roundPopupOpen) && (
         <RoundEndOverlay
           view={view}
           currentUserId={currentUser.id}
           onBuyIn={act}
+          onDismiss={
+            view.phase !== 'roundEnd' && view.phase !== 'finished'
+              ? () => setRoundPopupOpen(false)
+              : undefined
+          }
         />
       )}
     </main>
@@ -365,9 +532,7 @@ function OpponentSeat({ player, view }: OpponentSeatProps) {
             ? 'Out'
             : `${player.handCount} cards · ${player.score} pts`}
           {view.rules.stakes && (
-            <span className="ml-1">
-              · {formatChips(player.chips)} chips
-            </span>
+            <span className="ml-1">· {formatChips(player.chips)} chips</span>
           )}
           {player.handCount === 1 && !player.eliminated && (
             <span className="ml-1 font-semibold text-button-red-hover">
@@ -493,6 +658,8 @@ interface OwnAreaProps {
   isMyTurn: boolean
   error: string | null
   lastEvent: string | null
+  sortMode: SortMode | null
+  onSort: (mode: SortMode) => void
   onToggleCard: (cardId: number) => void
   onStage: () => void
   onClearStaged: () => void
@@ -510,6 +677,8 @@ function OwnArea({
   isMyTurn,
   error,
   lastEvent,
+  sortMode,
+  onSort,
   onToggleCard,
   onStage,
   onClearStaged,
@@ -541,9 +710,7 @@ function OwnArea({
         <p className="m-0 text-sm font-medium">{statusText}</p>
         <p className="m-0 text-xs text-muted-foreground">
           {me ? `Your score: ${me.score}` : ''}
-          {me && view.rules.stakes
-            ? ` · chips: ${formatChips(me.chips)}`
-            : ''}
+          {me && view.rules.stakes ? ` · chips: ${formatChips(me.chips)}` : ''}
           {me?.hasComeDown ? ' · down' : ''}
           {lastEvent ? ` · ${lastEvent}` : ''}
         </p>
@@ -620,12 +787,25 @@ function OwnArea({
             Return taken discard
           </Button>
         )}
+        <div className="ml-auto flex gap-2">
+          <Button
+            size="sm"
+            variant={sortMode === 'rank' ? 'default' : 'secondary'}
+            title="Sort your hand from highest to lowest"
+            onClick={() => onSort('rank')}
+          >
+            Sort: high–low
+          </Button>
+          <Button
+            size="sm"
+            variant={sortMode === 'suit' ? 'default' : 'secondary'}
+            title="Sort your hand by suit"
+            onClick={() => onSort('suit')}
+          >
+            Sort: suit
+          </Button>
+        </div>
       </div>
-      <p className="mt-2 mb-0 text-xs text-muted-foreground">
-        Select 3+ cards to stage a set (runs lowest first). With one card
-        selected, use the buttons under a tabled set to add it. To take a tabled
-        joker, select its natural replacement card(s), then click the joker.
-      </p>
     </div>
   )
 }
@@ -634,12 +814,15 @@ interface RoundEndOverlayProps {
   view: GameView
   currentUserId: number
   onBuyIn: (action: GameAction) => Promise<void>
+  /** Set for the transient between-rounds popup: clicking the backdrop closes it early. */
+  onDismiss?: () => void
 }
 
 function RoundEndOverlay({
   view,
   currentUserId,
   onBuyIn,
+  onDismiss,
 }: RoundEndOverlayProps) {
   // A match can finish before any round completes (e.g. a quit in
   // round 1), so there may be no result rows yet
@@ -659,9 +842,22 @@ function RoundEndOverlay({
     view.players.find((player) => player.userId === userId)?.username ??
     `Player ${userId}`
 
+  const roundTitle =
+    latest && latest.winnerUserId !== null
+      ? `${usernameOf(latest.winnerUserId)} won round ${latest.roundNumber}${
+          latest.calledKalooki ? ' with a kalooki!' : ''
+        }`
+      : `Round ${latest?.roundNumber ?? view.roundNumber} finished`
+
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-md rounded-lg border border-border bg-card p-6">
+    <div
+      className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-4"
+      onClick={onDismiss}
+    >
+      <div
+        className="w-full max-w-md rounded-lg border border-border bg-card p-6"
+        onClick={(event) => event.stopPropagation()}
+      >
         <h2 className="m-0 text-xl font-bold">
           {finished
             ? winnerName
@@ -671,7 +867,7 @@ function RoundEndOverlay({
                     : ''
                 }`
               : 'Game over'
-            : `Round ${latest?.roundNumber ?? view.roundNumber} finished`}
+            : roundTitle}
         </h2>
         {latest && (
           <table className="mt-4 w-full text-sm">

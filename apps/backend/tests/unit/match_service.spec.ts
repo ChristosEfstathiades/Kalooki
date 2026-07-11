@@ -9,6 +9,7 @@ import {
   leaveLobby,
   lobbyViewForGroup,
   matchForUser,
+  matchSystemMessages,
   onMatchFinished,
   playerDisconnected,
   playerReconnected,
@@ -145,6 +146,31 @@ test.group('Match service', (group) => {
     playerReconnected(2)
     assert.isFalse(redactedView(match, 1).paused)
     applyGameAction(match.id, currentUserId, { type: 'draw' })
+  })
+
+  test('a disconnect posts a chat countdown that reconnecting cancels', ({ assert }) => {
+    const match = startTwoPlayerMatch()
+
+    emissions = []
+    playerDisconnected(2)
+
+    // Announced to every participant, and kept for the history endpoint
+    const chatEvents = emissions.filter((emission) => emission.event === 'chat:message')
+    assert.lengthOf(chatEvents, 2)
+    let stored = matchSystemMessages(match.id)
+    assert.lengthOf(stored, 1)
+    assert.equal(stored[0].body, 'player_2 disconnected — 5 minutes to reconnect.')
+    assert.isNull(stored[0].user)
+
+    // Classic 5-minute budget: milestones at 4/3/2/1 min, 30s, and 10s left
+    const runtime = match.runtime.get(2)
+    assert.lengthOf(runtime?.milestoneTimers ?? [], 6)
+
+    playerReconnected(2)
+    assert.lengthOf(runtime?.milestoneTimers ?? [], 0)
+    stored = matchSystemMessages(match.id)
+    assert.lengthOf(stored, 2)
+    assert.equal(stored[1].body, 'player_2 reconnected.')
   })
 
   test('quitting a 2-player match ends it and notifies the finish listener', ({ assert }) => {

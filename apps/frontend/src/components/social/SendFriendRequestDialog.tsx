@@ -50,8 +50,7 @@ export default function SendFriendRequestDialog({
         <DialogHeader>
           <DialogTitle>Send a friend request</DialogTitle>
           <DialogDescription>
-            Enter the player&apos;s exact username — partial names won&apos;t
-            match.
+            Enter the player&apos;s exact username.
           </DialogDescription>
         </DialogHeader>
 

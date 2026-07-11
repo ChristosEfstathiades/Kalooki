@@ -1,5 +1,9 @@
 import { useEffect } from 'react'
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  queryOptions,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { api } from '#/lib/api'
 import { getSocket } from '#/lib/socket'
 import type { PublicUser } from '#/lib/social'
@@ -17,7 +21,9 @@ export interface ChatMessageItem {
   id: number
   body: string
   createdAt: string | null
-  user: PublicUser
+  /** Null for server-authored system lines (e.g. disconnect countdowns). */
+  user: PublicUser | null
+  system?: boolean
 }
 
 /**

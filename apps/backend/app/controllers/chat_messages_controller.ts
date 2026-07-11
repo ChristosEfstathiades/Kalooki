@@ -1,8 +1,9 @@
 import ChatMessage from '#models/chat_message'
 import MessageReport from '#models/message_report'
 import { assertMatchChatAccess, recentChatMessages } from '#services/chat_service'
+import { matchSystemMessages } from '#services/game/match_service'
 import { isGroupMember } from '#services/group_service'
-import ChatMessageTransformer from '#transformers/chat_message_transformer'
+import ChatMessageTransformer, { chatMessageShape } from '#transformers/chat_message_transformer'
 import { Exception } from '@adonisjs/core/exceptions'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -32,8 +33,10 @@ export default class ChatMessagesController {
   }
 
   /**
-   * Recent history for a live game's chat. Players of that match only;
-   * once the game ends the messages are no longer accessible.
+   * Recent history for a live game's chat, with the server's own lines
+   * (disconnect countdowns and the like) woven in by time. Players of
+   * that match only; once the game ends the messages are no longer
+   * accessible.
    */
   async match({ auth, params, serialize }: HttpContext) {
     const user = auth.getUserOrFail()
@@ -42,7 +45,10 @@ export default class ChatMessagesController {
     assertMatchChatAccess(matchId, user.id)
 
     const messages = await recentChatMessages({ type: 'match', matchId })
-    return serialize({ messages: ChatMessageTransformer.transform(messages) })
+    const merged = [...messages.map(chatMessageShape), ...matchSystemMessages(matchId)].sort(
+      (a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? '')
+    )
+    return serialize({ messages: merged })
   }
 
   /**

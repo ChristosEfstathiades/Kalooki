@@ -51,8 +51,26 @@ interface ParticipantRuntime {
   remainingRejoinMs: number
   disconnectedAt: number | null
   rejoinTimer: NodeJS.Timeout | null
+  /** Pending chat countdown announcements for a disconnect. */
+  milestoneTimers: NodeJS.Timeout[]
   /** Thinking-time bank left for the whole game. */
   remainingBankMs: number
+}
+
+/**
+ * A server-authored line in a match's chat (disconnect countdowns and
+ * the like). Kept in memory with the match — like the match itself, it
+ * does not survive a restart — and merged into the chat history
+ * endpoint so late joiners to the chat panel still see it. A type
+ * alias (not an interface) so it stays assignable to the serializer's
+ * JSON types.
+ */
+export type MatchSystemMessage = {
+  id: number
+  body: string
+  createdAt: string
+  user: null
+  system: true
 }
 
 export interface ActiveMatch {
@@ -75,6 +93,8 @@ export interface ActiveMatch {
   /** Epoch ms the match was created. */
   startedAt: number
   finishedAt: number | null
+  /** Server-authored chat lines, oldest first. */
+  systemMessages: MatchSystemMessage[]
 }
 
 /** What the socket layer must provide for outbound messages. */
@@ -554,6 +574,7 @@ function createMatch(
           remainingRejoinMs: rules.rejoinBudgetMs,
           disconnectedAt: null,
           rejoinTimer: null,
+          milestoneTimers: [],
           remainingBankMs: rules.moveTimeBankMs,
         },
       ])
@@ -565,6 +586,7 @@ function createMatch(
     overtimeGranted: false,
     startedAt: Date.now(),
     finishedAt: null,
+    systemMessages: [],
   }
 
   matches.set(match.id, match)
@@ -731,10 +753,81 @@ function timeOutPlayer(match: ActiveMatch, userId: number): void {
  * Disconnects: pause the game and run the rejoin budget
  * ---------------------------------------------------------------- */
 
+/** Remaining-time marks announced in chat while a player is away. */
+const REJOIN_MILESTONES: { ms: number; label: string }[] = [
+  { ms: 5 * 60_000, label: '5 minutes' },
+  { ms: 4 * 60_000, label: '4 minutes' },
+  { ms: 3 * 60_000, label: '3 minutes' },
+  { ms: 2 * 60_000, label: '2 minutes' },
+  { ms: 60_000, label: '1 minute' },
+  { ms: 30_000, label: '30 seconds' },
+  { ms: 10_000, label: '10 seconds' },
+]
+
+let nextSystemMessageId = -1
+
+/**
+ * Posts a server-authored line to the match's chat: stored with the
+ * match for the history endpoint and pushed live to every participant.
+ * Negative ids keep system lines clear of database message ids.
+ */
+function postMatchSystemMessage(match: ActiveMatch, body: string): void {
+  const message: MatchSystemMessage = {
+    id: nextSystemMessageId--,
+    body,
+    createdAt: new Date().toISOString(),
+    user: null,
+    system: true,
+  }
+  match.systemMessages.push(message)
+  for (const userId of match.identities.keys()) {
+    emitter.toUser(userId, 'chat:message', {
+      channel: 'match',
+      groupId: null,
+      matchId: match.id,
+      message,
+    })
+  }
+}
+
+/**
+ * Server-authored chat lines for a match (empty when the match is
+ * unknown, e.g. already dropped from memory).
+ */
+export function matchSystemMessages(matchId: string): MatchSystemMessage[] {
+  return matches.get(matchId)?.systemMessages ?? []
+}
+
+/**
+ * A rejoin allowance in words, e.g. "5 minutes" or "2 minutes 30
+ * seconds".
+ */
+function describeDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  const parts: string[] = []
+  if (minutes > 0) {
+    parts.push(minutes === 1 ? '1 minute' : `${minutes} minutes`)
+  }
+  if (seconds > 0 || parts.length === 0) {
+    parts.push(seconds === 1 ? '1 second' : `${seconds} seconds`)
+  }
+  return parts.join(' ')
+}
+
+function clearMilestoneTimers(runtime: ParticipantRuntime): void {
+  for (const timer of runtime.milestoneTimers) {
+    clearTimeout(timer)
+  }
+  runtime.milestoneTimers = []
+}
+
 /**
  * Marks a participant disconnected: the game pauses and their
  * remaining rejoin budget starts counting down (docs/Kalooki.md — the
- * budget is never refreshed within a game).
+ * budget is never refreshed within a game). Chat gets a countdown:
+ * the time left at each milestone, then the removal notice.
  */
 export function playerDisconnected(userId: number): void {
   leavePublicQueue(userId)
@@ -753,20 +846,38 @@ export function playerDisconnected(userId: number): void {
     return
   }
 
+  const username = match.identities.get(userId)?.username ?? 'A player'
   runtime.connected = false
   runtime.disconnectedAt = Date.now()
   runtime.rejoinTimer = setTimeout(() => {
     runtime.rejoinTimer = null
-    const username = match.identities.get(userId)?.username ?? 'A player'
+    clearMilestoneTimers(runtime)
     removePlayer(match.state, userId, rng)
     resumeIfNobodyDisconnected(match)
     afterStateChange(match, userId)
     broadcastState(match, `${username} did not reconnect in time and was removed`)
+    postMatchSystemMessage(
+      match,
+      `${username} did not reconnect in time and has been kicked from the game.`
+    )
   }, runtime.remainingRejoinMs)
 
+  for (const milestone of REJOIN_MILESTONES) {
+    if (milestone.ms < runtime.remainingRejoinMs) {
+      runtime.milestoneTimers.push(
+        setTimeout(() => {
+          postMatchSystemMessage(match, `${username} has ${milestone.label} left to reconnect.`)
+        }, runtime.remainingRejoinMs - milestone.ms)
+      )
+    }
+  }
+
   pauseMatch(match)
-  const username = match.identities.get(userId)?.username ?? 'A player'
   broadcastState(match, `${username} disconnected — game paused`)
+  postMatchSystemMessage(
+    match,
+    `${username} disconnected — ${describeDuration(runtime.remainingRejoinMs)} to reconnect.`
+  )
 }
 
 /**
@@ -788,6 +899,7 @@ export function playerReconnected(userId: number): ActiveMatch | null {
     clearTimeout(runtime.rejoinTimer)
     runtime.rejoinTimer = null
   }
+  clearMilestoneTimers(runtime)
   if (runtime.disconnectedAt !== null) {
     runtime.remainingRejoinMs = Math.max(
       0,
@@ -799,6 +911,7 @@ export function playerReconnected(userId: number): ActiveMatch | null {
   resumeIfNobodyDisconnected(match)
   const username = match.identities.get(userId)?.username ?? 'A player'
   broadcastState(match, `${username} reconnected`)
+  postMatchSystemMessage(match, `${username} reconnected.`)
   return match
 }
 
@@ -904,6 +1017,7 @@ function clearMatchTimers(match: ActiveMatch): void {
       clearTimeout(runtime.rejoinTimer)
       runtime.rejoinTimer = null
     }
+    clearMilestoneTimers(runtime)
   }
 }
 

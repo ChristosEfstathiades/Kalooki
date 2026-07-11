@@ -50,6 +50,8 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 - Users should see how many cards each player has left
 - users can see melds and most recently discarded card in the middle of the felt alongside the draw deck
 - a chat button in the table header toggles a side panel with the table chat, which only the game's players can read and type in; the panel shows "chat closed" once the game ends (see features.md, In-Game Chat)
+- two sort buttons under the hand order it by rank (highest to lowest) or by suit. a card drawn or picked up mid-turn stays unsorted at the right of the hand until the turn ends with it still in hand, or until a sort button is pressed again
+- when a round ends, a popup titled with the round winner shows the scoresheet (each player's points gained and running total) for 5 seconds, then closes on its own; it stays open while buy-in decisions are pending or when the game is over
 
 ## Rules page
 
