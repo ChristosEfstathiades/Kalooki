@@ -16,6 +16,7 @@ import type {
   GamePlayerView,
   GameView,
   MeldView,
+  Rank,
   RoundResultView,
   Suit,
 } from '#/lib/game'
@@ -351,7 +352,7 @@ function GamePage() {
                   }
                 />
               ) : (
-                <span className="flex h-16 w-11 items-center justify-center rounded-md border border-dashed border-white/40 text-xs text-white/60">
+                <span className="flex h-24 w-[66px] items-center justify-center rounded-md border border-dashed border-white/40 text-xs text-white/60">
                   Empty
                 </span>
               )}
@@ -596,6 +597,20 @@ interface MeldGroupProps {
   onTakeJoker: (meldId: number, jokerCardId: number) => void
 }
 
+const SUIT_SYMBOL: Record<Suit, string> = {
+  hearts: '♥',
+  diamonds: '♦',
+  clubs: '♣',
+  spades: '♠',
+}
+
+/** Red suits print red, black suits near-black, on the light meld chip. */
+function suitColorClass(suit: Suit | null): string {
+  return suit === 'hearts' || suit === 'diamonds'
+    ? 'text-red-600'
+    : 'text-zinc-900'
+}
+
 function MeldGroup({
   meld,
   singleSelected,
@@ -604,25 +619,20 @@ function MeldGroup({
   onTakeJoker,
 }: MeldGroupProps) {
   return (
-    <div className="rounded-md bg-black/15 p-2">
-      <div className="flex gap-1">
+    <div className="rounded-md bg-white/90 px-2 py-1 shadow-sm">
+      <div className="flex items-center gap-2">
         {meld.cards.map((meldCard) => (
-          <div key={meldCard.card.id} className="relative">
-            <PlayingCard
-              card={meldCard.card}
-              small
-              onClick={
-                meldCard.card.isJoker && hasReplacementsSelected
-                  ? () => onTakeJoker(meld.id, meldCard.card.id)
-                  : undefined
-              }
-            />
-            {meldCard.card.isJoker && (
-              <span className="absolute -top-1 -right-1 rounded bg-black/70 px-0.5 text-[9px] text-white">
-                {String(meldCard.rank)}
-              </span>
-            )}
-          </div>
+          <MeldToken
+            key={meldCard.card.id}
+            rank={meldCard.rank}
+            suit={meldCard.suit}
+            isJoker={meldCard.card.isJoker}
+            onClick={
+              meldCard.card.isJoker && hasReplacementsSelected
+                ? () => onTakeJoker(meld.id, meldCard.card.id)
+                : undefined
+            }
+          />
         ))}
       </div>
       {singleSelected && (
@@ -630,7 +640,7 @@ function MeldGroup({
           {meld.type === 'run' && (
             <button
               type="button"
-              className="rounded bg-black/40 px-1.5 py-0.5 text-[10px] text-white hover:bg-black/60"
+              className="rounded bg-zinc-700 px-1.5 py-0.5 text-[10px] text-white hover:bg-zinc-900"
               onClick={() => onGoer(meld.id, singleSelected.id, 'low')}
             >
               + low
@@ -638,7 +648,7 @@ function MeldGroup({
           )}
           <button
             type="button"
-            className="rounded bg-black/40 px-1.5 py-0.5 text-[10px] text-white hover:bg-black/60"
+            className="rounded bg-zinc-700 px-1.5 py-0.5 text-[10px] text-white hover:bg-zinc-900"
             onClick={() => onGoer(meld.id, singleSelected.id, 'high')}
           >
             {meld.type === 'run' ? '+ high' : 'Add here'}
@@ -646,6 +656,49 @@ function MeldGroup({
         </div>
       )}
     </div>
+  )
+}
+
+interface MeldTokenProps {
+  rank: Rank
+  suit: Suit | null
+  isJoker: boolean
+  onClick?: () => void
+}
+
+/**
+ * A laid-down card shown as compact text (e.g. "10♥") rather than a
+ * card image. Jokers display the rank/suit they stand in for, marked
+ * with a star and purple ring, and stay clickable so a selected card
+ * can be swapped in for them.
+ */
+function MeldToken({ rank, suit, isJoker, onClick }: MeldTokenProps) {
+  const content = (
+    <span
+      className={cn(
+        'inline-flex items-baseline text-lg leading-none font-semibold tabular-nums',
+        suitColorClass(suit),
+        isJoker && 'rounded px-1 ring-1 ring-purple-500/70',
+      )}
+    >
+      {String(rank)}
+      {suit && <span className="ml-0.5">{SUIT_SYMBOL[suit]}</span>}
+      {isJoker && <span className="ml-0.5 text-xs text-purple-600">★</span>}
+    </span>
+  )
+
+  if (!onClick) {
+    return content
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Swap your selected card in for this joker"
+      className="appearance-none border-0 bg-transparent p-0 hover:opacity-70"
+    >
+      {content}
+    </button>
   )
 }
 
@@ -740,7 +793,7 @@ function OwnArea({
         </div>
       )}
 
-      <div className="mt-3 flex flex-wrap gap-1">
+      <div className="mt-3 flex flex-wrap [&>*:not(:first-child)]:-ml-5">
         {handCards.map((card) => (
           <PlayingCard
             key={card.id}

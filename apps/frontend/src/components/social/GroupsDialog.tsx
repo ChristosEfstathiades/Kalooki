@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, MoreVertical } from 'lucide-react'
 import { currentUserQueryOptions, extractApiErrors } from '#/lib/auth'
 import {
   groupDetailQueryOptions,
@@ -27,6 +27,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '#/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/ui/dropdown-menu'
+import type { PublicUser } from '#/lib/social'
 
 interface GroupsDialogProps {
   open: boolean
@@ -340,44 +347,31 @@ function GroupDetail({ groupId, onBack }: GroupDetailProps) {
                 </span>
               </span>
               {isOwner && member.id !== currentUser.id && (
-                <span className="flex shrink-0 gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={transferOwnership.isPending}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Make ${member.username} the owner of this group?`,
-                        )
-                      ) {
-                        void runWithErrors(() =>
-                          transferOwnership.mutateAsync({
-                            groupId,
-                            userId: member.id,
-                          }),
-                        )
-                      }
-                    }}
-                  >
-                    Make owner
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={removeMember.isPending}
-                    onClick={() =>
-                      runWithErrors(() =>
-                        removeMember.mutateAsync({
+                <MemberActionsMenu
+                  member={member}
+                  onMakeOwner={() => {
+                    if (
+                      window.confirm(
+                        `Make ${member.username} the owner of this group?`,
+                      )
+                    ) {
+                      void runWithErrors(() =>
+                        transferOwnership.mutateAsync({
                           groupId,
                           userId: member.id,
                         }),
                       )
                     }
-                  >
-                    Remove
-                  </Button>
-                </span>
+                  }}
+                  onRemove={() =>
+                    runWithErrors(() =>
+                      removeMember.mutateAsync({
+                        groupId,
+                        userId: member.id,
+                      }),
+                    )
+                  }
+                />
               )}
             </li>
           ))}
@@ -458,5 +452,44 @@ function GroupDetail({ groupId, onBack }: GroupDetailProps) {
         )}
       </div>
     </>
+  )
+}
+
+interface MemberActionsMenuProps {
+  member: PublicUser
+  onMakeOwner: () => void
+  onRemove: () => void
+}
+
+/**
+ * Per-member "..." menu for the group owner: hand over ownership or
+ * remove the member from the group.
+ */
+function MemberActionsMenu({
+  member,
+  onMakeOwner,
+  onRemove,
+}: MemberActionsMenuProps) {
+  return (
+    // Non-modal: this menu is nested inside a modal Dialog, and two
+    // nested modal focus/pointer traps fight over outside-click
+    // detection — the Dialog ends up closing whenever the dropdown does.
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={`Actions for ${member.username}`}
+        >
+          <MoreVertical aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onMakeOwner}>Make owner</DropdownMenuItem>
+        <DropdownMenuItem variant="destructive" onClick={onRemove}>
+          Remove from group
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

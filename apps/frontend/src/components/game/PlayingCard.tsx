@@ -69,7 +69,7 @@ export default function PlayingCard({
     <span
       className={cn(
         'inline-block overflow-hidden rounded-md bg-white shadow-sm select-none',
-        small ? 'h-10 w-7' : 'h-16 w-11',
+        small ? 'h-10 w-7' : 'h-24 w-[66px]',
         selected && '-translate-y-2 ring-2 ring-ring',
         onClick && 'cursor-pointer',
       )}
@@ -95,7 +95,10 @@ export default function PlayingCard({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="appearance-none border-0 bg-transparent p-0"
+      className={cn(
+        'relative appearance-none border-0 bg-transparent p-0 hover:z-20',
+        selected ? 'z-10' : 'z-0',
+      )}
     >
       {face}
     </button>
@@ -115,7 +118,7 @@ export function CardBack({ small }: CardBackProps) {
       aria-hidden="true"
       className={cn(
         'inline-block rounded-md border border-black/30 bg-button-purple shadow-sm',
-        small ? 'h-10 w-7' : 'h-16 w-11',
+        small ? 'h-10 w-7' : 'h-24 w-[66px]',
       )}
       style={{
         backgroundImage:
