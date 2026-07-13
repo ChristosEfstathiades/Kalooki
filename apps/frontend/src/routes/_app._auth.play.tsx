@@ -1,19 +1,24 @@
 import { useEffect, useState } from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Clock, Trophy, Users, UsersRound } from 'lucide-react'
+import { Bot, Clock, Trophy, Users, UsersRound } from 'lucide-react'
 import {
   friendRequestsQueryOptions,
   groupInvitesQueryOptions,
 } from '#/lib/social'
-import { joinPublicQueue, leavePublicQueue } from '#/lib/game'
+import {
+  joinPublicQueue,
+  leavePublicQueue,
+  startPracticeMatch,
+} from '#/lib/game'
 import { getSocket } from '#/lib/socket'
 import FriendsDialog from '#/components/social/FriendsDialog'
 import GroupsDialog from '#/components/social/GroupsDialog'
 import ChatSidebar from '#/components/chat/ChatSidebar'
 import NewsCard from '#/components/NewsCard'
 import { Button } from '#/components/ui/button'
-import type { QueueStatus } from '#/lib/game'
+import { cn } from '#/lib/utils'
+import type { BotDifficulty, QueueStatus } from '#/lib/game'
 
 export const Route = createFileRoute('/_app/_auth/play')({
   component: PlayPage,
@@ -57,6 +62,7 @@ function PlayPage() {
     <div className="page-wrap grid gap-6 py-8 lg:grid-cols-[1fr_320px]">
       <section className="space-y-6">
         <MatchmakingCard />
+        <PracticeCard />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Button
@@ -175,6 +181,130 @@ function MatchmakingCard() {
       {error && (
         <p className="mt-2 mb-0 text-xs text-destructive-foreground">{error}</p>
       )}
+    </div>
+  )
+}
+
+const DIFFICULTY_OPTIONS: { value: BotDifficulty; label: string }[] = [
+  { value: 'easy', label: 'Easy' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'hard', label: 'Hard' },
+]
+
+const OPPONENT_OPTIONS = [1, 2, 3]
+
+/**
+ * Practice mode: starts a solo match against bots on the classic
+ * ruleset. Practice games appear in match history flagged as practice
+ * and never count toward leaderboard stats.
+ */
+function PracticeCard() {
+  const navigate = useNavigate()
+  const [difficulty, setDifficulty] = useState<BotDifficulty>('medium')
+  const [opponents, setOpponents] = useState(2)
+  const [starting, setStarting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const start = async () => {
+    setError(null)
+    setStarting(true)
+    try {
+      const { matchId } = await startPracticeMatch(difficulty, opponents)
+      void navigate({ to: '/game/$matchId', params: { matchId } })
+    } catch (startError) {
+      setError(
+        startError instanceof Error
+          ? startError.message
+          : 'Something went wrong',
+      )
+      setStarting(false)
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-6">
+      <h2 className="m-0 flex items-center gap-2 text-xl font-bold">
+        <Bot aria-hidden="true" className="size-5" />
+        Play vs computer
+      </h2>
+      <p className="mt-1 mb-4 text-sm text-muted-foreground">
+        Practice against bots at your own pace. Practice games are saved to
+        your history but never count toward the leaderboard.
+      </p>
+
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <SegmentedButtons
+          label="Difficulty"
+          options={DIFFICULTY_OPTIONS}
+          active={difficulty}
+          onSelect={setDifficulty}
+        />
+        <SegmentedButtons
+          label="Opponents"
+          options={OPPONENT_OPTIONS.map((count) => ({
+            value: String(count),
+            label: String(count),
+          }))}
+          active={String(opponents)}
+          onSelect={(value) => setOpponents(Number(value))}
+        />
+      </div>
+
+      <Button
+        size="lg"
+        className="mt-4 w-full sm:w-auto"
+        disabled={starting}
+        onClick={() => void start()}
+      >
+        {starting ? 'Starting…' : 'Start practice game'}
+      </Button>
+      {error && (
+        <p className="mt-2 mb-0 text-xs text-destructive-foreground">{error}</p>
+      )}
+    </div>
+  )
+}
+
+interface SegmentedButtonsProps<TValue extends string> {
+  label: string
+  options: { value: TValue; label: string }[]
+  active: TValue
+  onSelect: (value: TValue) => void
+}
+
+/**
+ * A labelled row of mutually exclusive small buttons (radio-style).
+ */
+function SegmentedButtons<TValue extends string>({
+  label,
+  options,
+  active,
+  onSelect,
+}: SegmentedButtonsProps<TValue>) {
+  return (
+    <div
+      className="flex items-center gap-2"
+      role="radiogroup"
+      aria-label={label}
+    >
+      <span className="text-sm text-muted-foreground">{label}</span>
+      {options.map((option) => (
+        <Button
+          key={option.value}
+          type="button"
+          role="radio"
+          size="sm"
+          aria-checked={active === option.value}
+          variant={active === option.value ? 'default' : 'secondary'}
+          className={cn(
+            active === option.value &&
+              'bg-button-purple hover:bg-button-purple-hover',
+          )}
+          onClick={() => onSelect(option.value)}
+        >
+          {option.label}
+        </Button>
+      ))}
     </div>
   )
 }

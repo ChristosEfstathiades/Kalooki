@@ -14,7 +14,7 @@ export const Route = createFileRoute('/_app/_auth/history')({
 })
 
 interface MatchFilters {
-  kind: 'all' | 'public' | 'private'
+  kind: 'all' | 'public' | 'private' | 'practice'
   sort: 'newest' | 'oldest'
   wonOnly: boolean
 }
@@ -85,6 +85,7 @@ function HistoryPage() {
             { value: 'all', label: 'All' },
             { value: 'public', label: 'Public' },
             { value: 'private', label: 'Private' },
+            { value: 'practice', label: 'Practice' },
           ]}
           active={filters.kind}
           onSelect={(kind) => setFilters({ ...filters, kind })}
@@ -216,7 +217,7 @@ function MatchRow({ match, currentUserId, expanded, onToggle }: MatchRowProps) {
         )}
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-medium">
-            {match.kind === 'public' ? 'Public match' : 'Private match'} ·{' '}
+            {matchKindLabel(match)} ·{' '}
             {match.players.map((player) => player.username).join(', ')}
           </span>
           <span className="block text-xs text-muted-foreground">
@@ -365,6 +366,19 @@ function MatchDetail({ match }: MatchDetailProps) {
       </section>
     </div>
   )
+}
+
+/**
+ * A match's headline label: "Public match", "Private match", or, for
+ * bot games, "Practice (hard bots)".
+ */
+function matchKindLabel(match: MatchRecord): string {
+  if (match.kind === 'practice') {
+    return match.botDifficulty
+      ? `Practice (${match.botDifficulty} bots)`
+      : 'Practice'
+  }
+  return match.kind === 'public' ? 'Public match' : 'Private match'
 }
 
 /**

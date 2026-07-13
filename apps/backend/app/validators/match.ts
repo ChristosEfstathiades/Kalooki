@@ -6,7 +6,7 @@ import vine from '@vinejs/vine'
  * newest first, wins and losses alike) apply when omitted.
  */
 export const matchHistoryFilterValidator = vine.create({
-  kind: vine.enum(['public', 'private']).optional(),
+  kind: vine.enum(['public', 'private', 'practice']).optional(),
   sort: vine.enum(['newest', 'oldest']).optional(),
   wonOnly: vine.boolean().optional(),
 })

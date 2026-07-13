@@ -47,6 +47,7 @@ export async function recordMatch(match: ActiveMatch): Promise<Match> {
         runtimeId: match.id,
         kind: match.kind,
         groupId: match.groupId,
+        botDifficulty: match.botDifficulty,
         rules: JSON.stringify(match.rules),
         scoresheet: JSON.stringify(match.state.roundResults),
         completed: match.state.winnerUserId !== null,
@@ -78,8 +79,8 @@ export async function recordMatch(match: ActiveMatch): Promise<Match> {
  * Optional filters for a user's match history listing.
  */
 export interface MatchHistoryFilters {
-  /** Only matches of this kind; both kinds when omitted. */
-  kind?: 'public' | 'private'
+  /** Only matches of this kind; all kinds when omitted. */
+  kind?: 'public' | 'private' | 'practice'
   /** Order by end date; newest first when omitted. */
   sort?: 'newest' | 'oldest'
   /** Only matches the user won. */

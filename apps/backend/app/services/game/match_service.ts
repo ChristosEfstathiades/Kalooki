@@ -15,21 +15,27 @@ import {
   takeDiscard,
   takeJoker,
 } from '#services/game/engine'
+import { decideBotAction } from '#services/game/bot'
+import type { BotDifficulty } from '#services/game/bot'
 import type { GameRules, GameState, TabledMeld, RoundResult } from '#services/game/engine'
 import type { Card, Rng } from '#services/game/cards'
 
 /**
  * Live match orchestration: public matchmaking, private group lobbies,
- * per-player redacted views, move/rejoin timers, and
- * disconnect-pausing. Pure game rules live in the engine; socket
- * plumbing lives in the socket service and reaches this module through
- * the injected emitter, so everything here is testable without I/O.
+ * practice matches against bots, per-player redacted views,
+ * move/rejoin timers, and disconnect-pausing. Pure game rules live in
+ * the engine; socket plumbing lives in the socket service and reaches
+ * this module through the injected emitter, so everything here is
+ * testable without I/O.
  */
 
 export interface PlayerIdentity {
   id: number
   username: string
 }
+
+/** Public queue game, private group game, or solo play against bots. */
+export type MatchKind = 'public' | 'private' | 'practice'
 
 /** A player-initiated game action, forwarded from the socket layer. */
 export type GameAction =
@@ -73,12 +79,18 @@ export type MatchSystemMessage = {
 
 export interface ActiveMatch {
   id: string
-  kind: 'public' | 'private'
+  kind: MatchKind
   groupId: number | null
   rules: GameRules
   state: GameState
   identities: Map<number, PlayerIdentity>
   runtime: Map<number, ParticipantRuntime>
+  /** Seats played by bots (practice matches only). */
+  botIds: Set<number>
+  /** Difficulty of every bot in the match; null without bots. */
+  botDifficulty: BotDifficulty | null
+  /** Pending "bot is thinking" timer for the next bot step. */
+  botTimer: NodeJS.Timeout | null
   /** Epoch ms the current turn started (for bank accounting). */
   turnStartedAt: number
   turnTimer: NodeJS.Timeout | null
@@ -104,7 +116,7 @@ export interface MatchEmitter {
 /** The view of a match a single player is allowed to see. */
 export interface ClientGameView {
   matchId: string
-  kind: 'public' | 'private'
+  kind: MatchKind
   rules: GameRules
   phase: GameState['phase']
   roundNumber: number
@@ -123,6 +135,7 @@ export interface ClientGameView {
     userId: number
     username: string
     seat: number
+    isBot: boolean
     handCount: number
     hasComeDown: boolean
     score: number
@@ -191,14 +204,17 @@ let emitter: MatchEmitter = {
 }
 let rng: Rng = Math.random
 
+/** Fixed bot thinking time override; null means the jittered default. */
+let botDelayMsOverride: number | null = null
+
 /**
  * Wires the outbound emitter (called by the socket provider at boot).
- * The rng and queue countdown can be overridden for deterministic
- * tests.
+ * The rng, queue countdown, and bot thinking delay can be overridden
+ * for deterministic tests.
  */
 export function configureMatchService(
   nextEmitter: MatchEmitter,
-  options: { rng?: Rng; queueCountdownMs?: number } = {}
+  options: { rng?: Rng; queueCountdownMs?: number; botDelayMs?: number } = {}
 ): void {
   emitter = nextEmitter
   if (options.rng) {
@@ -206,6 +222,9 @@ export function configureMatchService(
   }
   if (options.queueCountdownMs !== undefined) {
     queueCountdownMs = options.queueCountdownMs
+  }
+  if (options.botDelayMs !== undefined) {
+    botDelayMsOverride = options.botDelayMs
   }
 }
 
@@ -546,8 +565,9 @@ function broadcastLobby(groupId: number): void {
 function createMatch(
   players: PlayerIdentity[],
   rules: GameRules,
-  kind: 'public' | 'private',
-  groupId: number | null
+  kind: MatchKind,
+  groupId: number | null,
+  practice?: { botIds: number[]; difficulty: BotDifficulty }
 ): ActiveMatch {
   const state = createGame(
     players.map((player) => player.id),
@@ -575,6 +595,9 @@ function createMatch(
         },
       ])
     ),
+    botIds: new Set(practice?.botIds ?? []),
+    botDifficulty: practice?.difficulty ?? null,
+    botTimer: null,
     turnStartedAt: Date.now(),
     turnTimer: null,
     turnDeadlineAt: null,
@@ -587,12 +610,41 @@ function createMatch(
 
   matches.set(match.id, match)
   for (const player of players) {
+    // Bots never connect, so they stay out of the per-user match
+    // index — the same bot may sit in many matches at once
+    if (match.botIds.has(player.id)) {
+      continue
+    }
     matchIdByUser.set(player.id, match.id)
     emitter.toUser(player.id, 'game:start', { matchId: match.id })
   }
   scheduleTurnTimer(match)
   broadcastState(match, 'The game has started')
+  maybeScheduleBotTurn(match)
   return match
+}
+
+/**
+ * Starts a practice match: the human against 1-3 bots on the classic
+ * ruleset. Practice games are recorded in history but flagged, and
+ * never count toward competitive stats.
+ */
+export function startPracticeMatch(
+  human: PlayerIdentity,
+  bots: PlayerIdentity[],
+  difficulty: BotDifficulty
+): ActiveMatch {
+  if (matchForUser(human.id)) {
+    throw new GameError('You are already in a game', 'E_ALREADY_IN_GAME')
+  }
+  if (bots.length < 1 || bots.length > 3) {
+    throw new GameError('Practice games take 1 to 3 bot opponents', 'E_BOT_COUNT')
+  }
+  leavePublicQueue(human.id)
+  return createMatch([human, ...bots], CLASSIC_RULES, 'practice', null, {
+    botIds: bots.map((bot) => bot.id),
+    difficulty,
+  })
 }
 
 /**
@@ -614,52 +666,51 @@ export function applyGameAction(
     throw new GameError('The game is paused while a player reconnects', 'E_PAUSED')
   }
 
-  const username = match.identities.get(userId)?.username ?? 'A player'
   const turnUserBefore = currentTurnUserId(match.state)
-  let eventText: string
+  const eventText = performAction(match, userId, action)
+  afterStateChange(match, turnUserBefore)
+  broadcastState(match, eventText)
+  return redactedView(match, userId)
+}
+
+/**
+ * Applies one action to the engine (shared by human moves and bot
+ * steps) and describes it for the event feed.
+ *
+ * @throws GameError from the engine on illegal actions.
+ */
+function performAction(match: ActiveMatch, userId: number, action: GameAction): string {
+  const username = match.identities.get(userId)?.username ?? 'A player'
 
   switch (action.type) {
     case 'draw':
       drawFromDeck(match.state, userId, rng)
-      eventText = `${username} drew from the deck`
-      break
+      return `${username} drew from the deck`
     case 'takeDiscard':
       takeDiscard(match.state, userId)
-      eventText = `${username} took the discard`
-      break
+      return `${username} took the discard`
     case 'returnDiscard':
       returnDiscard(match.state, userId)
-      eventText = `${username} returned the discard`
-      break
+      return `${username} returned the discard`
     case 'layMelds':
       layMelds(match.state, userId, action.melds)
-      eventText = `${username} laid down`
-      break
+      return `${username} laid down`
     case 'goer':
       addGoer(match.state, userId, action)
-      eventText = `${username} added a go-er`
-      break
+      return `${username} added a go-er`
     case 'takeJoker':
       takeJoker(match.state, userId, action)
-      eventText = `${username} took a joker`
-      break
+      return `${username} took a joker`
     case 'discard':
       discard(match.state, userId, action.cardId, rng)
-      eventText = `${username} discarded`
-      break
+      return `${username} discarded`
     case 'buyIn':
       decideBuyIn(match.state, userId, action.accept, rng)
-      eventText = action.accept ? `${username} bought back in` : `${username} is out`
-      break
+      return action.accept ? `${username} bought back in` : `${username} is out`
     case 'quit':
       removePlayer(match.state, userId, rng)
-      eventText = `${username} left the game`
-      break
+      return `${username} left the game`
   }
-
-  afterStateChange(match, turnUserBefore)
-  broadcastState(match, eventText)
-  return redactedView(match, userId)
 }
 
 /**
@@ -690,11 +741,141 @@ function afterStateChange(match: ActiveMatch, turnUserBefore: number | null): vo
     match.overtimeGranted = false
   }
 
+  settlePracticeIfHumanOut(match)
+
   if (match.state.phase === 'finished') {
     finishMatch(match)
     return
   }
   scheduleTurnTimer(match)
+  maybeScheduleBotTurn(match)
+}
+
+/* -------------------------------------------------------------------
+ * Bot turns (practice matches)
+ * ---------------------------------------------------------------- */
+
+/** Thinking time before a bot's next step, jittered to feel alive. */
+function botDelayMs(): number {
+  return botDelayMsOverride ?? 900 + Math.floor(rng() * 800)
+}
+
+/**
+ * The bot that must act right now: the bot whose turn it is, or a bot
+ * with a pending buy-in decision at round end.
+ */
+function nextBotActor(match: ActiveMatch): number | null {
+  if (match.botIds.size === 0) {
+    return null
+  }
+  if (match.state.phase === 'roundEnd') {
+    return match.state.pendingBuyIns.find((userId) => match.botIds.has(userId)) ?? null
+  }
+  const turnUser = currentTurnUserId(match.state)
+  return turnUser !== null && match.botIds.has(turnUser) ? turnUser : null
+}
+
+/**
+ * Arms (or clears) the timer for the next bot step. Bots act one
+ * engine action at a time — draw, then lay, then discard — each after
+ * a short thinking delay, so humans watch the turn unfold. Never runs
+ * while the match is paused for a disconnected human.
+ */
+function maybeScheduleBotTurn(match: ActiveMatch): void {
+  if (match.botTimer) {
+    clearTimeout(match.botTimer)
+    match.botTimer = null
+  }
+  if (match.pausedAt !== null || match.finishedAt !== null || match.state.phase === 'finished') {
+    return
+  }
+  const botId = nextBotActor(match)
+  if (botId === null || match.botDifficulty === null) {
+    return
+  }
+  const difficulty = match.botDifficulty
+  match.botTimer = setTimeout(() => {
+    match.botTimer = null
+    runBotStep(match, botId, difficulty)
+  }, botDelayMs())
+}
+
+/**
+ * Executes one bot step through the same engine path as human moves.
+ * If the bot's chosen action is rejected by the engine, a simple
+ * fallback keeps the game moving; as a last resort the bot is removed
+ * so a match can never hang on a bot.
+ */
+function runBotStep(match: ActiveMatch, botId: number, difficulty: BotDifficulty): void {
+  if (match.pausedAt !== null || match.finishedAt !== null || nextBotActor(match) !== botId) {
+    return
+  }
+
+  const turnUserBefore = currentTurnUserId(match.state)
+  let eventText: string
+  try {
+    eventText = performAction(match, botId, decideBotAction(match.state, botId, difficulty, rng))
+  } catch (error) {
+    if (!(error instanceof GameError)) {
+      throw error
+    }
+    eventText = recoverBotStep(match, botId)
+  }
+
+  afterStateChange(match, turnUserBefore)
+  broadcastState(match, eventText)
+}
+
+/**
+ * Fallback when a bot's action was illegal: undo a pending discard
+ * take, otherwise make the simplest legal move; failing that, remove
+ * the bot so play continues.
+ */
+function recoverBotStep(match: ActiveMatch, botId: number): string {
+  const username = match.identities.get(botId)?.username ?? 'A bot'
+  const bot = playerState(match.state, botId)
+  try {
+    if (match.state.phase === 'acting') {
+      if (bot.pendingDiscardCardId !== null) {
+        returnDiscard(match.state, botId)
+        return `${username} returned the discard`
+      }
+      discard(match.state, botId, bot.hand[0].id, rng)
+      return `${username} discarded`
+    }
+    if (match.state.phase === 'awaitingDraw') {
+      drawFromDeck(match.state, botId, rng)
+      return `${username} drew from the deck`
+    }
+  } catch (error) {
+    if (!(error instanceof GameError)) {
+      throw error
+    }
+  }
+  removePlayer(match.state, botId, rng)
+  return `${username} could not move and was removed`
+}
+
+/**
+ * Ends a practice match the moment its human is out (quit, timed out,
+ * or eliminated with no buy-in left): bots do not play on alone.
+ * Folding the highest-scoring bots one by one hands the win to the
+ * best-placed bot and lets the normal finish path record the match.
+ */
+function settlePracticeIfHumanOut(match: ActiveMatch): void {
+  if (match.kind !== 'practice' || match.state.phase === 'finished') {
+    return
+  }
+  const humanStillIn = match.state.players.some(
+    (player) => !match.botIds.has(player.userId) && !player.eliminated
+  )
+  if (humanStillIn) {
+    return
+  }
+  while (activePlayers(match.state).length > 1) {
+    const leaders = activePlayers(match.state).sort((a, b) => b.score - a.score)
+    removePlayer(match.state, leaders[0].userId, rng)
+  }
 }
 
 /**
@@ -777,6 +958,9 @@ function postMatchSystemMessage(match: ActiveMatch, body: string): void {
   }
   match.systemMessages.push(message)
   for (const userId of match.identities.keys()) {
+    if (match.botIds.has(userId)) {
+      continue
+    }
     emitter.toUser(userId, 'chat:message', {
       channel: 'match',
       groupId: null,
@@ -921,6 +1105,11 @@ function pauseMatch(match: ActiveMatch): void {
     match.turnTimer = null
     match.turnDeadlineAt = null
   }
+  // Bots wait out the pause too
+  if (match.botTimer) {
+    clearTimeout(match.botTimer)
+    match.botTimer = null
+  }
 }
 
 function resumeIfNobodyDisconnected(match: ActiveMatch): void {
@@ -935,6 +1124,7 @@ function resumeIfNobodyDisconnected(match: ActiveMatch): void {
   match.turnStartedAt += Date.now() - match.pausedAt
   match.pausedAt = null
   scheduleTurnTimer(match)
+  maybeScheduleBotTurn(match)
 }
 
 /* -------------------------------------------------------------------
@@ -974,6 +1164,7 @@ export function redactedView(match: ActiveMatch, viewerUserId: number): ClientGa
         userId: player.userId,
         username: identity?.username ?? `Player ${player.userId}`,
         seat,
+        isBot: match.botIds.has(player.userId),
         handCount: player.hand.length,
         hasComeDown: player.hasComeDown,
         score: player.score,
@@ -994,6 +1185,10 @@ export function redactedView(match: ActiveMatch, viewerUserId: number): ClientGa
 
 function broadcastState(match: ActiveMatch, eventText: string): void {
   for (const userId of match.identities.keys()) {
+    // Bots have no sockets; never emit a view holding a bot's hand
+    if (match.botIds.has(userId)) {
+      continue
+    }
     emitter.toUser(userId, 'game:state', {
       view: redactedView(match, userId),
       event: eventText,
@@ -1005,6 +1200,10 @@ function clearMatchTimers(match: ActiveMatch): void {
   if (match.turnTimer) {
     clearTimeout(match.turnTimer)
     match.turnTimer = null
+  }
+  if (match.botTimer) {
+    clearTimeout(match.botTimer)
+    match.botTimer = null
   }
   for (const runtime of match.runtime.values()) {
     if (runtime.rejoinTimer) {

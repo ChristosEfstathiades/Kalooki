@@ -436,7 +436,8 @@ function TableHeader({ view, onQuit, onToggleChat }: TableHeaderProps) {
       <p className="m-0 text-sm font-semibold">
         Kalooki · Round {view.roundNumber} ·{' '}
         <span className="text-muted-foreground">
-          {view.kind === 'public' ? 'Classic rules' : 'Custom rules'} · out at{' '}
+          {view.kind === 'private' ? 'Custom rules' : 'Classic rules'}
+          {view.kind === 'practice' && ' · Practice'} · out at{' '}
           {view.rules.scoreLimit + 1}
         </span>
       </p>
@@ -519,6 +520,11 @@ function OpponentSeat({ player, view }: OpponentSeatProps) {
       <div className="text-xs">
         <p className="m-0 font-semibold">
           {player.username}
+          {player.isBot && (
+            <span className="ml-1 rounded bg-muted px-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+              Bot
+            </span>
+          )}
           {!player.connected && !player.eliminated && (
             <span className="ml-1 text-destructive-foreground">
               (disconnected)

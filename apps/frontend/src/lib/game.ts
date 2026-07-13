@@ -68,6 +68,7 @@ export interface GamePlayerView {
   userId: number
   username: string
   seat: number
+  isBot: boolean
   handCount: number
   hasComeDown: boolean
   score: number
@@ -78,9 +79,13 @@ export interface GamePlayerView {
   connected: boolean
 }
 
+export type MatchKind = 'public' | 'private' | 'practice'
+
+export type BotDifficulty = 'easy' | 'medium' | 'hard'
+
 export interface GameView {
   matchId: string
-  kind: 'public' | 'private'
+  kind: MatchKind
   rules: GameRulesView
   phase: 'awaitingDraw' | 'acting' | 'roundEnd' | 'finished'
   roundNumber: number
@@ -211,6 +216,17 @@ export function joinPublicQueue(): Promise<QueueStatus> {
 
 export function leavePublicQueue(): Promise<QueueStatus> {
   return call<QueueStatus>('match:unqueue', {})
+}
+
+/**
+ * Starts a practice match against 1-3 bots on the classic ruleset.
+ * Practice games are saved to history but never count toward stats.
+ */
+export function startPracticeMatch(
+  difficulty: BotDifficulty,
+  opponents: number,
+): Promise<{ matchId: string }> {
+  return call<{ matchId: string }>('match:practice', { difficulty, opponents })
 }
 
 export function fetchLobby(groupId: number): Promise<LobbyView | null> {

@@ -34,7 +34,7 @@
 
 ## Match History
 
-- Every game is recorded so users can view their match history. (Gameplay and in-game mechanics are documented separately in `kalooki.md`.) Each recorded match stores: the winner (if the game finished), the full scoresheet including round-by-round scores, the players involved and their final placements (1st/2nd/3rd, etc.), the date/time and duration of the match, and the game variant and custom rules that were in effect. For play-money games the record also stores each player's net chips and the round-by-round chip movements. Unfinished games (abandoned or where a player quit) are also recorded, marked as incomplete with no winner and noting who left or forfeited. Match records are visible only to the participants of that match and are kept indefinitely. The match history list can be filtered by match type (public/private), ordered newest or oldest first, and narrowed to only matches the user won.
+- Every game is recorded so users can view their match history. (Gameplay and in-game mechanics are documented separately in `kalooki.md`.) Each recorded match stores: the winner (if the game finished), the full scoresheet including round-by-round scores, the players involved and their final placements (1st/2nd/3rd, etc.), the date/time and duration of the match, and the game variant and custom rules that were in effect. For play-money games the record also stores each player's net chips and the round-by-round chip movements. Unfinished games (abandoned or where a player quit) are also recorded, marked as incomplete with no winner and noting who left or forfeited. Match records are visible only to the participants of that match and are kept indefinitely. The match history list can be filtered by match type (public/private/practice), ordered newest or oldest first, and narrowed to only matches the user won.
 
 ## Global Leaderboard
 
@@ -44,4 +44,11 @@
 
 ## Game Modes
 
-- There are two ways to play Kalooki. (1) Public friendly matches, which always use a fixed, universal classic ruleset. (2) Private matches (as described in Private Groups), which can use either the classic ruleset or custom rules set by the group owner.
+- There are three ways to play Kalooki. (1) Public friendly matches, which always use a fixed, universal classic ruleset. (2) Private matches (as described in Private Groups), which can use either the classic ruleset or custom rules set by the group owner. (3) Practice matches against bots (see below).
+
+## Practice vs Bots
+
+- From the play page, a signed-in user can start a **practice match** against computer opponents instead of queueing for humans: they pick a difficulty (easy, medium, or hard — applied to every bot in the match) and how many bot opponents to face (1–3), and the game starts immediately on the classic ruleset.
+- Bots run on the server and act through the same rules engine as human players, taking one visible step at a time (draw, lay, discard) with a short thinking delay. Bots only ever use information a human in their seat could see — their own hand, the discard pile, tabled sets, and public counters — never opponents' hidden cards. Easy bots make frequent mistakes; medium bots play solid fundamentals; hard bots also reclaim tabled jokers, avoid feeding sets opponents can build on, and may hold a near-complete hand back to chase a kalooki.
+- Bots are real (flagged) accounts named RustyBot, SparkBot, and ZippyBot with generated robot avatars; they cannot sign in, be friended, or be invited to groups.
+- Practice matches are recorded in match history flagged as practice (with the bot difficulty), and never count toward the leaderboard or any competitive stat. If the human quits, times out, or is eliminated, the match ends immediately — bots do not play on alone. Disconnecting pauses a practice game with the usual rejoin timer.

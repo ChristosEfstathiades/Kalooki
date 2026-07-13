@@ -16,11 +16,15 @@ import {
   queueStatusFor,
   redactedView,
   startLobby,
+  startPracticeMatch,
 } from '#services/game/match_service'
+import { BOT_DIFFICULTIES } from '#services/game/bot'
+import { MAX_BOT_OPPONENTS, ensureBotUsers } from '#services/game/bot_users'
 import { isGroupMember } from '#services/group_service'
 import { chatRoom } from '#services/socket_service'
 import { UNLIMITED_BUY_INS } from '#services/game/engine'
 import type User from '#models/user'
+import type { BotDifficulty } from '#services/game/bot'
 import type { GameRules, MatchStakes } from '#services/game/engine'
 import type { GameAction, PlayerIdentity } from '#services/game/match_service'
 import type { Server, Socket } from 'socket.io'
@@ -124,6 +128,13 @@ function parseStakes(value: unknown): MatchStakes | null {
   }
 }
 
+/**
+ * Parses an untrusted bot difficulty, defaulting to medium.
+ */
+function parseBotDifficulty(value: unknown): BotDifficulty {
+  return BOT_DIFFICULTIES.includes(value as BotDifficulty) ? (value as BotDifficulty) : 'medium'
+}
+
 /** Hours ahead a private game may be scheduled (docs/features.md). */
 const SCHEDULE_HOUR_OPTIONS = [1, 3, 6, 12, 24]
 
@@ -159,6 +170,17 @@ export function bindGameHandlers(io: Server, socket: Socket, user: User): void {
     void acked(ack, async () => {
       leavePublicQueue(user.id)
       return queueStatusFor(user.id)
+    })
+  })
+
+  socket.on('match:practice', (payload: unknown, ack?: Ack) => {
+    void acked(ack, async () => {
+      const input = (payload ?? {}) as { difficulty?: unknown; opponents?: unknown }
+      const difficulty = parseBotDifficulty(input.difficulty)
+      const opponents = intIn(input.opponents, 1, MAX_BOT_OPPONENTS, 2)
+      const bots = await ensureBotUsers(opponents)
+      const match = startPracticeMatch(identityOf(user), bots, difficulty)
+      return { matchId: match.id }
     })
   })
 

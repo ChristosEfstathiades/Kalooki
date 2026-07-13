@@ -13,7 +13,9 @@ import {
   joinLobby,
   resetMatchService,
   startLobby,
+  startPracticeMatch,
 } from '#services/game/match_service'
+import { ensureBotUsers } from '#services/game/bot_users'
 import { recordMatch } from '#services/match_history_service'
 import testUtils from '@adonisjs/core/services/test_utils'
 import type { ActiveMatch, PlayerIdentity } from '#services/game/match_service'
@@ -83,6 +85,37 @@ test.group('Match history', (group) => {
     assert.isFalse(Boolean(aliceRow?.leftEarly))
     assert.equal(bobbyRow?.placement, 2)
     assert.isTrue(Boolean(bobbyRow?.leftEarly))
+  })
+
+  test('records a practice match flagged with its bot difficulty', async ({ client, assert }) => {
+    const alice = await makeUser('alice')
+    const bots = await ensureBotUsers(2)
+
+    // A long bot delay keeps the bots from moving before the quit
+    configureMatchService(
+      { toUser: () => {}, toGroup: () => {} },
+      { rng: () => 0.37, botDelayMs: 60_000 }
+    )
+    const match = startPracticeMatch(identityOf(alice), bots, 'hard')
+    applyGameAction(match.id, alice.id, { type: 'quit' })
+
+    const recorded = await recordMatch(match)
+    assert.equal(recorded.kind, 'practice')
+    assert.equal(recorded.botDifficulty, 'hard')
+
+    const response = await client.get('/api/v1/matches').qs({ kind: 'practice' }).loginAs(alice)
+    response.assertStatus(200)
+    const matches = response.body().data.matches
+    assert.lengthOf(matches, 1)
+    assert.equal(matches[0].kind, 'practice')
+    assert.equal(matches[0].botDifficulty, 'hard')
+
+    const players = matches[0].players as { id: number; isBot: boolean; leftEarly: boolean }[]
+    assert.lengthOf(
+      players.filter((player) => player.isBot),
+      2
+    )
+    assert.isTrue(players.find((player) => player.id === alice.id)?.leftEarly)
   })
 
   test('participants see the match; outsiders do not', async ({ client, assert }) => {

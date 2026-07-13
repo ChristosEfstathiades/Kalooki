@@ -16,7 +16,7 @@ export default class MatchTransformer extends BaseTransformer<Match> {
     const scoresheet = JSON.parse(this.resource.scoresheet) as RoundResult[]
 
     return {
-      ...this.pick(this.resource, ['id', 'kind', 'winnerUserId']),
+      ...this.pick(this.resource, ['id', 'kind', 'winnerUserId', 'botDifficulty']),
       // SQLite hands booleans back as 0/1
       completed: Boolean(this.resource.completed),
       startedAt: this.resource.startedAt.toISO(),
