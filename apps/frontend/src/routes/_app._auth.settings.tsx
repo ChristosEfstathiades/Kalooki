@@ -23,8 +23,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '#/components/ui/dialog'
-import { Input } from '#/components/ui/input'
-import { Label } from '#/components/ui/label'
 import { cn } from '#/lib/utils'
 import { getStoredTheme, setTheme } from '#/lib/theme'
 import { chatNameColor, USERNAME_COLORS, usernameColor } from '#/lib/username-color'
@@ -173,14 +171,12 @@ interface ProfileSectionProps {
 }
 
 /**
- * Profile editor: change the username and/or upload a new photo. The
- * form only submits the fields that actually changed.
+ * Profile editor: change the username. The avatar is a robot generated
+ * from the username, so changing the username also changes the avatar.
  */
 function ProfileSection({ user }: ProfileSectionProps) {
   const updateProfile = useUpdateProfile()
   const [serverErrors, setServerErrors] = useState<string[]>([])
-  const [avatar, setAvatar] = useState<File | null>(null)
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
   const form = useForm({
@@ -191,17 +187,9 @@ function ProfileSection({ user }: ProfileSectionProps) {
       setServerErrors([])
       setSaved(false)
       try {
-        await updateProfile.mutateAsync({
-          ...(value.username !== user.username
-            ? { username: value.username }
-            : {}),
-          ...(avatar ? { avatar } : {}),
-        })
-        setAvatar(null)
-        if (avatarPreview) {
-          URL.revokeObjectURL(avatarPreview)
-          setAvatarPreview(null)
-        }
+        await updateProfile.mutateAsync(
+          value.username !== user.username ? { username: value.username } : {},
+        )
         setSaved(true)
       } catch (error) {
         setServerErrors(extractApiErrors(error))
@@ -224,35 +212,11 @@ function ProfileSection({ user }: ProfileSectionProps) {
         <FormErrors errors={serverErrors} />
 
         <div className="flex items-center gap-4">
-          {avatarPreview ? (
-            <img
-              src={avatarPreview}
-              alt="New avatar preview"
-              className="size-16 rounded-full object-cover"
-            />
-          ) : (
-            <UserAvatar user={user} className="size-16 text-lg" />
-          )}
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <Label htmlFor="avatar">Profile photo</Label>
-            <Input
-              id="avatar"
-              name="avatar"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(event) => {
-                const file = event.target.files?.[0] ?? null
-                if (avatarPreview) {
-                  URL.revokeObjectURL(avatarPreview)
-                }
-                setAvatar(file)
-                setAvatarPreview(file ? URL.createObjectURL(file) : null)
-              }}
-            />
-            <p className="m-0 text-xs text-muted-foreground">
-              JPG, PNG, or WebP, up to 2 MB
-            </p>
-          </div>
+          <UserAvatar user={user} className="size-16" />
+          <p className="m-0 text-sm text-muted-foreground">
+            Your avatar is a robot generated from your username. Change your
+            username to get a new one.
+          </p>
         </div>
 
         <form.Field name="username" validators={{ onBlur: usernameSchema }}>

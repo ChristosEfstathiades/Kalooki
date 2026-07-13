@@ -33,8 +33,6 @@ function identityOf(user: User): PlayerIdentity {
   return {
     id: user.id,
     username: user.username,
-    avatarUrl: user.avatarUrl,
-    initials: user.initials,
   }
 }
 

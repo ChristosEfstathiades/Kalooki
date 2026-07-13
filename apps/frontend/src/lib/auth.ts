@@ -8,21 +8,9 @@ import { api } from '#/lib/api'
 import { closeSocket } from '#/lib/socket'
 import { clearStoredToken, getStoredToken, storeToken } from '#/lib/auth-token'
 import type { Data } from '@KalookiOnline/backend/data'
-import type { Path } from '@tuyau/core/types'
 import type { UsernameColor } from '#/lib/username-color'
 
 export type CurrentUser = Data.User
-
-type SignupBody = Path.Body<'POST', '/api/v1/auth/signup'>
-
-/**
- * The generated client types uploaded files as the server-side
- * MultipartFile class. In the browser the same field is a File; Tuyau
- * detects File values and sends the request as multipart/form-data.
- */
-function asUploadedFile(file: File): NonNullable<SignupBody['avatar']> {
-  return file as unknown as NonNullable<SignupBody['avatar']>
-}
 
 /**
  * Query for the signed-in user. Resolves to null when no token is
@@ -86,7 +74,6 @@ export interface SignupInput {
   email: string
   password: string
   passwordConfirmation: string
-  avatar: File | null
 }
 
 /**
@@ -105,7 +92,6 @@ export function useSignup() {
           email: input.email,
           password: input.password,
           passwordConfirmation: input.passwordConfirmation,
-          ...(input.avatar ? { avatar: asUploadedFile(input.avatar) } : {}),
         },
       })
       return response.data
@@ -121,14 +107,12 @@ export function useSignup() {
 
 export interface UpdateProfileInput {
   username?: string
-  avatar?: File | null
   chatColor?: UsernameColor
 }
 
 /**
- * Updates the signed-in user's username, profile photo, and/or chat
- * name colour, and refreshes the current-user cache with the returned
- * profile.
+ * Updates the signed-in user's username and/or chat name colour, and
+ * refreshes the current-user cache with the returned profile.
  */
 export function useUpdateProfile() {
   const queryClient = useQueryClient()
@@ -138,7 +122,6 @@ export function useUpdateProfile() {
       const response = await api.patch('/api/v1/account/profile', {
         body: {
           ...(input.username !== undefined ? { username: input.username } : {}),
-          ...(input.avatar ? { avatar: asUploadedFile(input.avatar) } : {}),
           ...(input.chatColor !== undefined ? { chatColor: input.chatColor } : {}),
         },
       })

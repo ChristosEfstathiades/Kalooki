@@ -17,6 +17,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@dicebear/collection": "^9.4.2",
+    "@dicebear/core": "^9.4.3",
     "@KalookiOnline/backend": "*",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "latest",

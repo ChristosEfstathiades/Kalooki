@@ -1,9 +1,5 @@
-import { access } from 'node:fs/promises'
-import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { test } from '@japa/runner'
 import User from '#models/user'
-import { avatarDirectory } from '#services/avatar_storage'
 import { CHAT_USERNAME_COLORS } from '#services/chat_service'
 import testUtils from '@adonisjs/core/services/test_utils'
 
@@ -222,8 +218,6 @@ test.group('Auth login', (group) => {
 test.group('Profile update', (group) => {
   group.each.setup(() => testUtils.db().withGlobalTransaction())
 
-  const avatarFixture = fileURLToPath(new URL('../fixtures/avatar.png', import.meta.url))
-
   test('requires authentication', async ({ client }) => {
     const response = await client.patch('/api/v1/account/profile').json({ username: 'renamed' })
 
@@ -274,34 +268,6 @@ test.group('Profile update', (group) => {
       .json({ username: 'SOMEONE_ELSE' })
 
     response.assertStatus(422)
-  })
-
-  test('uploads a new avatar and deletes the replaced file', async ({ client, assert }) => {
-    const signup = await client.post('/api/v1/auth/signup').json(validSignupPayload())
-    const token = tokenFrom(signup.body())
-
-    const first = await client
-      .patch('/api/v1/account/profile')
-      .bearerToken(token)
-      .file('avatar', avatarFixture)
-
-    first.assertStatus(200)
-    const firstUrl: string | null = first.body().data.avatarUrl
-    if (!firstUrl) {
-      throw new Error('Expected the profile update to return an avatar URL')
-    }
-    assert.match(firstUrl, /^\/uploads\/avatars\/[a-z0-9]+\.png$/)
-    const firstFile = join(avatarDirectory(), firstUrl.split('/').at(-1) ?? '')
-    await access(firstFile)
-
-    const second = await client
-      .patch('/api/v1/account/profile')
-      .bearerToken(token)
-      .file('avatar', avatarFixture)
-
-    second.assertStatus(200)
-    assert.notEqual(second.body().data.avatarUrl, firstUrl)
-    await assert.rejects(() => access(firstFile), /ENOENT/)
   })
 
   test('changes the chat colour', async ({ client, assert }) => {

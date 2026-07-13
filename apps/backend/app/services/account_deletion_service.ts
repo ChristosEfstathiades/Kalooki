@@ -1,6 +1,5 @@
 import { DateTime } from 'luxon'
 import User from '#models/user'
-import { removeAvatar } from '#services/avatar_storage'
 
 /**
  * How long a soft-deleted account is kept before it is permanently
@@ -39,8 +38,7 @@ export function isWithinRestoreWindow(user: User): boolean {
  * Permanently deletes every account whose grace period has passed and
  * returns how many were removed. Related rows (friendships, messages,
  * group memberships, tokens, ...) are removed by the ON DELETE rules
- * declared in the migrations; the avatar file is cleaned up here since
- * it lives on disk, outside the database.
+ * declared in the migrations.
  */
 export async function purgeExpiredAccounts(): Promise<number> {
   const cutoff = DateTime.now().minus({ days: ACCOUNT_RETENTION_DAYS })
@@ -50,9 +48,6 @@ export async function purgeExpiredAccounts(): Promise<number> {
   for (const user of softDeleted) {
     if (user.deletedAt === null || user.deletedAt > cutoff) {
       continue
-    }
-    if (user.avatarPath) {
-      await removeAvatar(user.avatarPath)
     }
     await user.delete()
     purged++

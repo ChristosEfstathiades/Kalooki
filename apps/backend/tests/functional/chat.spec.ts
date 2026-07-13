@@ -136,7 +136,7 @@ test.group('Chat messages', (group) => {
  * The identity the match service tracks for a player.
  */
 function identityOf(user: User): PlayerIdentity {
-  return { id: user.id, username: user.username, avatarUrl: null, initials: 'P?' }
+  return { id: user.id, username: user.username }
 }
 
 /**

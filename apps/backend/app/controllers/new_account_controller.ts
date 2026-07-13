@@ -1,6 +1,5 @@
 import User from '#models/user'
 import { signupValidator } from '#validators/user'
-import { storeAvatar } from '#services/avatar_storage'
 import { mintAccessToken } from '#services/access_token_service'
 import UserTransformer from '#transformers/user_transformer'
 import app from '@adonisjs/core/services/app'
@@ -8,15 +7,14 @@ import type { HttpContext } from '@adonisjs/core/http'
 
 export default class NewAccountController {
   /**
-   * Creates a new account from email + unique username + password
-   * (+ optional avatar). In development the account is active
-   * immediately; in production it must verify its email first.
+   * Creates a new account from email + unique username + password. In
+   * development the account is active immediately; in production it
+   * must verify its email first.
    */
   async store({ request, serialize }: HttpContext) {
-    const { username, email, password, avatar } = await request.validateUsing(signupValidator)
+    const { username, email, password } = await request.validateUsing(signupValidator)
 
-    const avatarPath = avatar ? await storeAvatar(avatar) : null
-    const user = await User.create({ username, email, password, avatarPath })
+    const user = await User.create({ username, email, password })
 
     // Email verification is enforced in production only (docs/features.md).
     // TODO: send the verification email once a mail transport is wired up.

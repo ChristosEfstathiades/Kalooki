@@ -67,8 +67,6 @@ export interface RoundResultView {
 export interface GamePlayerView {
   userId: number
   username: string
-  avatarUrl: string | null
-  initials: string
   seat: number
   handCount: number
   hasComeDown: boolean
@@ -134,8 +132,6 @@ export interface LobbyView {
   players: {
     id: number
     username: string
-    avatarUrl: string | null
-    initials: string
   }[]
   /** Epoch ms a scheduled lobby opens for joining; null = open now. */
   opensAt: number | null

@@ -37,12 +37,11 @@ export const signupValidator = vine.create({
   email: email().unique({ table: 'users', column: 'email', caseInsensitive: true }),
   password: password(),
   passwordConfirmation: vine.string().sameAs('password'),
-  avatar: vine.file({ size: '2mb', extnames: ['jpg', 'jpeg', 'png', 'webp'] }).optional(),
 })
 
 /**
- * Validator for profile updates: both fields are optional so a user
- * can change their username, their avatar, or both in one request.
+ * Validator for profile updates: every field is optional so a user can
+ * change their username, their chat colour, or both in one request.
  * The uniqueness check excludes the requesting user (passed through
  * validation metadata) so keeping the current username is allowed.
  */
@@ -58,7 +57,6 @@ export const updateProfileValidator = vine.create({
       },
     })
     .optional(),
-  avatar: vine.file({ size: '2mb', extnames: ['jpg', 'jpeg', 'png', 'webp'] }).optional(),
   chatColor: vine.enum(CHAT_USERNAME_COLORS).optional(),
 })
 

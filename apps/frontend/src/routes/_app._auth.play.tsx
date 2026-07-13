@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Clock, Trophy, UserPlus, Users, UsersRound } from 'lucide-react'
+import { Clock, Trophy, Users, UsersRound } from 'lucide-react'
 import {
   friendRequestsQueryOptions,
   groupInvitesQueryOptions,
 } from '#/lib/social'
 import { joinPublicQueue, leavePublicQueue } from '#/lib/game'
 import { getSocket } from '#/lib/socket'
-import SendFriendRequestDialog from '#/components/social/SendFriendRequestDialog'
 import FriendsDialog from '#/components/social/FriendsDialog'
 import GroupsDialog from '#/components/social/GroupsDialog'
 import ChatSidebar from '#/components/chat/ChatSidebar'
@@ -46,7 +45,7 @@ function CountBadge({ count }: CountBadgeProps) {
  */
 function PlayPage() {
   const [openDialog, setOpenDialog] = useState<
-    'sendRequest' | 'friends' | 'groups' | null
+    'friends' | 'groups' | null
   >(null)
   const requests = useQuery(friendRequestsQueryOptions)
   const invites = useQuery(groupInvitesQueryOptions)
@@ -60,14 +59,6 @@ function PlayPage() {
         <MatchmakingCard />
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Button
-            variant="secondary"
-            className="justify-start"
-            onClick={() => setOpenDialog('sendRequest')}
-          >
-            <UserPlus aria-hidden="true" />
-            Send friend request
-          </Button>
           <Button
             variant="secondary"
             className="justify-start"
@@ -106,10 +97,6 @@ function PlayPage() {
         <NewsCard />
       </div>
 
-      <SendFriendRequestDialog
-        open={openDialog === 'sendRequest'}
-        onOpenChange={(open) => setOpenDialog(open ? 'sendRequest' : null)}
-      />
       <FriendsDialog
         open={openDialog === 'friends'}
         onOpenChange={(open) => setOpenDialog(open ? 'friends' : null)}

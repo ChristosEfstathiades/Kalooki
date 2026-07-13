@@ -24,7 +24,7 @@ Product and design intent live in `docs/` — consult and keep these in sync whe
 - `docs/Frontend-design.md` — UI/UX direction, theme/colours, and per-page layout.
 
 ### Auth & signup
-Accounts require an email, a unique username, a password (min 8 chars, ≥1 symbol and ≥1 capital) plus confirmation, and an optional avatar. Email verification is enforced **only in production**; in development accounts are active immediately. Signin offers a "remember me" option. Only authenticated users can play, and players must not be able to see other players' hidden state (e.g. opponents' cards).
+Accounts require an email, a unique username, and a password (min 8 chars, ≥1 symbol and ≥1 capital) plus confirmation. Avatars are DiceBear "bottts" robots generated from the username — there is no photo upload. Email verification is enforced **only in production**; in development accounts are active immediately. Signin offers a "remember me" option. Only authenticated users can play, and players must not be able to see other players' hidden state (e.g. opponents' cards).
 
 ## Commands
 
@@ -99,7 +99,7 @@ VineJS validators in `app/validators/`, consumed in controllers via `request.val
 Real-time gameplay and chat run over **Socket.IO**, attached to the AdonisJS HTTP server. Chosen for its rooms/namespaces (one room per match / group chat / global chat), built-in auto-reconnect (pairs with the 5-minute rejoin timer), and ack callbacks for server-validated moves. The socket handshake carries the API token, and a socket only joins rooms it's authorized for — a player never receives opponents' hidden state. See `docs/Architecture.md`.
 
 ### File storage
-Avatars / profile photos are stored on **local disk** for now, served from the backend. Structured so it can move to an object store (e.g. S3) later without changing the API contract.
+Avatars are DiceBear "bottts" robots generated on the frontend from the username (`@dicebear/core` + `@dicebear/collection` in `apps/frontend/src/lib/avatar.ts`), so nothing is uploaded or stored. If user-supplied images return later, they can start on local disk and move to an object store (e.g. S3) without changing the API contract.
 
 > Note: email sending (for production email verification) is intentionally deferred — verification is production-only and its transport is not yet wired.
 

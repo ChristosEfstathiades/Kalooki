@@ -70,7 +70,7 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 
 ## settings page
 
-- users can change username, profile picture, chat colour (a swatch picker over the fixed palette, see features.md, Chat Messages), switch between the dark (default) and light themes, and logout
+- users can change username (their robot avatar is generated from it, so it changes too), chat colour (a swatch picker over the fixed palette, see features.md, Chat Messages), switch between the dark (default) and light themes, and logout
 
 ## header
 

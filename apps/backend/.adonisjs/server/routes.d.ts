@@ -4,7 +4,6 @@ type ParamValue = string | number | bigint | boolean
 
 export type ScannedRoutes = {
   ALL: {
-    'avatars.show': { paramsTuple: [ParamValue]; params: {'filename': ParamValue} }
     'auth.new_account.store': { paramsTuple?: []; params?: {} }
     'auth.access_tokens.store': { paramsTuple?: []; params?: {} }
     'profile.profile.show': { paramsTuple?: []; params?: {} }
@@ -35,7 +34,6 @@ export type ScannedRoutes = {
     'social.leaderboard.index': { paramsTuple?: []; params?: {} }
   }
   GET: {
-    'avatars.show': { paramsTuple: [ParamValue]; params: {'filename': ParamValue} }
     'profile.profile.show': { paramsTuple?: []; params?: {} }
     'social.friends.index': { paramsTuple?: []; params?: {} }
     'social.friend_requests.index': { paramsTuple?: []; params?: {} }
@@ -49,7 +47,6 @@ export type ScannedRoutes = {
     'social.leaderboard.index': { paramsTuple?: []; params?: {} }
   }
   HEAD: {
-    'avatars.show': { paramsTuple: [ParamValue]; params: {'filename': ParamValue} }
     'profile.profile.show': { paramsTuple?: []; params?: {} }
     'social.friends.index': { paramsTuple?: []; params?: {} }
     'social.friend_requests.index': { paramsTuple?: []; params?: {} }

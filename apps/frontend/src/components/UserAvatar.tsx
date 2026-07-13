@@ -1,36 +1,22 @@
-import { backendUrl } from '#/lib/api'
+import { botttsAvatarUri } from '#/lib/avatar'
 import { cn } from '#/lib/utils'
-import type { CurrentUser } from '#/lib/auth'
 
 interface UserAvatarProps {
-  user: Pick<CurrentUser, 'username' | 'avatarUrl' | 'initials'>
+  user: { username: string }
   className?: string
 }
 
 /**
- * Circular avatar for a user: their uploaded photo when they have one,
- * otherwise a two-letter monogram derived from their username.
+ * Circular avatar for a user: a deterministic DiceBear "bottts" robot
+ * generated from their username, so every user has a consistent icon
+ * without uploading a photo.
  */
 export default function UserAvatar({ user, className }: UserAvatarProps) {
-  if (user.avatarUrl) {
-    return (
-      <img
-        src={backendUrl(user.avatarUrl)}
-        alt={`${user.username}'s avatar`}
-        className={cn('size-8 rounded-full object-cover', className)}
-      />
-    )
-  }
-
   return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        'flex size-8 items-center justify-center rounded-full bg-button-purple text-xs font-semibold text-white',
-        className,
-      )}
-    >
-      {user.initials}
-    </span>
+    <img
+      src={botttsAvatarUri(user.username)}
+      alt={`${user.username}'s avatar`}
+      className={cn('size-8 rounded-full', className)}
+    />
   )
 }

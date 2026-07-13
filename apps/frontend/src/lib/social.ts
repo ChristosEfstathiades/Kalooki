@@ -15,8 +15,6 @@ import type { Data } from '@KalookiOnline/backend/data'
 export interface PublicUser {
   id: number
   username: string
-  avatarUrl: string | null
-  initials: string
   chatColor: string | null
 }
 

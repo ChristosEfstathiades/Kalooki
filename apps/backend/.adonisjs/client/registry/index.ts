@@ -6,12 +6,6 @@ import type { ApiDefinition } from './tree.d.ts'
 const placeholder: any = {}
 
 const routes = {
-  'avatars.show': {
-    methods: ["GET","HEAD"],
-    pattern: '/uploads/avatars/:filename',
-    tokens: [{"old":"/uploads/avatars/:filename","type":0,"val":"uploads","end":""},{"old":"/uploads/avatars/:filename","type":0,"val":"avatars","end":""},{"old":"/uploads/avatars/:filename","type":1,"val":"filename","end":""}],
-    types: placeholder as Registry['avatars.show']['types'],
-  },
   'auth.new_account.store': {
     methods: ["POST"],
     pattern: '/api/v1/auth/signup',

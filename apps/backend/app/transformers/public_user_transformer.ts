@@ -11,8 +11,6 @@ export function publicUserShape(user: User) {
   return {
     id: user.id,
     username: user.username,
-    avatarUrl: user.avatarUrl,
-    initials: user.initials,
     chatColor: user.chatColor,
   }
 }

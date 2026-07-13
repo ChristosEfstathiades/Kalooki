@@ -6,7 +6,6 @@
 export const controllers = {
   AccessTokens: () => import('#controllers/access_tokens_controller'),
   AccountDeletion: () => import('#controllers/account_deletion_controller'),
-  Avatars: () => import('#controllers/avatars_controller'),
   ChatMessages: () => import('#controllers/chat_messages_controller'),
   FriendRequests: () => import('#controllers/friend_requests_controller'),
   Friends: () => import('#controllers/friends_controller'),

@@ -10,10 +10,12 @@ import {
   useDeleteFriendRequest,
   useInviteToGroup,
   useRemoveFriend,
+  useSendFriendRequest,
 } from '#/lib/social'
 import UserAvatar from '#/components/UserAvatar'
 import FormErrors from '#/components/FormErrors'
 import { Button } from '#/components/ui/button'
+import { Input } from '#/components/ui/input'
 import {
   Dialog,
   DialogContent,
@@ -73,8 +75,25 @@ export default function FriendsDialog({
   const deleteRequest = useDeleteFriendRequest()
   const removeFriend = useRemoveFriend()
   const inviteToGroup = useInviteToGroup()
+  const sendRequest = useSendFriendRequest()
 
   const [inviteError, setInviteError] = useState<string[]>([])
+  const [username, setUsername] = useState('')
+  const [sendErrors, setSendErrors] = useState<string[]>([])
+  const [sentTo, setSentTo] = useState<string | null>(null)
+
+  const submitRequest = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setSendErrors([])
+    setSentTo(null)
+    try {
+      const request = await sendRequest.mutateAsync(username.trim())
+      setSentTo(request.recipient.username)
+      setUsername('')
+    } catch (error) {
+      setSendErrors(extractApiErrors(error))
+    }
+  }
 
   const incoming = requests.data?.incoming ?? []
   const outgoing = requests.data?.outgoing ?? []
@@ -100,10 +119,39 @@ export default function FriendsDialog({
         <DialogHeader>
           <DialogTitle>Friends</DialogTitle>
           <DialogDescription>
-            Your friends and pending requests. Friends can be invited to your
-            groups.
+            Add friends, respond to requests, and invite friends to your groups.
           </DialogDescription>
         </DialogHeader>
+
+        <section>
+          <h3 className="m-0 text-sm font-semibold text-muted-foreground">
+            Add a friend
+          </h3>
+          <form className="mt-2 space-y-2" onSubmit={submitRequest}>
+            <FormErrors errors={sendErrors} />
+            {sentTo && (
+              <p className="m-0 rounded-md border border-felt bg-felt/20 px-3 py-2 text-sm">
+                Friend request sent to {sentTo}.
+              </p>
+            )}
+            <div className="flex gap-2">
+              <Input
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                placeholder="Exact username"
+                aria-label="Username"
+                autoComplete="off"
+              />
+              <Button
+                type="submit"
+                className="shrink-0"
+                disabled={sendRequest.isPending || username.trim() === ''}
+              >
+                {sendRequest.isPending ? 'Sending…' : 'Send request'}
+              </Button>
+            </div>
+          </form>
+        </section>
 
         {incoming.length > 0 && (
           <section>

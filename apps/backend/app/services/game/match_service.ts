@@ -29,8 +29,6 @@ import type { Card, Rng } from '#services/game/cards'
 export interface PlayerIdentity {
   id: number
   username: string
-  avatarUrl: string | null
-  initials: string
 }
 
 /** A player-initiated game action, forwarded from the socket layer. */
@@ -124,8 +122,6 @@ export interface ClientGameView {
   players: {
     userId: number
     username: string
-    avatarUrl: string | null
-    initials: string
     seat: number
     handCount: number
     hasComeDown: boolean
@@ -977,8 +973,6 @@ export function redactedView(match: ActiveMatch, viewerUserId: number): ClientGa
       return {
         userId: player.userId,
         username: identity?.username ?? `Player ${player.userId}`,
-        avatarUrl: identity?.avatarUrl ?? null,
-        initials: identity?.initials ?? '??',
         seat,
         handCount: player.hand.length,
         hasComeDown: player.hasComeDown,

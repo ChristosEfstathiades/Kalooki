@@ -7,11 +7,9 @@ export default class UserTransformer extends BaseTransformer<User> {
       'id',
       'username',
       'email',
-      'avatarUrl',
       'chatColor',
       'createdAt',
       'updatedAt',
-      'initials',
     ])
   }
 }

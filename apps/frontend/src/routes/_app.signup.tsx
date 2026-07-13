@@ -12,8 +12,6 @@ import { getStoredToken } from '#/lib/auth-token'
 import TextField from '#/components/TextField'
 import FormErrors from '#/components/FormErrors'
 import { Button } from '#/components/ui/button'
-import { Input } from '#/components/ui/input'
-import { Label } from '#/components/ui/label'
 
 export const Route = createFileRoute('/_app/signup')({
   beforeLoad: () => {
@@ -45,7 +43,6 @@ function SignupPage() {
   const navigate = useNavigate()
   const signup = useSignup()
   const [serverErrors, setServerErrors] = useState<string[]>([])
-  const [avatar, setAvatar] = useState<File | null>(null)
 
   const form = useForm({
     defaultValues: {
@@ -57,7 +54,7 @@ function SignupPage() {
     onSubmit: async ({ value }) => {
       setServerErrors([])
       try {
-        await signup.mutateAsync({ ...value, avatar })
+        await signup.mutateAsync(value)
         await navigate({ to: '/play' })
       } catch (error) {
         setServerErrors(extractApiErrors(error))
@@ -140,20 +137,6 @@ function SignupPage() {
               />
             )}
           </form.Field>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="avatar">Avatar (optional)</Label>
-            <Input
-              id="avatar"
-              name="avatar"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(event) => setAvatar(event.target.files?.[0] ?? null)}
-            />
-            <p className="m-0 text-xs text-muted-foreground">
-              JPG, PNG, or WebP, up to 2 MB
-            </p>
-          </div>
 
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (

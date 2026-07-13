@@ -13,7 +13,7 @@ Built using adonisjs. Use adonisjs documentation to understand folder layout ([h
 - use API tokens
 - Clean API structure with versioning
 - CORS, Shield middleware, and secure authentication
-- To create an account users provide an email address, a unique username, a password, and a matching password confirmation; an avatar / profile photo is optional. In production the account stays inactive until the user verifies their email via a confirmation link; in development verification is skipped and accounts are active immediately. Full signup and password rules are defined in features.md.
+- To create an account users provide an email address, a unique username, a password, and a matching password confirmation. Avatars are DiceBear "bottts" robots generated from the username, so there is no photo upload. In production the account stays inactive until the user verifies their email via a confirmation link; in development verification is skipped and accounts are active immediately. Full signup and password rules are defined in features.md.
 
 ### Authorization
 
@@ -28,7 +28,7 @@ Built using adonisjs. Use adonisjs documentation to understand folder layout ([h
 
 ### File storage
 
-- Avatars / profile photos are stored on **local disk** for now (served from the backend). This can move to an object store (e.g. S3) later without changing the API contract.
+- Avatars are DiceBear "bottts" robots generated on the client from the username (`@dicebear/core` + `@dicebear/collection`), so nothing is uploaded or stored. If user-supplied images are reintroduced later, they can live on local disk first and move to an object store (e.g. S3) without changing the API contract.
 
 ### DB
 

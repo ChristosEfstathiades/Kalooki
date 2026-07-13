@@ -1,10 +1,6 @@
-import { access } from 'node:fs/promises'
-import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { DateTime } from 'luxon'
 import { test } from '@japa/runner'
 import User from '#models/user'
-import { avatarDirectory } from '#services/avatar_storage'
 import { ACCOUNT_RETENTION_DAYS, purgeExpiredAccounts } from '#services/account_deletion_service'
 import testUtils from '@adonisjs/core/services/test_utils'
 
@@ -53,8 +49,6 @@ async function softDeleteDaysAgo(email: string, days: number): Promise<void> {
 
 test.group('Account deletion', (group) => {
   group.each.setup(() => testUtils.db().withGlobalTransaction())
-
-  const avatarFixture = fileURLToPath(new URL('../fixtures/avatar.png', import.meta.url))
 
   test('requires authentication', async ({ client }) => {
     const response = await client.delete('/api/v1/account')
@@ -120,7 +114,7 @@ test.group('Account deletion', (group) => {
     assert.isNotNull(await User.findBy('email', 'player.two@example.com'))
   })
 
-  test('purge removes the avatar file and cascades to related rows', async ({ client, assert }) => {
+  test('purge cascades to related rows', async ({ client, assert }) => {
     const signup = await client.post('/api/v1/auth/signup').json(signupPayload())
     const token = tokenFrom(signup.body())
     const other = await client
@@ -128,18 +122,7 @@ test.group('Account deletion', (group) => {
       .json(signupPayload('player_two', 'player.two@example.com'))
     const otherToken = tokenFrom(other.body())
 
-    // Give the doomed account an avatar and a friendship
-    const withAvatar = await client
-      .patch('/api/v1/account/profile')
-      .bearerToken(token)
-      .file('avatar', avatarFixture)
-    const avatarUrl: string | null = withAvatar.body().data.avatarUrl
-    if (!avatarUrl) {
-      throw new Error('Expected the profile update to return an avatar URL')
-    }
-    const avatarFile = join(avatarDirectory(), avatarUrl.split('/').at(-1) ?? '')
-    await access(avatarFile)
-
+    // Give the doomed account a friendship that should cascade-delete
     await client.post('/api/v1/friend-requests').bearerToken(token).json({ username: 'player_two' })
     const requests = await client.get('/api/v1/friend-requests').bearerToken(otherToken)
     const requestId = dataOf<{ incoming: { id: number }[] }>(requests).incoming[0].id
@@ -149,7 +132,6 @@ test.group('Account deletion', (group) => {
     await purgeExpiredAccounts()
 
     assert.isNull(await User.findBy('email', 'player.one@example.com'))
-    await assert.rejects(() => access(avatarFile), /ENOENT/)
     const friends = await client.get('/api/v1/friends').bearerToken(otherToken)
     assert.lengthOf(friends.body().data.friends, 0)
   })
