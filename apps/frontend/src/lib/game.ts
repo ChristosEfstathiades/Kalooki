@@ -112,6 +112,7 @@ export type GameAction =
   | { type: 'draw' }
   | { type: 'takeDiscard' }
   | { type: 'returnDiscard' }
+  | { type: 'returnJoker' }
   | { type: 'layMelds'; melds: number[][] }
   | { type: 'goer'; meldId: number; cardId: number; runEnd?: 'low' | 'high' }
   | {

@@ -116,6 +116,8 @@ test.group('Match history', (group) => {
       2
     )
     assert.isTrue(players.find((player) => player.id === alice.id)?.leftEarly)
+    // Bots folded to settle the game the human quit did not leave early
+    assert.isFalse(players.filter((player) => player.isBot).some((player) => player.leftEarly))
   })
 
   test('participants see the match; outsiders do not', async ({ client, assert }) => {

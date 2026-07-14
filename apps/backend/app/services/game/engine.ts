@@ -6,8 +6,8 @@ import {
   resolveGoer,
   resolveMeld,
 } from '#services/game/melds'
-import type { Card, Rng } from '#services/game/cards'
-import type { ResolvedMeld } from '#services/game/melds'
+import type { Card, Rank, Suit, Rng } from '#services/game/cards'
+import type { MeldCard, ResolvedMeld } from '#services/game/melds'
 
 /**
  * The Kalooki game engine: a pure state machine over GameState. All
@@ -121,6 +121,18 @@ export interface PlayerState {
    * be tabled in a new set before discarding, and never as a go-er.
    */
   pendingJokerCardId: number | null
+  /**
+   * The reversible context of a joker reclaimed this turn: the set it
+   * came from, the natural cards swapped in for it, and what it stood
+   * for there — enough to hand it back if it cannot be re-tabled. Null
+   * whenever no joker take is pending.
+   */
+  pendingJokerReturn: {
+    meldId: number
+    replacementCardIds: number[]
+    rank: Rank
+    suit: Suit | null
+  } | null
 }
 
 export interface RoundResult {
@@ -177,6 +189,7 @@ export function createGame(userIds: number[], rules: GameRules, rng: Rng): GameS
       removed: false,
       pendingDiscardCardId: null,
       pendingJokerCardId: null,
+      pendingJokerReturn: null,
     })),
     deck: [],
     discardPile: [],
@@ -229,6 +242,7 @@ function dealRound(state: GameState, rng: Rng): void {
     player.comeDownAtTurnStart = null
     player.pendingDiscardCardId = null
     player.pendingJokerCardId = null
+    player.pendingJokerReturn = null
     if (!player.eliminated) {
       player.hand = state.deck.splice(0, 13)
     }
@@ -420,6 +434,7 @@ export function layMelds(state: GameState, userId: number, meldCardIds: number[]
   }
   if (player.pendingJokerCardId !== null && flatIds.includes(player.pendingJokerCardId)) {
     player.pendingJokerCardId = null
+    player.pendingJokerReturn = null
   }
 }
 
@@ -545,6 +560,76 @@ export function takeJoker(
   player.hand = player.hand.filter((candidate) => !input.replacementCardIds.includes(candidate.id))
   player.hand.push(jokerCard)
   player.pendingJokerCardId = jokerCard.id
+  // Remember how to undo this swap in case the joker cannot be re-tabled
+  player.pendingJokerReturn = {
+    meldId: meld.id,
+    replacementCardIds: [...input.replacementCardIds],
+    rank: jokerMeldCard.rank,
+    suit: jokerMeldCard.suit,
+  }
+}
+
+/**
+ * Puts a joker reclaimed this turn back into the set it came from,
+ * undoing the swap: the natural replacement cards return to hand and
+ * the joker leaves it. The escape hatch — mirroring returnDiscard — for
+ * a player who took a joker but cannot legally table it, so the turn is
+ * never stuck. Only valid while the joker is still in hand (not yet
+ * tabled) and its set can legally take it back.
+ */
+export function returnJoker(state: GameState, userId: number): void {
+  const player = assertTurn(state, userId, 'acting')
+  const pending = player.pendingJokerReturn
+  if (player.pendingJokerCardId === null || pending === null) {
+    throw new GameError('You have no taken joker to return', 'E_NO_PENDING_JOKER')
+  }
+  const jokerCard = player.hand.find((candidate) => candidate.id === player.pendingJokerCardId)
+  if (!jokerCard) {
+    throw new GameError('The taken joker has already been played', 'E_NO_PENDING_JOKER')
+  }
+  const meld = state.melds.find((candidate) => candidate.id === pending.meldId)
+  if (!meld) {
+    throw new GameError(
+      'The set that joker came from is no longer on the table',
+      'E_MELD_NOT_FOUND'
+    )
+  }
+
+  // The natural replacements must still be in that set to swap back out
+  const replacementMeldCards = pending.replacementCardIds.map((cardId) =>
+    meld.cards.find((meldCard) => meldCard.card.id === cardId)
+  )
+  if (replacementMeldCards.some((meldCard) => meldCard === undefined)) {
+    throw new GameError('That joker can no longer be returned to its set', 'E_JOKER_RETURN_BLOCKED')
+  }
+
+  const restored: MeldCard[] = meld.cards.filter(
+    (meldCard) => !pending.replacementCardIds.includes(meldCard.card.id)
+  )
+  restored.push({ card: jokerCard, rank: pending.rank, suit: pending.suit })
+  if (meld.type === 'run') {
+    restored.sort((a, b) => rankOrder(a.rank) - rankOrder(b.rank))
+  }
+
+  // The set must still be a legal meld with the joker back in it
+  try {
+    resolveMeld(restored.map((meldCard) => meldCard.card))
+  } catch (error) {
+    if (error instanceof MeldError) {
+      throw new GameError(
+        'That joker can no longer be returned to its set',
+        'E_JOKER_RETURN_BLOCKED'
+      )
+    }
+    throw error
+  }
+
+  meld.cards = restored
+  const replacementCards = replacementMeldCards.map((meldCard) => (meldCard as MeldCard).card)
+  player.hand = player.hand.filter((candidate) => candidate.id !== jokerCard.id)
+  player.hand.push(...replacementCards)
+  player.pendingJokerCardId = null
+  player.pendingJokerReturn = null
 }
 
 /** Rank order helper for keeping runs sorted after a joker swap. */
@@ -743,8 +828,18 @@ function finishGame(state: GameState): void {
  * expired, or quit). Their hand is shuffled back into the deck and
  * they cannot rejoin (docs/Kalooki.md). If they were mid-turn the turn
  * passes; if one player remains they win.
+ *
+ * `markRemoved` (default true) flags the player as having left early;
+ * pass false to fold a player out to settle a game they did not quit
+ * (e.g. practice bots after the human is out) so history does not
+ * record them as leaving.
  */
-export function removePlayer(state: GameState, userId: number, rng: Rng): void {
+export function removePlayer(
+  state: GameState,
+  userId: number,
+  rng: Rng,
+  options: { markRemoved?: boolean } = {}
+): void {
   const player = playerState(state, userId)
   if (player.eliminated || state.phase === 'finished') {
     return
@@ -752,13 +847,30 @@ export function removePlayer(state: GameState, userId: number, rng: Rng): void {
 
   const wasCurrent = state.players[state.currentPlayerIndex].userId === userId
 
+  // A joker reclaimed this turn but never tabled goes back to the set
+  // it came from — not buried in the deck — when the player leaves
+  // (timed out, quit, or rejoin window expired). A pending joker only
+  // exists on the leaver's own acting turn, so the return is in phase.
+  if (player.pendingJokerCardId !== null) {
+    try {
+      returnJoker(state, userId)
+    } catch (error) {
+      if (!(error instanceof GameError)) {
+        throw error
+      }
+      // The set changed so the joker can no longer go back: fall
+      // through and let it rejoin the deck with the rest of the hand.
+    }
+  }
+
   player.eliminated = true
-  player.removed = true
+  player.removed = options.markRemoved ?? true
   state.deck = shuffle([...state.deck, ...player.hand], rng)
   player.hand = []
   player.comeDownAtTurnStart = null
   player.pendingDiscardCardId = null
   player.pendingJokerCardId = null
+  player.pendingJokerReturn = null
   state.pendingBuyIns = state.pendingBuyIns.filter((pendingId) => pendingId !== userId)
 
   if (activePlayers(state).length <= 1) {

@@ -55,6 +55,7 @@ function stateWithHands(hands: Card[][], discardPile: Card[]): GameState {
       removed: false,
       pendingDiscardCardId: null,
       pendingJokerCardId: null,
+      pendingJokerReturn: null,
     })),
     deck: [card(2, 'hearts'), card(4, 'spades'), card(6, 'diamonds'), card(8, 'clubs')],
     discardPile,

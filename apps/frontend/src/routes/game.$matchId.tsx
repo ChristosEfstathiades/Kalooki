@@ -403,6 +403,7 @@ function GamePage() {
             void act({ type: 'discard', cardId: unstagedSelected[0] })
           }
           onReturnDiscard={() => void act({ type: 'returnDiscard' })}
+          onReturnJoker={() => void act({ type: 'returnJoker' })}
         />
       </section>
 
@@ -725,6 +726,7 @@ interface OwnAreaProps {
   onLayStaged: () => void
   onDiscard: () => void
   onReturnDiscard: () => void
+  onReturnJoker: () => void
 }
 
 function OwnArea({
@@ -744,6 +746,7 @@ function OwnArea({
   onLayStaged,
   onDiscard,
   onReturnDiscard,
+  onReturnJoker,
 }: OwnAreaProps) {
   const stagedIds = stagedMelds.flat()
   const unstagedSelected = selectedCardIds.filter(
@@ -844,6 +847,11 @@ function OwnArea({
         {view.you.pendingDiscardCardId !== null && (
           <Button size="sm" variant="secondary" onClick={onReturnDiscard}>
             Return taken discard
+          </Button>
+        )}
+        {view.you.pendingJokerCardId !== null && (
+          <Button size="sm" variant="secondary" onClick={onReturnJoker}>
+            Return taken joker
           </Button>
         )}
         <div className="ml-auto flex gap-2">

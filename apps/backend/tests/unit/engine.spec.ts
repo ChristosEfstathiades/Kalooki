@@ -13,6 +13,7 @@ import {
   playerState,
   removePlayer,
   returnDiscard,
+  returnJoker,
   takeDiscard,
   takeJoker,
 } from '#services/game/engine'
@@ -319,6 +320,155 @@ test.group('Engine — jokers', () => {
     layMelds(state, userId, [[nineH.id, nineC.id, tabledJoker.id]])
     discard(state, userId, two.id, rng)
     assert.equal(state.phase, 'awaitingDraw')
+  })
+
+  test('a taken joker can be returned to its set so the turn is not stuck', ({ assert }) => {
+    const state = makeGame(2)
+    const userId = state.players[state.currentPlayerIndex].userId
+
+    // A tabled group: 10 of diamonds + 10 of spades + joker
+    const tabledJoker = joker()
+    const tenD = card(10, 'diamonds')
+    const tenS = card(10, 'spades')
+    state.melds = [
+      {
+        id: 1,
+        ownerUserId: 99,
+        type: 'group',
+        cards: [
+          { card: tenD, rank: 10, suit: 'diamonds' },
+          { card: tenS, rank: 10, suit: 'spades' },
+          { card: tabledJoker, rank: 10, suit: null },
+        ],
+      },
+    ]
+    state.nextMeldId = 2
+
+    const tenH = card(10, 'hearts')
+    const tenC = card(10, 'clubs')
+    const two = card(2, 'spades')
+    setTurn(state, userId, [tenH, tenC, two])
+    playerState(state, userId).hasComeDown = true
+
+    takeJoker(state, userId, {
+      meldId: 1,
+      jokerCardId: tabledJoker.id,
+      replacementCardIds: [tenH.id, tenC.id],
+    })
+    const player = playerState(state, userId)
+    assert.equal(player.pendingJokerCardId, tabledJoker.id)
+    // With the joker still in hand and no set to table it in, discarding
+    // is blocked — the player would be stuck without a way back
+    assert.throws(() => discard(state, userId, two.id, rng), /joker you took must be tabled/)
+
+    returnJoker(state, userId)
+
+    // The joker is back in the set, the naturals are back in hand, and
+    // the obligation is cleared so the turn can end with a discard
+    assert.isNull(player.pendingJokerCardId)
+    assert.isNull(player.pendingJokerReturn)
+    assert.lengthOf(state.melds[0].cards, 3)
+    assert.isTrue(state.melds[0].cards.some((meldCard) => meldCard.card.id === tabledJoker.id))
+    assert.sameMembers(
+      player.hand.map((handCard) => handCard.id),
+      [tenH.id, tenC.id, two.id]
+    )
+    assert.equal(state.phase, 'acting')
+
+    discard(state, userId, two.id, rng)
+    assert.equal(state.phase, 'awaitingDraw')
+  })
+
+  test('returning a joker restores a run in the right order', ({ assert }) => {
+    const state = makeGame(2)
+    const userId = state.players[state.currentPlayerIndex].userId
+
+    // A tabled run 4-5-6 of hearts where the 5 is a joker
+    const tabledJoker = joker()
+    const fourH = card(4, 'hearts')
+    const sixH = card(6, 'hearts')
+    state.melds = [
+      {
+        id: 1,
+        ownerUserId: 99,
+        type: 'run',
+        cards: [
+          { card: fourH, rank: 4, suit: 'hearts' },
+          { card: tabledJoker, rank: 5, suit: 'hearts' },
+          { card: sixH, rank: 6, suit: 'hearts' },
+        ],
+      },
+    ]
+    state.nextMeldId = 2
+
+    const fiveH = card(5, 'hearts')
+    const two = card(2, 'spades')
+    setTurn(state, userId, [fiveH, two])
+    playerState(state, userId).hasComeDown = true
+
+    takeJoker(state, userId, {
+      meldId: 1,
+      jokerCardId: tabledJoker.id,
+      replacementCardIds: [fiveH.id],
+    })
+    returnJoker(state, userId)
+
+    // Joker sits back in its 5 slot between the 4 and the 6
+    assert.deepEqual(
+      state.melds[0].cards.map((meldCard) => meldCard.card.id),
+      [fourH.id, tabledJoker.id, sixH.id]
+    )
+    assert.sameMembers(
+      playerState(state, userId).hand.map((handCard) => handCard.id),
+      [fiveH.id, two.id]
+    )
+  })
+
+  test('there is nothing to return without a pending joker', ({ assert }) => {
+    const state = makeGame(2)
+    const userId = state.players[state.currentPlayerIndex].userId
+    setTurn(state, userId, [card(2, 'spades'), card(3, 'spades')])
+    assert.throws(() => returnJoker(state, userId), /no taken joker to return/)
+  })
+
+  test('removing a player returns their pending joker to its set', ({ assert }) => {
+    const state = makeGame(3)
+    const userId = state.players[state.currentPlayerIndex].userId
+
+    // A tabled group: 10 of diamonds + 10 of spades + joker
+    const tabledJoker = joker()
+    state.melds = [
+      {
+        id: 1,
+        ownerUserId: 99,
+        type: 'group',
+        cards: [
+          { card: card(10, 'diamonds'), rank: 10, suit: 'diamonds' },
+          { card: card(10, 'spades'), rank: 10, suit: 'spades' },
+          { card: tabledJoker, rank: 10, suit: null },
+        ],
+      },
+    ]
+    state.nextMeldId = 2
+
+    const tenH = card(10, 'hearts')
+    const tenC = card(10, 'clubs')
+    setTurn(state, userId, [tenH, tenC, card(2, 'spades')])
+    playerState(state, userId).hasComeDown = true
+    takeJoker(state, userId, {
+      meldId: 1,
+      jokerCardId: tabledJoker.id,
+      replacementCardIds: [tenH.id, tenC.id],
+    })
+
+    // The player times out (or quits) with the joker still in hand
+    removePlayer(state, userId, rng)
+
+    // The joker is back on the table, not lost into the deck
+    assert.isTrue(playerState(state, userId).removed)
+    assert.lengthOf(state.melds[0].cards, 3)
+    assert.isTrue(state.melds[0].cards.some((meldCard) => meldCard.card.id === tabledJoker.id))
+    assert.isFalse(state.deck.some((deckCard) => deckCard.id === tabledJoker.id))
   })
 
   test('taking a joker requires having come down', ({ assert }) => {

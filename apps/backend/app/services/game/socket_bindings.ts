@@ -299,6 +299,7 @@ function isGameAction(value: unknown): value is GameAction {
     case 'draw':
     case 'takeDiscard':
     case 'returnDiscard':
+    case 'returnJoker':
       return true
     case 'layMelds': {
       const { melds } = value as { melds?: unknown }

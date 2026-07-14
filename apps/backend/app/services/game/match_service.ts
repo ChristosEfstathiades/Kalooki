@@ -12,6 +12,7 @@ import {
   playerState,
   removePlayer,
   returnDiscard,
+  returnJoker,
   takeDiscard,
   takeJoker,
 } from '#services/game/engine'
@@ -42,6 +43,7 @@ export type GameAction =
   | { type: 'draw' }
   | { type: 'takeDiscard' }
   | { type: 'returnDiscard' }
+  | { type: 'returnJoker' }
   | { type: 'layMelds'; melds: number[][] }
   | { type: 'goer'; meldId: number; cardId: number; runEnd?: 'low' | 'high' }
   | { type: 'takeJoker'; meldId: number; jokerCardId: number; replacementCardIds: number[] }
@@ -692,6 +694,9 @@ function performAction(match: ActiveMatch, userId: number, action: GameAction): 
     case 'returnDiscard':
       returnDiscard(match.state, userId)
       return `${username} returned the discard`
+    case 'returnJoker':
+      returnJoker(match.state, userId)
+      return `${username} returned the joker`
     case 'layMelds':
       layMelds(match.state, userId, action.melds)
       return `${username} laid down`
@@ -840,6 +845,10 @@ function recoverBotStep(match: ActiveMatch, botId: number): string {
         returnDiscard(match.state, botId)
         return `${username} returned the discard`
       }
+      if (bot.pendingJokerCardId !== null) {
+        returnJoker(match.state, botId)
+        return `${username} returned the joker`
+      }
       discard(match.state, botId, bot.hand[0].id, rng)
       return `${username} discarded`
     }
@@ -874,7 +883,9 @@ function settlePracticeIfHumanOut(match: ActiveMatch): void {
   }
   while (activePlayers(match.state).length > 1) {
     const leaders = activePlayers(match.state).sort((a, b) => b.score - a.score)
-    removePlayer(match.state, leaders[0].userId, rng)
+    // Folded to settle the game, not a genuine early departure — history
+    // must not record these bots as having left
+    removePlayer(match.state, leaders[0].userId, rng, { markRemoved: false })
   }
 }
 
