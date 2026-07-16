@@ -6,6 +6,7 @@ import {
   resolveGoer,
   resolveMeld,
 } from '#services/game/melds'
+import type { ResolvedMeld } from '#services/game/melds'
 import type { Card, Rank, Suit } from '#services/game/cards'
 
 let nextId = 1
@@ -22,6 +23,19 @@ function card(rank: Rank, suit: Suit): Card {
  */
 function joker(): Card {
   return { id: nextId++, isJoker: true, rank: null, suit: null }
+}
+
+/**
+ * The colour sequence of a resolved meld's cards, for asserting table
+ * order: 'red' (hearts/diamonds), 'black' (clubs/spades), or 'joker'.
+ */
+function colours(meld: ResolvedMeld): ('red' | 'black' | 'joker')[] {
+  return meld.cards.map((meldCard) => {
+    if (meldCard.suit === null) {
+      return 'joker'
+    }
+    return meldCard.suit === 'hearts' || meldCard.suit === 'diamonds' ? 'red' : 'black'
+  })
 }
 
 test.group('Melds — groups', () => {
@@ -63,6 +77,31 @@ test.group('Melds — groups', () => {
     const jokerCard = meld.cards.find((meldCard) => meldCard.card.isJoker)
     assert.equal(jokerCard?.rank, 7)
     assert.isNull(jokerCard?.suit)
+  })
+
+  test('reorders a group so colours alternate on the table', ({ assert }) => {
+    // Two blacks and a red → the red sits between the two blacks.
+    const oneRed = resolveMeld([card(4, 'clubs'), card(4, 'spades'), card(4, 'hearts')])
+    assert.deepEqual(colours(oneRed), ['black', 'red', 'black'])
+
+    // Two reds and a black → the black sits between the two reds.
+    const oneBlack = resolveMeld([card(4, 'hearts'), card(4, 'diamonds'), card(4, 'clubs')])
+    assert.deepEqual(colours(oneBlack), ['red', 'black', 'red'])
+
+    // Four of a kind alternates fully regardless of submission order.
+    const four = resolveMeld([
+      card('K', 'hearts'),
+      card('K', 'diamonds'),
+      card('K', 'clubs'),
+      card('K', 'spades'),
+    ])
+    assert.deepEqual(colours(four), ['red', 'black', 'red', 'black'])
+  })
+
+  test('slots a joker between two same-colour cards', ({ assert }) => {
+    // Two reds with a joker: the neutral joker breaks up the reds.
+    const meld = resolveMeld([card(7, 'hearts'), card(7, 'diamonds'), joker()])
+    assert.deepEqual(colours(meld), ['red', 'joker', 'red'])
   })
 })
 

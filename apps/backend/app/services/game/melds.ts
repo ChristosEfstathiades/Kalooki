@@ -1,4 +1,4 @@
-import { RANKS, SUITS, rankIndex, rankValue } from '#services/game/cards'
+import { RANKS, SUITS, isRedSuit, rankIndex, rankValue } from '#services/game/cards'
 import type { Card, Rank, Suit } from '#services/game/cards'
 
 /**
@@ -73,12 +73,58 @@ function resolveGroup(cards: Card[], naturals: Card[]): ResolvedMeld {
 
   return {
     type: 'group',
-    cards: cards.map((card) => ({
-      card,
-      rank: groupRank,
-      suit: card.isJoker ? null : card.suit,
-    })),
+    cards: alternateGroupColours(
+      cards.map((card) => ({
+        card,
+        rank: groupRank,
+        suit: card.isJoker ? null : card.suit,
+      }))
+    ),
   }
+}
+
+/**
+ * Reorders a group's cards so red (hearts/diamonds) and black
+ * (clubs/spades) alternate on the table — e.g. two blacks and a red
+ * become black, red, black. The larger colour pile leads so the odd
+ * card out ends up on the outside. Jokers (open suit) are neutral and
+ * are slotted between same-colour neighbours to break them up, with any
+ * leftovers parked at the end.
+ */
+function alternateGroupColours(cards: MeldCard[]): MeldCard[] {
+  const reds = cards.filter((meldCard) => meldCard.suit !== null && isRedSuit(meldCard.suit))
+  const blacks = cards.filter((meldCard) => meldCard.suit !== null && !isRedSuit(meldCard.suit))
+  const jokers = cards.filter((meldCard) => meldCard.suit === null)
+
+  const [major, minor] = reds.length >= blacks.length ? [reds, blacks] : [blacks, reds]
+
+  // Interleave the two colours; any surplus of the majority trails.
+  const naturals: MeldCard[] = []
+  for (let i = 0; i < Math.max(major.length, minor.length); i++) {
+    if (i < major.length) {
+      naturals.push(major[i])
+    }
+    if (i < minor.length) {
+      naturals.push(minor[i])
+    }
+  }
+
+  // Drop a joker between any two same-colour neighbours, then park the rest.
+  const ordered: MeldCard[] = []
+  const spareJokers = [...jokers]
+  for (let i = 0; i < naturals.length; i++) {
+    ordered.push(naturals[i])
+    const next = naturals[i + 1]
+    if (
+      next !== undefined &&
+      spareJokers.length > 0 &&
+      isRedSuit(naturals[i].suit as Suit) === isRedSuit(next.suit as Suit)
+    ) {
+      ordered.push(spareJokers.shift() as MeldCard)
+    }
+  }
+  ordered.push(...spareJokers)
+  return ordered
 }
 
 /**
@@ -149,7 +195,10 @@ export function resolveGoer(
     }
     return {
       type: 'group',
-      cards: [...meld.cards, { card, rank: groupRank, suit: card.isJoker ? null : card.suit }],
+      cards: alternateGroupColours([
+        ...meld.cards,
+        { card, rank: groupRank, suit: card.isJoker ? null : card.suit },
+      ]),
     }
   }
 

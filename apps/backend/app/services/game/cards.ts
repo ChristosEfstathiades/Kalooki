@@ -32,6 +32,14 @@ export function rankIndex(rank: Rank): number {
 }
 
 /**
+ * Whether a suit is red (hearts/diamonds) as opposed to black
+ * (clubs/spades). Used to alternate colours within a tabled group.
+ */
+export function isRedSuit(suit: Suit): boolean {
+  return suit === 'hearts' || suit === 'diamonds'
+}
+
+/**
  * Point value of a rank: aces 11, picture cards 10, others face value.
  * Used both for the come-down threshold and penalty scoring.
  */
