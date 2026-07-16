@@ -175,7 +175,7 @@ export default function GroupGamePanel({
             </p>
           ) : (
             <p className="m-0 text-sm">
-              Game scheduled — opens for joining in{' '}
+              Game scheduled, opens for joining in{' '}
               <OpensIn opensAt={lobby.opensAt ?? 0} />.
             </p>
           )}
@@ -291,7 +291,7 @@ export default function GroupGamePanel({
 
             {scheduleHours > 0 && (
               <p className="m-0 text-xs text-muted-foreground">
-                Nobody can join until the game opens — it will be pinned in
+                Nobody can join until the game opens; it will be pinned in
                 the group&apos;s chat, and members join once the countdown
                 ends.
               </p>
@@ -318,8 +318,8 @@ export default function GroupGamePanel({
                   </div>
                   <p className="m-0 text-xs text-muted-foreground">
                     Chips are play money, tallied on the scoresheet. Each round
-                    the caller collects the call amount from every other player
-                    — the kalooki amount instead when they lay all 13 cards in
+                    the caller collects the call amount from every other player,
+                    or the kalooki amount instead when they lay all 13 cards in
                     one turn. The winner collects everyone&apos;s stake plus
                     the cost of their buy-ins.
                   </p>

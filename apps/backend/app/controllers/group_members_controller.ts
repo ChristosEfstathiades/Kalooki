@@ -29,7 +29,7 @@ export default class GroupMembersController {
     }
     if (targetUserId === group.ownerId) {
       throw new Exception(
-        'The owner cannot leave or be removed — transfer ownership or delete the group instead',
+        'The owner cannot leave or be removed, transfer ownership or delete the group instead',
         { status: 400, code: 'E_OWNER_CANNOT_LEAVE' }
       )
     }

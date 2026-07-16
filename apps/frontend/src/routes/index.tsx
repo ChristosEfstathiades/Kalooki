@@ -25,7 +25,7 @@ const features = [
     icon: Users,
     title: 'Private games with friends',
     description:
-      'Create a group, invite your friends, and set your own rules — decks, jokers, timers, and the points you need to come down.',
+      'Create a group, invite your friends, and set your own rules: decks, jokers, timers, and the points you need to come down.',
   },
   {
     icon: MessageSquare,
@@ -44,7 +44,7 @@ const features = [
 const rulesDigest = [
   {
     heading: 'The deal',
-    body: 'Kalooki is played with 2 decks and 2 jokers — 106 cards — for 2 to 6 players. Each player is dealt 13 cards.',
+    body: 'Kalooki is played with 2 decks and 2 jokers (106 cards) for 2 to 6 players. Each player is dealt 13 cards.',
   },
   {
     heading: 'Your turn',
@@ -52,11 +52,11 @@ const rulesDigest = [
   },
   {
     heading: 'Coming down',
-    body: 'Build sets — groups of 3–4 cards of the same value in different suits, or runs of 3+ cards in one suit. Once your sets are worth 40 or more points you can lay them on the table.',
+    body: 'Build sets: groups of 3-4 cards of the same value in different suits, or runs of 3+ cards in one suit. Once your sets are worth 40 or more points you can lay them on the table.',
   },
   {
     heading: 'Winning',
-    body: 'First player to table and discard all 13 cards wins the round. Everyone else scores penalty points for cards left in hand — go over 150 and you are out. Last player standing wins the game.',
+    body: 'First player to table and discard all 13 cards wins the round. Everyone else scores penalty points for cards left in hand; go over 150 and you are out. Last player standing wins the game.',
   },
 ]
 
@@ -82,7 +82,7 @@ function WelcomePage() {
               size="lg"
               className="bg-button-red hover:bg-button-red-hover"
             >
-              <Link to="/signup">Play now — it&apos;s free</Link>
+              <Link to="/signup">Play now, it&apos;s free</Link>
             </Button>
             <Button asChild size="lg" variant="ghost">
               <Link to="/signin">I already have an account</Link>
@@ -112,7 +112,7 @@ function WelcomePage() {
         <section className="page-wrap py-12 sm:py-16">
           <h2 className="m-0 text-2xl font-bold">How Kalooki works</h2>
           <p className="mt-2 mb-8 text-sm text-muted-foreground">
-            The short version — the{' '}
+            The short version: the{' '}
             <Link to="/rules" className="underline underline-offset-4">
               full rules
             </Link>{' '}

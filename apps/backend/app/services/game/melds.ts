@@ -95,7 +95,7 @@ function resolveRun(cards: Card[]): ResolvedMeld {
   const startIndex = anchorRankIndex - firstNaturalIndex
   const endIndex = startIndex + cards.length - 1
   if (startIndex < 0 || endIndex >= RANKS.length) {
-    throw new MeldError('That run goes out of bounds — runs go from 2 up to ace')
+    throw new MeldError('That run goes out of bounds, runs go from 2 up to ace')
   }
 
   const meldCards: MeldCard[] = cards.map((card, position) => {

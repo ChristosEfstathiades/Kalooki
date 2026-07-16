@@ -116,7 +116,7 @@ function HistoryPage() {
         <p className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
           {filtersActive
             ? 'No matches fit these filters.'
-            : 'No games yet — find a public match or start one in a group.'}
+            : 'No games yet, find a public match or start one in a group.'}
         </p>
       )}
 
@@ -226,7 +226,7 @@ function MatchRow({ match, currentUserId, expanded, onToggle }: MatchRowProps) {
               ? winner
                 ? `${winner.username} won`
                 : 'Finished'
-              : 'Incomplete — no winner'}
+              : 'Incomplete, no winner'}
             {you && typeof you.chipsNet === 'number'
               ? ` · ${formatChips(you.chipsNet)} chips`
               : ''}
@@ -284,7 +284,7 @@ function MatchDetail({ match }: MatchDetailProps) {
                   <td className="py-1">
                     {typeof player.chipsNet === 'number'
                       ? formatChips(player.chipsNet)
-                      : '—'}
+                      : '-'}
                   </td>
                 )}
                 <td className="py-1 text-xs text-muted-foreground">
@@ -342,7 +342,7 @@ function MatchDetail({ match }: MatchDetailProps) {
                             )}
                           </>
                         ) : (
-                          '—'
+                          '-'
                         )}
                       </td>
                     ))}

@@ -211,7 +211,7 @@ export default function FriendsDialog({
           <FormErrors errors={inviteError} />
           {friends.data && friends.data.length === 0 ? (
             <p className="my-2 text-sm text-muted-foreground">
-              No friends yet — send a request by username to get started.
+              No friends yet, send a request by username to get started.
             </p>
           ) : (
             <ul className="m-0 list-none divide-y divide-border p-0">

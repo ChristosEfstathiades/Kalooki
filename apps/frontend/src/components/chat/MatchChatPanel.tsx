@@ -58,7 +58,7 @@ export default function MatchChatPanel({
 
       {finished ? (
         <p className="m-0 px-4 py-6 text-center text-sm text-muted-foreground">
-          Chat closed — the game has ended.
+          Chat closed, the game has ended.
         </p>
       ) : (
         <ChatConversation channel={{ type: 'match', matchId }} />

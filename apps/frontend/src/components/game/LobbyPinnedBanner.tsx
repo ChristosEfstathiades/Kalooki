@@ -77,13 +77,13 @@ export default function LobbyPinnedBanner({ groupId }: LobbyPinnedBannerProps) {
       <span className="min-w-0 flex-1">
         {open ? (
           joined ? (
-            `You're in — waiting for the game to start (${lobby.players.length}/6)`
+            `You're in, waiting for the game to start (${lobby.players.length}/6)`
           ) : (
-            `Private game open — ${lobby.players.length}/6 joined`
+            `Private game open: ${lobby.players.length}/6 joined`
           )
         ) : (
           <>
-            Private game scheduled — opens in{' '}
+            Private game scheduled, opens in{' '}
             <OpensIn opensAt={lobby.opensAt ?? 0} />
           </>
         )}

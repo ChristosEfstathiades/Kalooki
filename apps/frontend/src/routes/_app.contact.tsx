@@ -9,7 +9,7 @@ function ContactPage() {
   return (
     <ContentPage
       title="Contact and support"
-      intro="Questions, bug reports, or trouble with your account — get in touch and we'll help."
+      intro="Questions, bug reports, or trouble with your account: get in touch and we'll help."
     >
       <ContentSection heading="Email">
         <p className="m-0">
@@ -27,7 +27,7 @@ function ContactPage() {
 
       <ContentSection heading="Reporting players or messages">
         <p className="m-0">
-          Abusive chat messages can be reported directly from the chat — reports
+          Abusive chat messages can be reported directly from the chat; reports
           go straight to the moderators. For anything that needs more context,
           email us with the approximate time it happened and the players
           involved.

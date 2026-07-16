@@ -34,7 +34,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       {
         name: 'description',
         content:
-          'Play Kalooki online — the classic Rummy card game. Public matches against other players or private games with friends, in real time.',
+          'Play Kalooki online, the classic Rummy card game. Public matches against other players or private games with friends, in real time.',
       },
     ],
     links: [

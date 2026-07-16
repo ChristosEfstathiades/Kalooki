@@ -159,7 +159,7 @@ test.group('Match service', (group) => {
     assert.lengthOf(chatEvents, 2)
     let stored = matchSystemMessages(match.id)
     assert.lengthOf(stored, 1)
-    assert.equal(stored[0].body, 'player_2 disconnected — 5 minutes to reconnect.')
+    assert.equal(stored[0].body, 'player_2 disconnected, 5 minutes to reconnect.')
     assert.isNull(stored[0].user)
 
     // Classic 5-minute budget: milestones at 4/3/2/1 min, 30s, and 10s left

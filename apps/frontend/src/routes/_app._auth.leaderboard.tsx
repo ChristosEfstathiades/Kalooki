@@ -49,7 +49,7 @@ function LeaderboardPage() {
 
       {leaderboard.isSuccess && entries.length === 0 && (
         <p className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-          Nobody has qualified yet — the first players to finish {minMatches}{' '}
+          Nobody has qualified yet, the first players to finish {minMatches}{' '}
           public matches will appear here.
         </p>
       )}

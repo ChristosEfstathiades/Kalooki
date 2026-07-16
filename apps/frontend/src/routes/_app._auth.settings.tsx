@@ -139,7 +139,7 @@ function DeleteAccountSection() {
             <DialogTitle>Delete your account?</DialogTitle>
             <DialogDescription>
               Your account will be scheduled for permanent deletion. Signing
-              back in within 30 days restores it — after that, your account
+              back in within 30 days restores it; after that, your account
               and its data are gone for good.
             </DialogDescription>
           </DialogHeader>

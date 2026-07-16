@@ -133,7 +133,7 @@ export function sendChatMessage(
         (timeoutError: Error | null, ack: SendAck) => {
           if (timeoutError) {
             reject(
-              new Error('The server did not respond — check your connection'),
+              new Error('The server did not respond, check your connection'),
             )
           } else if (!ack.ok) {
             reject(new Error(ack.error ?? 'Could not send the message'))

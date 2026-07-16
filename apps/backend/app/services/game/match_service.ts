@@ -923,7 +923,7 @@ function scheduleTurnTimer(match: ActiveMatch): void {
       runtime.remainingBankMs = 0
       match.overtimeGranted = true
       scheduleTurnTimer(match)
-      broadcastState(match, 'Time bank exhausted — 60 seconds per turn now')
+      broadcastState(match, 'Time bank exhausted, 60 seconds per turn now')
       return
     }
     timeOutPlayer(match, turnUser)
@@ -1064,10 +1064,10 @@ export function playerDisconnected(userId: number): void {
   }
 
   pauseMatch(match)
-  broadcastState(match, `${username} disconnected — game paused`)
+  broadcastState(match, `${username} disconnected, game paused`)
   postMatchSystemMessage(
     match,
-    `${username} disconnected — ${describeDuration(runtime.remainingRejoinMs)} to reconnect.`
+    `${username} disconnected, ${describeDuration(runtime.remainingRejoinMs)} to reconnect.`
   )
 }
 

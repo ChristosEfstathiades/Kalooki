@@ -189,7 +189,7 @@ function call<T>(event: string, payload: unknown): Promise<T> {
       .emit(event, payload, (timeoutError: Error | null, ack: Ack<T>) => {
         if (timeoutError) {
           reject(
-            new Error('The server did not respond — check your connection'),
+            new Error('The server did not respond, check your connection'),
           )
         } else if (!ack.ok) {
           reject(new Error(ack.error ?? 'Something went wrong'))

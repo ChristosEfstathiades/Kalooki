@@ -174,8 +174,8 @@ function MatchmakingCard() {
           {status.queueSize} {status.queueSize === 1 ? 'player' : 'players'}{' '}
           waiting
           {status.startsInMs !== null
-            ? ' — starting shortly, more can still join'
-            : ' — the game starts when at least one more player queues'}
+            ? ', starting shortly, more can still join'
+            : ', the game starts when at least one more player queues'}
         </p>
       )}
       {error && (

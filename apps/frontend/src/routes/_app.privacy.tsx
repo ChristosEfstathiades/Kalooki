@@ -14,21 +14,21 @@ function PrivacyPage() {
       <ContentSection heading="What we collect">
         <ul className="m-0 list-disc space-y-1 pl-5">
           <li>
-            <strong>Account details</strong> — your email address, username, a
+            <strong>Account details</strong>: your email address, username, a
             hashed password, and an optional profile photo. We never store your
             password in readable form.
           </li>
           <li>
-            <strong>Gameplay records</strong> — the matches you play, including
+            <strong>Gameplay records</strong>: the matches you play, including
             scores, placements, and the rules in effect. Match records are
             visible only to the players who took part and are kept indefinitely.
           </li>
           <li>
-            <strong>Chat messages</strong> — messages in the global chatroom and
+            <strong>Chat messages</strong>: messages in the global chatroom and
             in group chats are stored for 30 days and then deleted automatically.
           </li>
           <li>
-            <strong>Social connections</strong> — your friends list, friend
+            <strong>Social connections</strong>: your friends list, friend
             requests, and group memberships.
           </li>
         </ul>
@@ -62,7 +62,7 @@ function PrivacyPage() {
 
       <ContentSection heading="Cookies and storage">
         <p className="m-0">
-          We use browser storage only to keep you signed in — a session token,
+          We use browser storage only to keep you signed in: a session token,
           stored persistently when you choose &quot;remember me&quot;. There are
           no third-party tracking cookies.
         </p>

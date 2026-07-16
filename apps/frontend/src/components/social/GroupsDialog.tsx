@@ -124,7 +124,7 @@ function GroupsOverview({ onOpenGroup }: GroupsOverviewProps) {
                 <span className="min-w-0 text-sm">
                   <span className="font-medium">{invite.group.name}</span>{' '}
                   <span className="text-muted-foreground">
-                    — invited by {invite.group.owner.username}
+                    invited by {invite.group.owner.username}
                   </span>
                 </span>
                 <span className="flex shrink-0 gap-2">
@@ -168,7 +168,7 @@ function GroupsOverview({ onOpenGroup }: GroupsOverviewProps) {
                 <span className="min-w-0 text-sm">
                   <span className="font-medium">{group.name}</span>{' '}
                   <span className="text-muted-foreground">
-                    — {group.memberCount}{' '}
+                    {group.memberCount}{' '}
                     {group.memberCount === 1 ? 'member' : 'members'}
                   </span>
                 </span>

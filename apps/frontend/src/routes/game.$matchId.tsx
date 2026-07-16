@@ -321,7 +321,7 @@ function GamePage() {
           {view.paused && (
             <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl bg-black/60">
               <p className="m-0 text-lg font-semibold text-white">
-                Game paused — waiting for a player to reconnect
+                Game paused, waiting for a player to reconnect
               </p>
             </div>
           )}
@@ -574,7 +574,7 @@ function MeldsArea({
   if (view.melds.length === 0) {
     return (
       <p className="m-0 text-center text-sm text-white/60">
-        No sets on the table yet — first to {view.rules.comeDownThreshold}{' '}
+        No sets on the table yet, first to {view.rules.comeDownThreshold}{' '}
         points comes down.
       </p>
     )
@@ -758,7 +758,7 @@ function OwnArea({
     ? 'Paused'
     : isMyTurn
       ? view.phase === 'awaitingDraw'
-        ? 'Your turn — draw from the deck or take the discard'
+        ? 'Your turn, draw from the deck or take the discard'
         : 'Lay sets, add go-ers, then discard to end your turn'
       : `Waiting for ${
           view.players.find(

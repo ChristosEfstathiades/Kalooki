@@ -78,7 +78,7 @@ export default class FriendRequestsController {
       .first()
     if (existingIncoming) {
       throw new Exception(
-        `${recipient.username} has already sent you a friend request — accept it instead`,
+        `${recipient.username} has already sent you a friend request, accept it instead`,
         { status: 409, code: 'E_REQUEST_EXISTS_REVERSE' }
       )
     }
