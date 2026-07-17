@@ -166,6 +166,7 @@ export interface CustomRulesInput {
   decks: number
   jokers: number
   comeDownThreshold: number
+  scoreLimit: number
   moveTimeMinutes: number
   rejoinMinutes: number
   buyInsPerPlayer: number

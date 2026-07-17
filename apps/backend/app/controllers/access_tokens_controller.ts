@@ -1,5 +1,6 @@
 import User from '#models/user'
 import { loginValidator } from '#validators/user'
+import { failedLoginAttemptsLimiter } from '#start/limiter'
 import { mintAccessToken } from '#services/access_token_service'
 import { isWithinRestoreWindow } from '#services/account_deletion_service'
 import UserTransformer from '#transformers/user_transformer'
@@ -15,7 +16,17 @@ export default class AccessTokensController {
   async store({ request, serialize }: HttpContext) {
     const { identifier, password, rememberMe } = await request.validateUsing(loginValidator)
 
-    const user = await User.verifyCredentials(identifier, password)
+    // Failed attempts for the same account from the same IP feed a
+    // lockout counter; a successful login resets it (AUDIT.md S1).
+    const attemptKey = `login_${identifier.toLowerCase()}_${request.ip()}`
+    const [throttleError, user] = await failedLoginAttemptsLimiter().penalize(attemptKey, () => {
+      return User.verifyCredentials(identifier, password)
+    })
+    if (throttleError) {
+      throw throttleError.setMessage(
+        'Too many failed login attempts. Please try again in 15 minutes.'
+      )
+    }
 
     if (user.deletedAt) {
       // Past the grace period the account is as good as gone (the purge

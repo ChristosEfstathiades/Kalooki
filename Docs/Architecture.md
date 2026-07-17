@@ -14,6 +14,7 @@ Built using adonisjs. Use adonisjs documentation to understand folder layout ([h
 - Clean API structure with versioning
 - CORS, Shield middleware, and secure authentication
 - To create an account users provide an email address, a unique username, a password, and a matching password confirmation. Avatars are DiceBear "bottts" robots generated from the username, so there is no photo upload. In production the account stays inactive until the user verifies their email via a confirmation link; in development verification is skipped and accounts are active immediately. Full signup and password rules are defined in features.md.
+- Rate limiting via `@adonisjs/limiter` (in-memory store, matching the single-process deployment): login/signup are throttled at 5 requests/min per IP, authenticated endpoints share a 60 requests/min per-user ceiling, and 10 failed logins for the same account+IP within 15 minutes lock login out for 15 minutes (a successful login resets the counter). Throttle definitions live in `apps/backend/start/limiter.ts`.
 
 ### Authorization
 

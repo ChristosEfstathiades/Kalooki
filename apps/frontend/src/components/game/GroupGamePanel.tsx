@@ -33,6 +33,7 @@ const DEFAULT_RULES: Omit<CustomRulesInput, 'stakes'> = {
   decks: 2,
   jokers: 2,
   comeDownThreshold: 40,
+  scoreLimit: 150,
   moveTimeMinutes: 30,
   rejoinMinutes: 5,
   buyInsPerPlayer: 1,
@@ -128,6 +129,38 @@ export default function GroupGamePanel({
           }))
         }
       />
+    </div>
+  )
+
+  const ruleSelect = (
+    label: string,
+    key: keyof Omit<CustomRulesInput, 'stakes'>,
+    options: number[],
+  ): React.ReactNode => (
+    <div className="space-y-1">
+      <Label htmlFor={`rule-${key}`} className="text-xs">
+        {label}
+      </Label>
+      <Select
+        value={String(rules[key])}
+        onValueChange={(value) =>
+          setRules((current) => ({
+            ...current,
+            [key]: Number(value),
+          }))
+        }
+      >
+        <SelectTrigger id={`rule-${key}`} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option} value={String(option)}>
+              {option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 
@@ -236,7 +269,8 @@ export default function GroupGamePanel({
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {ruleField('Decks (2-4)', 'decks', 2, 4)}
               {ruleField('Jokers (0-4)', 'jokers', 0, 4)}
-              {ruleField('Come down at', 'comeDownThreshold', 5, 150)}
+              {ruleSelect('Come down at', 'comeDownThreshold', [40, 50])}
+              {ruleSelect('Score limit', 'scoreLimit', [101, 150])}
               {ruleField('Move bank (min)', 'moveTimeMinutes', 5, 120)}
               {ruleField('Rejoin (min)', 'rejoinMinutes', 1, 15)}
               <div className="space-y-1">

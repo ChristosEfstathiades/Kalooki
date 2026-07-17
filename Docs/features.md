@@ -44,7 +44,7 @@
 
 ## Game Modes
 
-- There are three ways to play Kalooki. (1) Public friendly matches, which always use a fixed, universal classic ruleset. (2) Private matches (as described in Private Groups), which can use either the classic ruleset or custom rules set by the group owner. (3) Practice matches against bots (see below).
+- There are three ways to play Kalooki. (1) Public friendly matches, which always use a fixed, universal classic ruleset and seat up to 5 players. (2) Private matches (as described in Private Groups), which seat up to 6 players and can use either the classic ruleset or custom rules set by the group owner. (3) Practice matches against bots (see below).
 
 ## Practice vs Bots
 

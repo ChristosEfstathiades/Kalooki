@@ -10,6 +10,7 @@
 import { middleware } from '#start/kernel'
 import router from '@adonisjs/core/services/router'
 import { controllers } from '#generated/controllers'
+import { apiThrottle, authThrottle } from '#start/limiter'
 
 router.get('/', () => {
   return { hello: 'world' }
@@ -24,6 +25,7 @@ router
       })
       .prefix('auth')
       .as('auth')
+      .use(authThrottle)
 
     router
       .group(() => {
@@ -34,7 +36,7 @@ router
       })
       .prefix('account')
       .as('profile')
-      .use(middleware.auth())
+      .use([middleware.auth(), apiThrottle])
 
     router
       .group(() => {
@@ -65,6 +67,6 @@ router
         router.get('leaderboard', [controllers.Leaderboard, 'index'])
       })
       .as('social')
-      .use(middleware.auth())
+      .use([middleware.auth(), apiThrottle])
   })
   .prefix('/api/v1')

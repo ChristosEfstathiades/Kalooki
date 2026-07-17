@@ -85,11 +85,25 @@ function intIn(value: unknown, min: number, max: number, fallback: number): numb
   return Math.min(max, Math.max(min, parsed))
 }
 
+/** Come-down thresholds a private game may choose between. */
+const COME_DOWN_OPTIONS = [40, 50]
+
+/** Score limits a private game may choose between (docs/Kalooki.md). */
+const SCORE_LIMIT_OPTIONS = [101, 150]
+
+/**
+ * Returns the value when it is one of the allowed options, otherwise
+ * the fallback.
+ */
+function numberIn(value: unknown, options: number[], fallback: number): number {
+  return typeof value === 'number' && options.includes(value) ? value : fallback
+}
+
 /**
  * Parses custom rules from an untrusted lobby payload, bounded to the
  * options private games may change (docs/Kalooki.md): timers, decks,
- * jokers, the come-down threshold, buy-ins per player, and optional
- * play-money stakes.
+ * jokers, the come-down threshold, the score limit, buy-ins per
+ * player, and optional play-money stakes.
  */
 function parseCustomRules(payload: unknown): GameRules {
   const input = (payload ?? {}) as Record<string, unknown>
@@ -98,7 +112,12 @@ function parseCustomRules(payload: unknown): GameRules {
     ...CLASSIC_RULES,
     decks: intIn(input.decks, 2, 4, CLASSIC_RULES.decks),
     jokers: intIn(input.jokers, 0, 4, CLASSIC_RULES.jokers),
-    comeDownThreshold: intIn(input.comeDownThreshold, 5, 150, CLASSIC_RULES.comeDownThreshold),
+    comeDownThreshold: numberIn(
+      input.comeDownThreshold,
+      COME_DOWN_OPTIONS,
+      CLASSIC_RULES.comeDownThreshold
+    ),
+    scoreLimit: numberIn(input.scoreLimit, SCORE_LIMIT_OPTIONS, CLASSIC_RULES.scoreLimit),
     moveTimeBankMs:
       intIn(input.moveTimeMinutes, 5, 120, CLASSIC_RULES.moveTimeBankMs / 60000) * 60000,
     rejoinBudgetMs: intIn(input.rejoinMinutes, 1, 15, CLASSIC_RULES.rejoinBudgetMs / 60000) * 60000,

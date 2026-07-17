@@ -1,6 +1,7 @@
 import { assert } from '@japa/assert'
 import { apiClient } from '@japa/api-client'
 import app from '@adonisjs/core/services/app'
+import limiter from '@adonisjs/limiter/services/main'
 import type { Config } from '@japa/runner/types'
 import { pluginAdonisJS } from '@japa/plugin-adonisjs'
 import { dbAssertions } from '@adonisjs/lucid/plugins/db'
@@ -57,6 +58,12 @@ export const runnerHooks: Required<Pick<Config, 'setup' | 'teardown'>> = {
  */
 export const configureSuite: Config['configureSuite'] = (suite) => {
   if (['browser', 'functional', 'e2e'].includes(suite.name)) {
+    // Every test's requests share the same client IP, so rate-limit
+    // counters must be reset between tests to keep them independent.
+    // onTest only sees top-level tests; grouped tests need onGroup.
+    const resetRateLimits = () => limiter.clear()
+    suite.onTest((test) => test.setup(resetRateLimits))
+    suite.onGroup((group) => group.each.setup(resetRateLimits))
     return suite.setup(() => testUtils.httpServer().start())
   }
 }

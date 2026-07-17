@@ -84,6 +84,21 @@ test.group('Match service', (group) => {
     assert.lengthOf(startEvents, 2)
   })
 
+  test('a public match seats at most 5 players and extras stay queued', async ({ assert }) => {
+    for (let id = 1; id <= 6; id++) {
+      joinPublicQueue(identity(id))
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    const match = matchForUser(1)
+    assert.isNotNull(match)
+    assert.lengthOf(match?.state.players ?? [], 5)
+    // The sixth player did not make the match and remains queued
+    assert.isNull(matchForUser(6))
+    assert.equal(joinPublicQueue(identity(6)).queueSize, 1)
+  })
+
   test('redacted views never contain another player’s cards', ({ assert }) => {
     const match = startTwoPlayerMatch()
 

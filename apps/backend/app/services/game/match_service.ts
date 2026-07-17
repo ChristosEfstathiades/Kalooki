@@ -198,7 +198,9 @@ export function configureScheduledLobbyStore(store: ScheduledLobbyStore | null):
 
 /** Queue fills for this long once it can start, so more can join. */
 let queueCountdownMs = 10 * 1000
-const MAX_PLAYERS = 6
+/** Public matches seat at most 5 players; private lobbies allow 6. */
+const PUBLIC_MAX_PLAYERS = 5
+const PRIVATE_MAX_PLAYERS = 6
 
 let emitter: MatchEmitter = {
   toUser: () => {},
@@ -277,7 +279,7 @@ export interface QueueStatus {
 
 /**
  * Joins the public queue. Once 2+ players are waiting a short
- * countdown runs so more can join (up to 6), then the match starts
+ * countdown runs so more can join (up to 5), then the match starts
  * with the classic ruleset.
  */
 export function joinPublicQueue(identity: PlayerIdentity): QueueStatus {
@@ -326,7 +328,7 @@ function broadcastQueueStatus(): void {
 }
 
 function startPublicMatch(): void {
-  const starters = publicQueue.slice(0, MAX_PLAYERS)
+  const starters = publicQueue.slice(0, PUBLIC_MAX_PLAYERS)
   publicQueue = publicQueue.slice(starters.length)
   if (starters.length < 2) {
     broadcastQueueStatus()
@@ -480,7 +482,7 @@ export function joinLobby(groupId: number, identity: PlayerIdentity): void {
   if (matchForUser(identity.id)) {
     throw new GameError('You are already in a game', 'E_ALREADY_IN_GAME')
   }
-  if (lobby.players.length >= MAX_PLAYERS) {
+  if (lobby.players.length >= PRIVATE_MAX_PLAYERS) {
     throw new GameError('This game is full (6 players max)', 'E_LOBBY_FULL')
   }
   if (!lobby.players.some((player) => player.id === identity.id)) {

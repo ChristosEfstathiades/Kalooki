@@ -8,13 +8,14 @@ export const Route = createFileRoute('/_app/rules')({
 /**
  * The full how-to-play page, following the standard game described in
  * docs/Kalooki.md. Public matches always use these rules; private
- * matches can customise timers, decks, jokers, and the come-down total.
+ * matches can customise timers, decks, jokers, the come-down total,
+ * the score limit, buy-ins, and play money.
  */
 function RulesPage() {
   return (
     <ContentPage
       title="How to play Kalooki"
-      intro="Kalooki is a Rummy-family game played with 2 decks and 2 jokers (106 cards) for 2 to 6 players. A game is a series of rounds; the cards left in your hand at the end of each round become penalty points, and the last player under the limit wins."
+      intro="Kalooki is a Rummy-family game played with 2 decks and 2 jokers (106 cards) for 2 to 6 players (public matches seat up to 5). A game is a series of rounds; the cards left in your hand at the end of each round become penalty points, and the last player under the limit wins."
     >
       <ContentSection heading="Card values">
         <ul className="m-0 list-disc space-y-1 pl-5">
@@ -137,7 +138,8 @@ function RulesPage() {
           <li>Move and rejoin timers</li>
           <li>Number of decks (2–4)</li>
           <li>Number of jokers (0–4)</li>
-          <li>Points needed to come down (default 40)</li>
+          <li>Points needed to come down (40 or 50, default 40)</li>
+          <li>Score limit before you are out (101 or 150, default 150)</li>
           <li>Buy-ins per player (none to unlimited, default 1)</li>
           <li>Play money (see below)</li>
         </ul>

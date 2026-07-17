@@ -124,7 +124,8 @@ private matches can edit rules such as:
 - move and rejoin timer
 - Number of decks (2-4)
 - number of jokers (0-4)
-- how many points they need to initially come down (default 40)
+- how many points they need to initially come down (40 or 50, default 40)
+- score limit before a player is out (101 or 150, default 150; players are eliminated when their score exceeds it)
 - buy-ins per player (0-3 or unlimited, default 1; still never allowed when only 2 players remain)
 - play money (see below)
 
