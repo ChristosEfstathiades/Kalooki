@@ -1,5 +1,5 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
-import { Clock, MessageSquare, Shuffle, Users } from 'lucide-react'
+import { MessageSquare, Shuffle, Trophy, Users } from 'lucide-react'
 import { getStoredToken } from '#/lib/auth-token'
 import Footer from '#/components/Footer'
 import { Button } from '#/components/ui/button'
@@ -34,10 +34,10 @@ const features = [
       'A global chatroom for everyone and a private chat in every group. Talk between hands or plan the next game night.',
   },
   {
-    icon: Clock,
-    title: 'Match history',
+    icon: Trophy,
+    title: 'Leaderboards',
     description:
-      'Every game is recorded: winners, round-by-round scores, and placements. Only the players in a match can see it.',
+      'Climb the global rankings in public matches: win rate, longest streaks, and more. Top 100 players are on show for everyone to see.',
   },
 ]
 

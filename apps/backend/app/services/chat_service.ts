@@ -54,13 +54,20 @@ export type ChatChannel =
  * running and the user must be one of its players. Once the game ends
  * the messages become inaccessible (they stay in the database for the
  * retention window, associated with the game id, for moderation).
+ * Practice matches (solo against bots) have no table chat, since bots
+ * cannot post or read messages.
  *
- * @throws Exception (404) when the match is unknown, finished, or the
- *   user is not a player in it.
+ * @throws Exception (404) when the match is unknown, finished, is a
+ *   practice match, or the user is not a player in it.
  */
 export function assertMatchChatAccess(matchId: string, userId: number): void {
   const match = getMatch(matchId)
-  if (!match || match.finishedAt !== null || !match.identities.has(userId)) {
+  if (
+    !match ||
+    match.finishedAt !== null ||
+    match.kind === 'practice' ||
+    !match.identities.has(userId)
+  ) {
     throw new Exception('Match chat not found', { status: 404, code: 'E_MATCH_CHAT_NOT_FOUND' })
   }
 }

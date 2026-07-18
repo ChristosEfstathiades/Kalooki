@@ -68,7 +68,10 @@ export default function PlayingCard({
   const face = (
     <span
       className={cn(
-        'inline-block overflow-hidden rounded-md bg-white shadow-sm select-none',
+        // block, not inline-block: an inline card sits on the text
+        // baseline and leaves descender space below it, which any
+        // border or ring drawn around the card would then include
+        'block overflow-hidden rounded-md bg-white shadow-sm select-none',
         small ? 'h-10 w-7' : 'h-24 w-[66px]',
         selected && '-translate-y-2 ring-2 ring-ring',
         onClick && 'cursor-pointer',
@@ -117,7 +120,7 @@ export function CardBack({ small }: CardBackProps) {
     <span
       aria-hidden="true"
       className={cn(
-        'inline-block rounded-md border border-black/30 bg-button-purple shadow-sm',
+        'block rounded-md border border-black/30 bg-button-purple shadow-sm',
         small ? 'h-10 w-7' : 'h-24 w-[66px]',
       )}
       style={{

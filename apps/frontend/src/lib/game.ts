@@ -128,6 +128,7 @@ export type GameAction =
 export interface QueueStatus {
   inQueue: boolean
   queueSize: number
+  /** Ms until the match starts; null while more players are still needed. */
   startsInMs: number | null
 }
 

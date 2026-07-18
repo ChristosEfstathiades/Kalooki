@@ -116,7 +116,7 @@ export default function FriendSuggestInput({
           id={listId}
           role="listbox"
           aria-label="Matching friends"
-          className="absolute top-full right-0 left-0 z-50 m-0 mt-1 max-h-56 list-none overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md"
+          className="thin-scrollbar absolute top-full right-0 left-0 z-50 m-0 mt-1 max-h-56 list-none overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md"
         >
           {suggestions.map((friend, index) => (
             <li

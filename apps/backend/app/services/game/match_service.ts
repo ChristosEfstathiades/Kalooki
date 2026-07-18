@@ -17,6 +17,7 @@ import {
   takeJoker,
 } from '#services/game/engine'
 import { decideBotAction } from '#services/game/bot'
+import { MAX_BOT_OPPONENTS } from '#services/game/bot_users'
 import type { BotDifficulty } from '#services/game/bot'
 import type { GameRules, GameState, TabledMeld, RoundResult } from '#services/game/engine'
 import type { Card, Rng } from '#services/game/cards'
@@ -105,6 +106,8 @@ export interface ActiveMatch {
   /** Epoch ms the match was created. */
   startedAt: number
   finishedAt: number | null
+  /** Epoch ms of the last state change (the idle-expiry clock). */
+  lastActivityAt: number
   /** Server-authored chat lines, oldest first. */
   systemMessages: MatchSystemMessage[]
 }
@@ -159,7 +162,14 @@ const matchIdByUser = new Map<number, string>()
 
 /** Public matchmaking queue, in join order. */
 let publicQueue: PlayerIdentity[] = []
+/** The fill window: runs from the first search, ends in a start or a wait. */
 let queueCountdown: NodeJS.Timeout | null = null
+let queueCountdownEndsAt: number | null = null
+/** Short post-window grace once the minimum player count is reached. */
+let queueGraceTimer: NodeJS.Timeout | null = null
+let queueGraceEndsAt: number | null = null
+/** True once the fill window lapsed with too few players to start. */
+let queueWindowExpired = false
 
 /** One pending lobby per group. */
 interface PrivateLobby {
@@ -196,9 +206,12 @@ export function configureScheduledLobbyStore(store: ScheduledLobbyStore | null):
   scheduledStore = store
 }
 
-/** Queue fills for this long once it can start, so more can join. */
-let queueCountdownMs = 10 * 1000
-/** Public matches seat at most 5 players; private lobbies allow 6. */
+/** The queue fills for this long from the first search, so more can join. */
+let queueCountdownMs = 90 * 1000
+/** Grace after the fill window once the minimum is reached, so more can join. */
+let queueGraceMs = 5 * 1000
+/** Public matches need 3 players and seat at most 5; private lobbies allow 6. */
+const PUBLIC_MIN_PLAYERS = 3
 const PUBLIC_MAX_PLAYERS = 5
 const PRIVATE_MAX_PLAYERS = 6
 
@@ -218,7 +231,12 @@ let botDelayMsOverride: number | null = null
  */
 export function configureMatchService(
   nextEmitter: MatchEmitter,
-  options: { rng?: Rng; queueCountdownMs?: number; botDelayMs?: number } = {}
+  options: {
+    rng?: Rng
+    queueCountdownMs?: number
+    queueGraceMs?: number
+    botDelayMs?: number
+  } = {}
 ): void {
   emitter = nextEmitter
   if (options.rng) {
@@ -227,9 +245,13 @@ export function configureMatchService(
   if (options.queueCountdownMs !== undefined) {
     queueCountdownMs = options.queueCountdownMs
   }
+  if (options.queueGraceMs !== undefined) {
+    queueGraceMs = options.queueGraceMs
+  }
   if (options.botDelayMs !== undefined) {
     botDelayMsOverride = options.botDelayMs
   }
+  armIdleSweep()
 }
 
 /**
@@ -242,10 +264,7 @@ export function resetMatchService(): void {
   matches.clear()
   matchIdByUser.clear()
   publicQueue = []
-  if (queueCountdown) {
-    clearTimeout(queueCountdown)
-    queueCountdown = null
-  }
+  resetQueueTimers()
   for (const lobby of lobbies.values()) {
     if (lobby.openTimer) {
       clearTimeout(lobby.openTimer)
@@ -274,13 +293,16 @@ export function getMatch(matchId: string): ActiveMatch | null {
 export interface QueueStatus {
   inQueue: boolean
   queueSize: number
+  /** Ms until the match starts; null while more players are still needed. */
   startsInMs: number | null
 }
 
 /**
- * Joins the public queue. Once 2+ players are waiting a short
- * countdown runs so more can join (up to 5), then the match starts
- * with the classic ruleset.
+ * Joins the public queue. The first search opens a fill window
+ * (90 seconds) so more players can gather. A full queue of 5 starts
+ * immediately; when the window closes with 3+ players the match starts;
+ * with fewer, the queue waits, and once a 3rd player arrives a short
+ * grace runs so a 4th or 5th can still make it.
  */
 export function joinPublicQueue(identity: PlayerIdentity): QueueStatus {
   if (matchForUser(identity.id)) {
@@ -290,25 +312,48 @@ export function joinPublicQueue(identity: PlayerIdentity): QueueStatus {
     publicQueue.push(identity)
   }
 
-  if (publicQueue.length >= 2 && !queueCountdown) {
-    queueCountdown = setTimeout(() => {
-      queueCountdown = null
+  if (publicQueue.length >= PUBLIC_MAX_PLAYERS) {
+    startPublicMatch()
+    return queueStatusFor(identity.id)
+  }
+  if (!queueWindowExpired) {
+    if (!queueCountdown) {
+      queueCountdownEndsAt = Date.now() + queueCountdownMs
+      queueCountdown = setTimeout(() => {
+        queueCountdown = null
+        queueCountdownEndsAt = null
+        if (publicQueue.length >= PUBLIC_MIN_PLAYERS) {
+          startPublicMatch()
+        } else {
+          queueWindowExpired = true
+          broadcastQueueStatus()
+        }
+      }, queueCountdownMs)
+    }
+  } else if (publicQueue.length >= PUBLIC_MIN_PLAYERS && !queueGraceTimer) {
+    queueGraceEndsAt = Date.now() + queueGraceMs
+    queueGraceTimer = setTimeout(() => {
+      queueGraceTimer = null
+      queueGraceEndsAt = null
       startPublicMatch()
-    }, queueCountdownMs)
+    }, queueGraceMs)
   }
   broadcastQueueStatus()
   return queueStatusFor(identity.id)
 }
 
 /**
- * Leaves the public queue; a countdown with fewer than 2 players left
- * is cancelled.
+ * Leaves the public queue. An emptied queue resets the fill window;
+ * dropping below the minimum cancels a running grace timer.
  */
 export function leavePublicQueue(userId: number): void {
   publicQueue = publicQueue.filter((queued) => queued.id !== userId)
-  if (publicQueue.length < 2 && queueCountdown) {
-    clearTimeout(queueCountdown)
-    queueCountdown = null
+  if (publicQueue.length === 0) {
+    resetQueueTimers()
+  } else if (queueGraceTimer && publicQueue.length < PUBLIC_MIN_PLAYERS) {
+    clearTimeout(queueGraceTimer)
+    queueGraceTimer = null
+    queueGraceEndsAt = null
   }
   broadcastQueueStatus()
 }
@@ -317,8 +362,22 @@ export function queueStatusFor(userId: number): QueueStatus {
   return {
     inQueue: publicQueue.some((queued) => queued.id === userId),
     queueSize: publicQueue.length,
-    startsInMs: queueCountdown ? queueCountdownMs : null,
+    startsInMs: queueStartsInMs(),
   }
+}
+
+/**
+ * Remaining ms until a scheduled start, or null when no start is
+ * guaranteed yet (below the minimum, or waiting after the window).
+ */
+function queueStartsInMs(): number | null {
+  if (queueGraceEndsAt !== null) {
+    return Math.max(0, queueGraceEndsAt - Date.now())
+  }
+  if (queueCountdownEndsAt !== null && publicQueue.length >= PUBLIC_MIN_PLAYERS) {
+    return Math.max(0, queueCountdownEndsAt - Date.now())
+  }
+  return null
 }
 
 function broadcastQueueStatus(): void {
@@ -327,13 +386,28 @@ function broadcastQueueStatus(): void {
   }
 }
 
+function resetQueueTimers(): void {
+  if (queueCountdown) {
+    clearTimeout(queueCountdown)
+  }
+  queueCountdown = null
+  queueCountdownEndsAt = null
+  if (queueGraceTimer) {
+    clearTimeout(queueGraceTimer)
+  }
+  queueGraceTimer = null
+  queueGraceEndsAt = null
+  queueWindowExpired = false
+}
+
 function startPublicMatch(): void {
-  const starters = publicQueue.slice(0, PUBLIC_MAX_PLAYERS)
-  publicQueue = publicQueue.slice(starters.length)
-  if (starters.length < 2) {
+  resetQueueTimers()
+  if (publicQueue.length < PUBLIC_MIN_PLAYERS) {
     broadcastQueueStatus()
     return
   }
+  const starters = publicQueue.slice(0, PUBLIC_MAX_PLAYERS)
+  publicQueue = publicQueue.slice(starters.length)
   createMatch(starters, CLASSIC_RULES, 'public', null)
   broadcastQueueStatus()
 }
@@ -609,6 +683,7 @@ function createMatch(
     overtimeGranted: false,
     startedAt: Date.now(),
     finishedAt: null,
+    lastActivityAt: Date.now(),
     systemMessages: [],
   }
 
@@ -641,8 +716,11 @@ export function startPracticeMatch(
   if (matchForUser(human.id)) {
     throw new GameError('You are already in a game', 'E_ALREADY_IN_GAME')
   }
-  if (bots.length < 1 || bots.length > 3) {
-    throw new GameError('Practice games take 1 to 3 bot opponents', 'E_BOT_COUNT')
+  if (bots.length < 1 || bots.length > MAX_BOT_OPPONENTS) {
+    throw new GameError(
+      `Practice games take 1 to ${MAX_BOT_OPPONENTS} bot opponents`,
+      'E_BOT_COUNT'
+    )
   }
   leavePublicQueue(human.id)
   return createMatch([human, ...bots], CLASSIC_RULES, 'practice', null, {
@@ -902,6 +980,11 @@ function scheduleTurnTimer(match: ActiveMatch): void {
     match.turnTimer = null
     match.turnDeadlineAt = null
   }
+  // Practice matches are solo play against bots: no other player is
+  // waiting, so there is no move timer to enforce.
+  if (match.kind === 'practice') {
+    return
+  }
   if (match.pausedAt !== null || match.state.phase === 'finished') {
     return
   }
@@ -1020,7 +1103,8 @@ function clearMilestoneTimers(runtime: ParticipantRuntime): void {
  * Marks a participant disconnected: the game pauses and their
  * remaining rejoin budget starts counting down (docs/Kalooki.md — the
  * budget is never refreshed within a game). Chat gets a countdown:
- * the time left at each milestone, then the removal notice.
+ * the time left at each milestone, then the removal notice. Practice
+ * matches only pause — no budget, no countdown (docs/features.md).
  */
 export function playerDisconnected(userId: number): void {
   leavePublicQueue(userId)
@@ -1042,6 +1126,18 @@ export function playerDisconnected(userId: number): void {
   const username = match.identities.get(userId)?.username ?? 'A player'
   runtime.connected = false
   runtime.disconnectedAt = Date.now()
+
+  // Practice matches have no rejoin timer, mirroring the move timer:
+  // it is solo play, so nobody is kept waiting. The game (and its
+  // bots) just pauses until the human returns — a page reload counts
+  // as a disconnect, so removal here would forfeit the game on every
+  // refresh.
+  if (match.kind === 'practice') {
+    pauseMatch(match)
+    broadcastState(match, `${username} disconnected, game paused`)
+    return
+  }
+
   runtime.rejoinTimer = setTimeout(() => {
     runtime.rejoinTimer = null
     clearMilestoneTimers(runtime)
@@ -1094,10 +1190,13 @@ export function playerReconnected(userId: number): ActiveMatch | null {
   }
   clearMilestoneTimers(runtime)
   if (runtime.disconnectedAt !== null) {
-    runtime.remainingRejoinMs = Math.max(
-      0,
-      runtime.remainingRejoinMs - (Date.now() - runtime.disconnectedAt)
-    )
+    // Practice matches never enforce the budget, so time away is free
+    if (match.kind !== 'practice') {
+      runtime.remainingRejoinMs = Math.max(
+        0,
+        runtime.remainingRejoinMs - (Date.now() - runtime.disconnectedAt)
+      )
+    }
     runtime.disconnectedAt = null
   }
 
@@ -1138,6 +1237,59 @@ function resumeIfNobodyDisconnected(match: ActiveMatch): void {
   match.pausedAt = null
   scheduleTurnTimer(match)
   maybeScheduleBotTurn(match)
+}
+
+/* -------------------------------------------------------------------
+ * Idle expiry: abandoned games are ended after 12 hours
+ * ---------------------------------------------------------------- */
+
+/** An unfinished match with no state change for this long is expired. */
+export const IDLE_MATCH_TTL_MS = 12 * 60 * 60 * 1000
+
+/** How often the sweep looks for abandoned matches. */
+const IDLE_SWEEP_INTERVAL_MS = 30 * 60 * 1000
+
+let idleSweepTimer: NodeJS.Timeout | null = null
+
+/** Arms the recurring idle sweep once (called from configuration). */
+function armIdleSweep(): void {
+  if (!idleSweepTimer) {
+    idleSweepTimer = setInterval(sweepIdleMatches, IDLE_SWEEP_INTERVAL_MS)
+    idleSweepTimer.unref?.()
+  }
+}
+
+/**
+ * Ends every match that has sat with no state change for 12 hours:
+ * a practice game whose human never came back, or a multiplayer game
+ * hung on something no timer covers (e.g. an unanswered buy-in). Runs
+ * on an interval; exported so tests can trigger it directly.
+ */
+export function sweepIdleMatches(): void {
+  for (const match of matches.values()) {
+    if (match.finishedAt === null && Date.now() - match.lastActivityAt >= IDLE_MATCH_TTL_MS) {
+      expireIdleMatch(match)
+    }
+  }
+}
+
+/**
+ * Force-finishes an abandoned match: active humans are removed worst
+ * score first, so the best-placed player takes the win; practice bots
+ * then fold, and the normal finish path records the result.
+ */
+function expireIdleMatch(match: ActiveMatch): void {
+  while (match.state.phase !== 'finished') {
+    const humans = activePlayers(match.state)
+      .filter((player) => !match.botIds.has(player.userId))
+      .sort((a, b) => b.score - a.score)
+    if (humans.length === 0) {
+      break
+    }
+    removePlayer(match.state, humans[0].userId, rng)
+  }
+  afterStateChange(match, null)
+  broadcastState(match, 'The game sat idle for too long and has ended')
 }
 
 /* -------------------------------------------------------------------
@@ -1197,6 +1349,8 @@ export function redactedView(match: ActiveMatch, viewerUserId: number): ClientGa
 }
 
 function broadcastState(match: ActiveMatch, eventText: string): void {
+  // Every state change funnels through here: reset the idle clock
+  match.lastActivityAt = Date.now()
   for (const userId of match.identities.keys()) {
     // Bots have no sockets; never emit a view holding a bot's hand
     if (match.botIds.has(userId)) {

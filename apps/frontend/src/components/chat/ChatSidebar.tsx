@@ -41,7 +41,7 @@ export default function ChatSidebar() {
   }, [channel])
 
   return (
-    <aside className="flex flex-col rounded-lg border border-border bg-card lg:h-[32rem]">
+    <aside className="flex h-[26rem] flex-col rounded-lg border border-border bg-card lg:h-[32rem]">
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
         <MessageSquare
           aria-hidden="true"
@@ -50,7 +50,7 @@ export default function ChatSidebar() {
         <h2 className="m-0 text-sm font-semibold">Chat</h2>
       </div>
 
-      <div className="flex gap-1 overflow-x-auto border-b border-border px-2 py-2">
+      <div className="thin-scrollbar flex gap-1 overflow-x-auto border-b border-border px-2 py-2">
         <ChannelTab
           label="Global"
           active={channel.type === 'global'}
@@ -131,13 +131,16 @@ export function ChatConversation({ channel }: ChatConversationProps) {
 
   const messages = history.data ?? []
 
-  // Keep the newest message in view
+  // Keep the newest message in view. Keyed on the last message's id
+  // rather than the count, which stops changing once the cached list
+  // reaches its cap and older messages are dropped as new ones arrive.
+  const lastMessageId = messages.at(-1)?.id ?? null
   useEffect(() => {
     const list = listRef.current
     if (list) {
       list.scrollTop = list.scrollHeight
     }
-  }, [messages.length])
+  }, [lastMessageId])
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -175,7 +178,7 @@ export function ChatConversation({ channel }: ChatConversationProps) {
     <>
       <div
         ref={listRef}
-        className="min-h-48 flex-1 space-y-2 overflow-y-auto px-4 py-3"
+        className="thin-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3"
       >
         {history.isSuccess && messages.length === 0 && (
           <p className="m-0 text-center text-sm text-muted-foreground">

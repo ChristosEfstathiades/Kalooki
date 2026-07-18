@@ -13,7 +13,7 @@ import type { PlayerIdentity } from '#services/game/match_service'
  */
 
 /** Usernames of the practice opponents, in seating-preference order. */
-const BOT_USERNAMES = ['RustyBot', 'SparkBot', 'ZippyBot'] as const
+const BOT_USERNAMES = ['RustyBot', 'SparkBot', 'ZippyBot', 'CogBot'] as const
 
 /** The most bot opponents a practice match may have. */
 export const MAX_BOT_OPPONENTS = BOT_USERNAMES.length

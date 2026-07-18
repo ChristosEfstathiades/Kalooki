@@ -5,6 +5,7 @@ import { currentUserQueryOptions } from '#/lib/auth'
 import { getStoredToken } from '#/lib/auth-token'
 import { getSocket } from '#/lib/socket'
 import { fetchGameView, formatChips, sendGameAction } from '#/lib/game'
+import { useTurnTitleAlert } from '#/lib/use-turn-title'
 import PlayingCard, { CardBack } from '#/components/game/PlayingCard'
 import MatchChatPanel from '#/components/chat/MatchChatPanel'
 import UserAvatar from '#/components/UserAvatar'
@@ -32,6 +33,9 @@ export const Route = createFileRoute('/game/$matchId')({
 
 /** How long the round-end scoresheet popup stays up between rounds. */
 const ROUND_POPUP_MS = 5000
+
+/** How long the turn-start cue runs before the table settles to static styling. */
+const TURN_FLASH_MS = 1600
 
 type SortMode = 'rank' | 'suit'
 
@@ -128,6 +132,28 @@ function reconcileHandOrder(
 }
 
 /**
+ * Who plays after the current player, so a seat can be tagged "next"
+ * and you can see your go approaching. Mirrors the engine's rotation:
+ * the following seat that is still in the game (see `nextActiveIndex`
+ * in the backend engine). Null between rounds, when nobody is on turn.
+ */
+function nextUpUserId(view: GameView): number | null {
+  const currentIndex = view.players.findIndex(
+    (player) => player.userId === view.currentPlayerUserId,
+  )
+  if (currentIndex === -1) {
+    return null
+  }
+  for (let step = 1; step <= view.players.length; step++) {
+    const player = view.players[(currentIndex + step) % view.players.length]
+    if (!player.eliminated) {
+      return player.userId
+    }
+  }
+  return null
+}
+
+/**
  * The live Kalooki table: opponents around the top of the felt, sets
  * and piles in the middle, your hand and actions at the bottom
  * (docs/Frontend-design.md). No header or footer on this page.
@@ -144,7 +170,9 @@ function GamePage() {
   const [sortMode, setSortMode] = useState<SortMode | null>(null)
   const [handOrder, setHandOrder] = useState<HandOrder>({ base: [], fresh: [] })
   const [roundPopupOpen, setRoundPopupOpen] = useState(false)
+  const [turnFlash, setTurnFlash] = useState(false)
   const seenResultsRef = useRef<number | null>(null)
+  const wasMyTurnRef = useRef(false)
 
   // Initial view + live updates
   useEffect(() => {
@@ -212,6 +240,20 @@ function GamePage() {
     }
   }, [hand, myTurnActive, sortMode])
 
+  // Flash the table once as the turn arrives, then let it settle
+  useEffect(() => {
+    const wasMyTurn = wasMyTurnRef.current
+    wasMyTurnRef.current = myTurnActive
+    if (!myTurnActive || wasMyTurn) {
+      return
+    }
+    setTurnFlash(true)
+    const timer = setTimeout(() => setTurnFlash(false), TURN_FLASH_MS)
+    return () => clearTimeout(timer)
+  }, [myTurnActive])
+
+  useTurnTitleAlert(myTurnActive)
+
   const applySort = useCallback(
     (mode: SortMode) => {
       setSortMode(mode)
@@ -250,10 +292,18 @@ function GamePage() {
   }
 
   const me = view.players.find((player) => player.userId === currentUser.id)
-  const opponents = view.players.filter(
-    (player) => player.userId !== currentUser.id,
-  )
-  const isMyTurn = view.currentPlayerUserId === currentUser.id
+  // Seated in turn order from the player who goes after you, so the
+  // table reads left to right and your go is visibly approaching
+  const seatCount = view.players.length
+  const mySeat = me?.seat ?? 0
+  const turnsAway = (player: GamePlayerView): number =>
+    (player.seat - mySeat + seatCount) % seatCount
+  const opponents = view.players
+    .filter((player) => player.userId !== currentUser.id)
+    .sort((a, b) => turnsAway(a) - turnsAway(b))
+  const nextPlayerUserId = nextUpUserId(view)
+  const isMyTurn = myTurnActive
+  const canDraw = myTurnActive && view.phase === 'awaitingDraw'
   const stagedIds = stagedMelds.flat()
   const handCards = view.you.hand
   const unstagedSelected = selectedCardIds.filter(
@@ -302,7 +352,7 @@ function GamePage() {
         onToggleChat={() => setChatOpen((open) => !open)}
       />
 
-      {chatOpen && (
+      {chatOpen && view.kind !== 'practice' && (
         <MatchChatPanel
           matchId={matchId}
           finished={view.phase === 'finished'}
@@ -313,7 +363,13 @@ function GamePage() {
       <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-3 p-3">
         <div className="flex flex-wrap justify-center gap-3">
           {opponents.map((player) => (
-            <OpponentSeat key={player.userId} player={player} view={view} />
+            <PlayerSeat
+              key={player.userId}
+              player={player}
+              view={view}
+              isCurrent={view.currentPlayerUserId === player.userId}
+              isNext={nextPlayerUserId === player.userId}
+            />
           ))}
         </div>
 
@@ -327,28 +383,27 @@ function GamePage() {
           )}
 
           <div className="flex items-start justify-center gap-8">
-            <div className="text-center">
+            <PileSlot label={`Deck · ${view.deckCount}`} live={canDraw} flash={turnFlash}>
               <button
                 type="button"
                 className="appearance-none border-0 bg-transparent p-0"
                 onClick={() => void act({ type: 'draw' })}
-                disabled={!isMyTurn || view.phase !== 'awaitingDraw'}
+                disabled={!canDraw}
                 title="Draw from the deck"
               >
                 <CardBack />
               </button>
-              <p className="m-0 mt-1 text-xs text-white/80">
-                Deck · {view.deckCount}
-              </p>
-            </div>
-            <div className="text-center">
+            </PileSlot>
+            <PileSlot
+              label={`Discard · ${view.discardCount}`}
+              live={canDraw && view.discardTop !== null}
+              flash={turnFlash}
+            >
               {view.discardTop ? (
                 <PlayingCard
                   card={view.discardTop}
                   onClick={
-                    isMyTurn && view.phase === 'awaitingDraw'
-                      ? () => void act({ type: 'takeDiscard' })
-                      : undefined
+                    canDraw ? () => void act({ type: 'takeDiscard' }) : undefined
                   }
                 />
               ) : (
@@ -356,10 +411,7 @@ function GamePage() {
                   Empty
                 </span>
               )}
-              <p className="m-0 mt-1 text-xs text-white/80">
-                Discard · {view.discardCount}
-              </p>
-            </div>
+            </PileSlot>
           </div>
 
           <MeldsArea
@@ -387,6 +439,8 @@ function GamePage() {
           selectedCardIds={selectedCardIds}
           stagedMelds={stagedMelds}
           isMyTurn={isMyTurn}
+          isNext={nextPlayerUserId === currentUser.id}
+          turnFlash={turnFlash}
           error={error}
           lastEvent={lastEvent}
           sortMode={sortMode}
@@ -425,6 +479,41 @@ function GamePage() {
   )
 }
 
+interface PileSlotProps {
+  label: string
+  /** Whether this pile is a legal target right now. */
+  live: boolean
+  flash: boolean
+  children: React.ReactNode
+}
+
+/**
+ * A pile in the middle of the felt with its count underneath. When it
+ * is a legal target it is ringed and lifted, so the turn is readable
+ * from the centre of the table rather than only from the status text.
+ */
+function PileSlot({ label, live, flash, children }: PileSlotProps) {
+  return (
+    <div className="text-center">
+      <span
+        // The felt is green, so the purple --ring reads poorly here
+        style={{ '--turn-pulse-color': 'white' } as React.CSSProperties}
+        className={cn(
+          // inline-flex so the ring hugs the card with no baseline gap
+          'inline-flex rounded-md transition-all',
+          live
+            ? 'ring-2 ring-white/90 ring-offset-2 ring-offset-felt hover:-translate-y-1'
+            : 'opacity-70',
+          live && flash && 'turn-pulse',
+        )}
+      >
+        {children}
+      </span>
+      <p className="m-0 mt-1 text-xs text-white/80">{label}</p>
+    </div>
+  )
+}
+
 interface TableHeaderProps {
   view: GameView
   onQuit: () => void
@@ -443,10 +532,11 @@ function TableHeader({ view, onQuit, onToggleChat }: TableHeaderProps) {
         </span>
       </p>
       <div className="flex items-center gap-3">
-        <TurnClock deadline={view.turnDeadlineAt} paused={view.paused} />
-        <Button size="sm" variant="secondary" onClick={onToggleChat}>
-          Chat
-        </Button>
+        {view.kind !== 'practice' && (
+          <Button size="sm" variant="secondary" onClick={onToggleChat}>
+            Chat
+          </Button>
+        )}
         <Button
           size="sm"
           variant="secondary"
@@ -473,7 +563,9 @@ interface TurnClockProps {
 }
 
 /**
- * Remaining move time for the current turn, ticking every second.
+ * Remaining move time for the current turn, ticking every second. Shown
+ * on the seat of whoever is on turn, so the countdown always has a name
+ * attached to it.
  */
 function TurnClock({ deadline, paused }: TurnClockProps) {
   const [now, setNow] = useState(Date.now())
@@ -502,25 +594,43 @@ function TurnClock({ deadline, paused }: TurnClockProps) {
   )
 }
 
-interface OpponentSeatProps {
+interface PlayerSeatProps {
   player: GamePlayerView
   view: GameView
+  /** Whose go it is: exactly one seat at the table is lit. */
+  isCurrent: boolean
+  isNext: boolean
+  /** Your own seat, shown alongside your hand rather than in the opponent row. */
+  isSelf?: boolean
+  flash?: boolean
 }
 
-function OpponentSeat({ player, view }: OpponentSeatProps) {
-  const isTurn = view.currentPlayerUserId === player.userId
+/**
+ * A player's place at the table: avatar, cards left, score, and the
+ * move clock while they are on turn. The seat on turn is ringed and the
+ * rest are dimmed, so whose go it is reads at a glance.
+ */
+function PlayerSeat({
+  player,
+  view,
+  isCurrent,
+  isNext,
+  isSelf,
+  flash,
+}: PlayerSeatProps) {
   return (
     <div
       className={cn(
-        'flex items-center gap-2 rounded-lg border bg-card px-3 py-2',
-        isTurn ? 'border-ring' : 'border-border',
+        'flex items-center gap-2 rounded-lg border bg-card px-3 py-2 transition-all',
+        isCurrent ? 'border-ring ring-2 ring-ring' : 'border-border opacity-60',
+        isCurrent && flash && 'turn-pulse',
         player.eliminated && 'opacity-50',
       )}
     >
       <UserAvatar user={player} />
       <div className="text-xs">
         <p className="m-0 font-semibold">
-          {player.username}
+          {isSelf ? 'You' : player.username}
           {player.isBot && (
             <span className="ml-1 rounded bg-muted px-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
               Bot
@@ -533,6 +643,11 @@ function OpponentSeat({ player, view }: OpponentSeatProps) {
           )}
           {player.removed && (
             <span className="ml-1 text-muted-foreground">(left)</span>
+          )}
+          {isNext && !isCurrent && !player.eliminated && (
+            <span className="ml-1 font-normal text-muted-foreground">
+              · next
+            </span>
           )}
         </p>
         <p className="m-0 text-muted-foreground">
@@ -549,6 +664,9 @@ function OpponentSeat({ player, view }: OpponentSeatProps) {
           )}
         </p>
       </div>
+      {isCurrent && (
+        <TurnClock deadline={view.turnDeadlineAt} paused={view.paused} />
+      )}
     </div>
   )
 }
@@ -709,6 +827,69 @@ function MeldToken({ rank, suit, isJoker, onClick }: MeldTokenProps) {
   )
 }
 
+/**
+ * What you owe the table right now. A card taken from the discard, or a
+ * joker reclaimed from a set, has to be tabled in a new set before you
+ * may discard, and nothing used to say so.
+ */
+function turnActionText(view: GameView): string {
+  if (view.phase === 'awaitingDraw') {
+    return 'Your turn, draw from the deck or take the discard'
+  }
+  if (view.you.pendingJokerCardId !== null) {
+    return 'Your turn, the joker you took must go into a new set, or return it'
+  }
+  if (view.you.pendingDiscardCardId !== null) {
+    return 'Your turn, the card you took must go into a new set, or return it'
+  }
+  return 'Your turn, lay sets, add go-ers, then discard to end your turn'
+}
+
+interface TurnBannerProps {
+  view: GameView
+  isMyTurn: boolean
+  flash: boolean
+  lastEvent: string | null
+}
+
+/**
+ * The headline turn cue above your hand: an accented bar naming the
+ * action you owe, or a muted one naming who the table is waiting on.
+ * The latest table event sits alongside it.
+ */
+function TurnBanner({ view, isMyTurn, flash, lastEvent }: TurnBannerProps) {
+  const active = isMyTurn && !view.paused
+  const waitingFor = view.players.find(
+    (player) => player.userId === view.currentPlayerUserId,
+  )?.username
+
+  const message = view.paused
+    ? 'Paused, waiting for a player to reconnect'
+    : isMyTurn
+      ? turnActionText(view)
+      : `Waiting for ${waitingFor ?? 'the next round'}`
+
+  return (
+    <div
+      aria-live="polite"
+      className={cn(
+        'flex flex-wrap items-center justify-between gap-2 rounded-md border-l-4 px-3 py-2 transition-colors',
+        active
+          ? 'border-ring bg-ring/15 text-foreground'
+          : 'border-border bg-muted text-muted-foreground',
+        active && flash && 'turn-pulse',
+      )}
+    >
+      <p className={cn('m-0 text-sm', active ? 'font-semibold' : 'font-medium')}>
+        {message}
+      </p>
+      {lastEvent && (
+        <p className="m-0 text-xs text-muted-foreground">{lastEvent}</p>
+      )}
+    </div>
+  )
+}
+
 interface OwnAreaProps {
   me: GamePlayerView | undefined
   view: GameView
@@ -716,6 +897,8 @@ interface OwnAreaProps {
   selectedCardIds: number[]
   stagedMelds: number[][]
   isMyTurn: boolean
+  isNext: boolean
+  turnFlash: boolean
   error: string | null
   lastEvent: string | null
   sortMode: SortMode | null
@@ -736,6 +919,8 @@ function OwnArea({
   selectedCardIds,
   stagedMelds,
   isMyTurn,
+  isNext,
+  turnFlash,
   error,
   lastEvent,
   sortMode,
@@ -754,27 +939,29 @@ function OwnArea({
   )
   const acting = isMyTurn && view.phase === 'acting'
 
-  const statusText = view.paused
-    ? 'Paused'
-    : isMyTurn
-      ? view.phase === 'awaitingDraw'
-        ? 'Your turn, draw from the deck or take the discard'
-        : 'Lay sets, add go-ers, then discard to end your turn'
-      : `Waiting for ${
-          view.players.find(
-            (player) => player.userId === view.currentPlayerUserId,
-          )?.username ?? 'the next round'
-        }`
-
   return (
     <div className="rounded-lg border border-border bg-card p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="m-0 text-sm font-medium">{statusText}</p>
+      <TurnBanner
+        view={view}
+        isMyTurn={isMyTurn}
+        flash={turnFlash}
+        lastEvent={lastEvent}
+      />
+
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        {me && (
+          <PlayerSeat
+            player={me}
+            view={view}
+            isCurrent={isMyTurn}
+            isNext={isNext}
+            isSelf
+            flash={turnFlash}
+          />
+        )}
         <p className="m-0 text-xs text-muted-foreground">
-          {me ? `Your score: ${me.score}` : ''}
-          {me && view.rules.stakes ? ` · chips: ${formatChips(me.chips)}` : ''}
+          {me && view.rules.stakes ? `chips: ${formatChips(me.chips)}` : ''}
           {me?.hasComeDown ? ' · down' : ''}
-          {lastEvent ? ` · ${lastEvent}` : ''}
         </p>
       </div>
 

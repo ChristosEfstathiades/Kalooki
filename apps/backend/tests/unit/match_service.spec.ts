@@ -1,5 +1,6 @@
 import { test } from '@japa/runner'
 import {
+  IDLE_MATCH_TTL_MS,
   applyGameAction,
   configureMatchService,
   configureScheduledLobbyStore,
@@ -7,6 +8,7 @@ import {
   joinLobby,
   joinPublicQueue,
   leaveLobby,
+  leavePublicQueue,
   lobbyViewForGroup,
   matchForUser,
   matchSystemMessages,
@@ -17,6 +19,7 @@ import {
   resetMatchService,
   restoreScheduledLobby,
   startLobby,
+  sweepIdleMatches,
 } from '#services/game/match_service'
 import { CLASSIC_RULES, GameError } from '#services/game/engine'
 import type { ActiveMatch, PlayerIdentity } from '#services/game/match_service'
@@ -35,8 +38,8 @@ function identity(id: number): PlayerIdentity {
 }
 
 /**
- * Configures the service with a capture emitter, an instant queue
- * countdown, and a deterministic rng.
+ * Configures the service with a capture emitter, near-instant queue
+ * timers, and a deterministic rng.
  */
 function setup(): void {
   emissions = []
@@ -48,7 +51,7 @@ function setup(): void {
       },
       toGroup: () => {},
     },
-    { rng: () => 0.42, queueCountdownMs: 5 }
+    { rng: () => 0.42, queueCountdownMs: 5, queueGraceMs: 5 }
   )
 }
 
@@ -67,11 +70,16 @@ test.group('Match service', (group) => {
     return () => resetMatchService()
   })
 
-  test('two queued players start a public match after the countdown', async ({ assert }) => {
+  test('three queued players start a public match when the fill window closes', async ({
+    assert,
+  }) => {
     joinPublicQueue(identity(1))
-    const status = joinPublicQueue(identity(2))
-    assert.equal(status.queueSize, 2)
-    assert.isNotNull(status.startsInMs)
+    const twoStatus = joinPublicQueue(identity(2))
+    // Two players are below the minimum, so no start is scheduled yet
+    assert.isNull(twoStatus.startsInMs)
+    const threeStatus = joinPublicQueue(identity(3))
+    assert.equal(threeStatus.queueSize, 3)
+    assert.isNotNull(threeStatus.startsInMs)
 
     await new Promise((resolve) => setTimeout(resolve, 30))
 
@@ -79,22 +87,60 @@ test.group('Match service', (group) => {
     assert.isNotNull(match)
     assert.equal(match?.kind, 'public')
     assert.deepEqual(matchForUser(2)?.id, match?.id)
+    assert.deepEqual(matchForUser(3)?.id, match?.id)
 
     const startEvents = emissions.filter((emission) => emission.event === 'game:start')
-    assert.lengthOf(startEvents, 2)
+    assert.lengthOf(startEvents, 3)
   })
 
-  test('a public match seats at most 5 players and extras stay queued', async ({ assert }) => {
-    for (let id = 1; id <= 6; id++) {
-      joinPublicQueue(identity(id))
-    }
+  test('two players wait past the window, then a third triggers the grace start', async ({
+    assert,
+  }) => {
+    joinPublicQueue(identity(1))
+    joinPublicQueue(identity(2))
+
+    // Let the fill window lapse: still no match with only two players
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    assert.isNull(matchForUser(1))
+
+    const status = joinPublicQueue(identity(3))
+    assert.isNotNull(status.startsInMs)
+    // The grace timer has not fired yet
+    assert.isNull(matchForUser(1))
 
     await new Promise((resolve) => setTimeout(resolve, 30))
 
     const match = matchForUser(1)
     assert.isNotNull(match)
+    assert.lengthOf(match?.state.players ?? [], 3)
+  })
+
+  test('a leaver dropping the queue below 3 cancels the grace start', async ({ assert }) => {
+    joinPublicQueue(identity(1))
+    joinPublicQueue(identity(2))
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    joinPublicQueue(identity(3))
+    leavePublicQueue(3)
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    assert.isNull(matchForUser(1))
+
+    // A new third player re-arms the grace and the match starts
+    joinPublicQueue(identity(4))
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    assert.isNotNull(matchForUser(1))
+    assert.isNotNull(matchForUser(4))
+  })
+
+  test('a full queue of 5 players starts immediately without a countdown', ({ assert }) => {
+    for (let id = 1; id <= 5; id++) {
+      joinPublicQueue(identity(id))
+    }
+
+    const match = matchForUser(1)
+    assert.isNotNull(match)
     assert.lengthOf(match?.state.players ?? [], 5)
-    // The sixth player did not make the match and remains queued
+    // A sixth player starts a fresh, empty queue
     assert.isNull(matchForUser(6))
     assert.equal(joinPublicQueue(identity(6)).queueSize, 1)
   })
@@ -200,6 +246,23 @@ test.group('Match service', (group) => {
     assert.equal(match.state.phase, 'finished')
     assert.equal(match.state.winnerUserId, 2)
     assert.isNotNull(finished)
+    // Both players are released to join new games
+    assert.isNull(matchForUser(1))
+    assert.isNull(matchForUser(2))
+  })
+
+  test('the idle sweep ends a match abandoned for 12 hours', ({ assert }) => {
+    const match = startTwoPlayerMatch()
+
+    // Recent activity keeps the match alive
+    sweepIdleMatches()
+    assert.isNull(match.finishedAt)
+
+    match.lastActivityAt = Date.now() - IDLE_MATCH_TTL_MS
+    sweepIdleMatches()
+
+    assert.equal(match.state.phase, 'finished')
+    assert.isNotNull(match.finishedAt)
     // Both players are released to join new games
     assert.isNull(matchForUser(1))
     assert.isNull(matchForUser(2))

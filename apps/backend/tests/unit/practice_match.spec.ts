@@ -1,5 +1,6 @@
 import { test } from '@japa/runner'
 import {
+  IDLE_MATCH_TTL_MS,
   applyGameAction,
   configureMatchService,
   matchForUser,
@@ -9,7 +10,9 @@ import {
   redactedView,
   resetMatchService,
   startPracticeMatch,
+  sweepIdleMatches,
 } from '#services/game/match_service'
+import { assertMatchChatAccess } from '#services/chat_service'
 import type { ActiveMatch, PlayerIdentity } from '#services/game/match_service'
 import type { Rng } from '#services/game/cards'
 
@@ -128,6 +131,15 @@ test.group('Practice matches', (group) => {
     assert.isNull(matchForUser(1))
   })
 
+  test('has no move timer and no table chat', ({ assert }) => {
+    const match = startPracticeMatch(identity(1), [identity(901), identity(902)], 'medium')
+
+    assert.isNull(match.turnDeadlineAt)
+    assert.isNull(match.turnTimer)
+    assert.isNull(redactedView(match, 1).turnDeadlineAt)
+    assert.throws(() => assertMatchChatAccess(match.id, 1))
+  })
+
   test('a disconnected human pauses bot play until they return', async ({ assert }) => {
     const match = startPracticeMatch(identity(1), [identity(901)], 'medium')
 
@@ -144,4 +156,51 @@ test.group('Practice matches', (group) => {
     assert.isNull(match.pausedAt)
     await waitFor(() => redactedView(match, 1).currentPlayerUserId === 1)
   }).timeout(15_000)
+
+  test('waits indefinitely for a disconnected human instead of removing them', async ({
+    assert,
+  }) => {
+    const match = startPracticeMatch(identity(1), [identity(901)], 'medium')
+    const runtime = match.runtime.get(1)
+    assert.isDefined(runtime)
+    // Even an exhausted budget must not arm a removal timer in practice
+    runtime!.remainingRejoinMs = 5
+
+    playerDisconnected(1)
+    assert.isNull(runtime!.rejoinTimer)
+    assert.isEmpty(runtime!.milestoneTimers)
+
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    assert.isNull(match.finishedAt)
+    assert.isNotNull(match.pausedAt)
+
+    // Rejoining works, the unenforced budget was not charged, and the
+    // player can still act (here: quit)
+    assert.equal(playerReconnected(1)?.id, match.id)
+    assert.equal(runtime!.remainingRejoinMs, 5)
+    const view = applyGameAction(match.id, 1, { type: 'quit' })
+    assert.equal(view.phase, 'finished')
+  })
+
+  test('the idle sweep ends a practice game abandoned for 12 hours', ({ assert }) => {
+    const finished: ActiveMatch[] = []
+    onMatchFinished((match) => finished.push(match))
+    const match = startPracticeMatch(identity(1), [identity(901)], 'medium')
+    playerDisconnected(1)
+
+    // Not idle for long enough yet: the sweep leaves the match alone
+    sweepIdleMatches()
+    assert.isNull(match.finishedAt)
+
+    match.lastActivityAt = Date.now() - IDLE_MATCH_TTL_MS
+    sweepIdleMatches()
+
+    assert.equal(match.state.phase, 'finished')
+    assert.isNotNull(match.finishedAt)
+    // The human abandoned the game; the win goes to a bot
+    assert.isTrue(match.state.players.find((player) => player.userId === 1)?.removed)
+    assert.isTrue(match.botIds.has(match.state.winnerUserId as number))
+    assert.include(finished, match)
+    assert.isNull(matchForUser(1))
+  })
 })

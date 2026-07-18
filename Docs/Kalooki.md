@@ -111,11 +111,17 @@ Users have 30 minutes of time to make their move so if they spend 30 seconds in 
 If the timer runs out then they get 60 seconds each turn.
 if this 60 seconds runs out then they are removed from the game and cannot rejoin. their cards are shuffled back into deck.
 
+Practice matches against bots have no move timer, since it is solo play and nobody else is waiting on the human's turn.
+
 ### Rejoin timer
 
 if a user disconnects the game pauses and they have 5 minutes to rejoin, if they disconnect again then they don't get a fresh 5 minutes they get whatever time was left when they reconnected. if this timer runs out then they are removed.
 
 while a player is disconnected the table chat gets automatic countdown messages: one when they drop (showing their remaining rejoin time), one at each milestone of time left (5, 4, 3, 2 and 1 minutes, then 30 and 10 seconds), and finally an alert that they were kicked from the game — or that they reconnected.
+
+Practice matches against bots have no rejoin timer either, for the same reason as the move timer: a disconnect (closing or reloading the page counts) just pauses the game, and the human can come back and resume whenever — or quit from the table.
+
+Any game (of any kind) that sits with no state change for 12 hours is considered abandoned and is ended automatically: remaining players are removed worst score first so the best-placed player takes the win, and the result is recorded like any other finish.
 
 ## Custom rules for private games
 

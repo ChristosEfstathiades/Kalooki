@@ -47,7 +47,11 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 
 - Users are placed around the felt in a rectangular shape
 - Each user is placed at the bottom middle of the screen in their perspective
+- opponents are seated in turn order starting from whoever plays after you, and the seat that plays next is tagged "next" so you can see your go approaching
 - Users should see how many cards each player has left
+- whose turn it is must be readable at a glance, from four cues that always agree: a banner above your hand (accented and naming the action you owe on your turn, muted and naming who you are waiting on otherwise), the seat on turn ringed while the others dim, the draw deck and discard pile ringed while they are legal targets, and the move clock shown on the seat of whoever is on turn rather than floating in the header
+- when the turn passes to you the banner and the pile pulse once and then settle; the pulse is suppressed under `prefers-reduced-motion`
+- while the tab is in the background and your turn arrives, the browser tab title changes to flag it and reverts once the tab is looked at again
 - users can see melds and most recently discarded card in the middle of the felt alongside the draw deck
 - a chat button in the table header toggles a side panel with the table chat, which only the game's players can read and type in; the panel shows "chat closed" once the game ends (see features.md, In-Game Chat)
 - two sort buttons under the hand order it by rank (highest to lowest) or by suit. a card drawn or picked up mid-turn stays unsorted at the right of the hand until the turn ends with it still in hand, or until a sort button is pressed again

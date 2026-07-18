@@ -127,6 +127,11 @@ function RulesPage() {
             <strong>5 minutes</strong> to rejoin. Disconnecting again does not
             reset the timer; you get whatever time was left.
           </li>
+          <li>
+            Practice games against bots have neither timer: nobody else is
+            waiting, so the game simply pauses until you return. A game
+            abandoned for 12 hours ends automatically.
+          </li>
         </ul>
       </ContentSection>
 

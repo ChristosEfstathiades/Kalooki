@@ -76,8 +76,16 @@ export function chatHistoryQueryOptions(channel: ChatChannel) {
 }
 
 /**
+ * Most messages a channel's cache keeps. The server sends the newest
+ * 100 on load; without a cap a long-lived page would grow the list
+ * (and the rendered DOM) without bound as live messages arrive.
+ */
+const MAX_CACHED_MESSAGES = 200
+
+/**
  * Appends every live `chat:message` event to its channel's cache while
- * the calling component is mounted.
+ * the calling component is mounted, dropping the oldest messages once
+ * the cache is full.
  */
 export function useChatLiveUpdates(): void {
   const queryClient = useQueryClient()
@@ -93,7 +101,12 @@ export function useChatLiveUpdates(): void {
       }
       queryClient.setQueryData<ChatMessageItem[]>(
         chatQueryKey(eventChannel),
-        (old) => (old ? [...old, event.message] : [event.message]),
+        (old) => {
+          const next = old ? [...old, event.message] : [event.message]
+          return next.length > MAX_CACHED_MESSAGES
+            ? next.slice(next.length - MAX_CACHED_MESSAGES)
+            : next
+        },
       )
     }
     socket.on('chat:message', onMessage)

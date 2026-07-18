@@ -156,3 +156,60 @@ body {
   width: min(1080px, calc(100% - 2rem));
   margin-inline: auto;
 }
+
+/* Slim themed scrollbar for chat and other in-panel scroll areas */
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted-foreground) 35%, transparent)
+    transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Chromium still draws stepper arrows at this width without this */
+.thin-scrollbar::-webkit-scrollbar-button {
+  display: none;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
+  border-radius: 9999px;
+}
+
+.thin-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted-foreground) 60%, transparent);
+}
+
+/*
+ * One-shot cue when the turn passes to you, on the turn banner and the
+ * pile you have to click. A state change, not decoration, so it runs
+ * twice and stops rather than pulsing for the whole turn.
+ */
+@keyframes turn-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+
+  50% {
+    box-shadow: 0 0 0 6px
+      color-mix(in srgb, var(--turn-pulse-color, var(--ring)) 45%, transparent);
+  }
+}
+
+.turn-pulse {
+  animation: turn-pulse 750ms ease-out 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .turn-pulse {
+    animation: none;
+  }
+}

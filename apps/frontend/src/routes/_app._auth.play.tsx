@@ -49,9 +49,9 @@ function CountBadge({ count }: CountBadgeProps) {
  * (docs/Frontend-design.md).
  */
 function PlayPage() {
-  const [openDialog, setOpenDialog] = useState<
-    'friends' | 'groups' | null
-  >(null)
+  const [openDialog, setOpenDialog] = useState<'friends' | 'groups' | null>(
+    null,
+  )
   const requests = useQuery(friendRequestsQueryOptions)
   const invites = useQuery(groupInvitesQueryOptions)
 
@@ -123,10 +123,23 @@ function PlayPage() {
 function MatchmakingCard() {
   const [status, setStatus] = useState<QueueStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Epoch ms the match starts at, so the countdown ticks between updates
+  const [startsAt, setStartsAt] = useState<number | null>(null)
+  const [nowMs, setNowMs] = useState<number>(Date.now())
+
+  const applyStatus = (nextStatus: QueueStatus) => {
+    setStatus(nextStatus)
+    setNowMs(Date.now())
+    setStartsAt(
+      nextStatus.startsInMs !== null
+        ? Date.now() + nextStatus.startsInMs
+        : null,
+    )
+  }
 
   useEffect(() => {
     const socket = getSocket()
-    const onStatus = (nextStatus: QueueStatus) => setStatus(nextStatus)
+    const onStatus = (nextStatus: QueueStatus) => applyStatus(nextStatus)
     socket.on('queue:status', onStatus)
     return () => {
       socket.off('queue:status', onStatus)
@@ -135,12 +148,22 @@ function MatchmakingCard() {
     }
   }, [])
 
+  useEffect(() => {
+    if (startsAt === null) {
+      return
+    }
+    const timer = setInterval(() => setNowMs(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [startsAt])
+
   const inQueue = status?.inQueue ?? false
+  const secondsLeft =
+    startsAt !== null ? Math.max(0, Math.ceil((startsAt - nowMs) / 1000)) : null
 
   const toggleQueue = async () => {
     setError(null)
     try {
-      setStatus(inQueue ? await leavePublicQueue() : await joinPublicQueue())
+      applyStatus(inQueue ? await leavePublicQueue() : await joinPublicQueue())
     } catch (queueError) {
       setError(
         queueError instanceof Error
@@ -173,9 +196,9 @@ function MatchmakingCard() {
         <p className="mt-2 mb-0 text-xs text-muted-foreground">
           {status.queueSize} {status.queueSize === 1 ? 'player' : 'players'}{' '}
           waiting
-          {status.startsInMs !== null
-            ? ', starting shortly, more can still join'
-            : ', the game starts when at least one more player queues'}
+          {secondsLeft !== null
+            ? `, starting in ${secondsLeft}s, more can still join`
+            : ', the game starts once at least 3 players are here'}
         </p>
       )}
       {error && (
@@ -191,7 +214,7 @@ const DIFFICULTY_OPTIONS: { value: BotDifficulty; label: string }[] = [
   { value: 'hard', label: 'Hard' },
 ]
 
-const OPPONENT_OPTIONS = [1, 2, 3]
+const OPPONENT_OPTIONS = [1, 2, 3, 4]
 
 /**
  * Practice mode: starts a solo match against bots on the classic
@@ -228,8 +251,7 @@ function PracticeCard() {
         Play vs computer
       </h2>
       <p className="mt-1 mb-4 text-sm text-muted-foreground">
-        Practice against bots at your own pace. Practice games are saved to
-        your history but never count toward the leaderboard.
+        Practice games never count toward the leaderboard.
       </p>
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">

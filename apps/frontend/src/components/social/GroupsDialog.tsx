@@ -329,7 +329,7 @@ function GroupDetail({ groupId, onBack }: GroupDetailProps) {
         <h3 className="m-0 text-sm font-semibold text-muted-foreground">
           Members
         </h3>
-        <ul className="m-0 max-h-64 list-none divide-y divide-border overflow-y-auto p-0">
+        <ul className="thin-scrollbar m-0 max-h-64 list-none divide-y divide-border overflow-y-auto p-0">
           {group.data.members.map((member) => (
             <li
               key={member.id}
