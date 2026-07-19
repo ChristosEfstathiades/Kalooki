@@ -36,7 +36,10 @@ function cardImageUrl(card: GameCard): string | undefined {
  * Builds the filename for a ranked card, e.g. "10_of_hearts.png" or
  * "queen_of_spades.png". Returns undefined for incomplete cards.
  */
-function cardFileName(rank: Rank | null, suit: Suit | null): string | undefined {
+function cardFileName(
+  rank: Rank | null,
+  suit: Suit | null,
+): string | undefined {
   if (rank === null || suit === null) {
     return undefined
   }
@@ -49,6 +52,14 @@ interface PlayingCardProps {
   selected?: boolean
   onClick?: () => void
   small?: boolean
+  /**
+   * Sizes the card to fill its container (keeping the card aspect
+   * ratio) instead of the fixed size, so a flexbox parent can shrink
+   * it when space is tight.
+   */
+  fluid?: boolean
+  /** Extra classes for the card face, e.g. a responsive size override. */
+  className?: string
 }
 
 /**
@@ -59,10 +70,10 @@ export default function PlayingCard({
   selected,
   onClick,
   small,
+  fluid,
+  className,
 }: PlayingCardProps) {
-  const label = card.isJoker
-    ? 'Joker'
-    : `${String(card.rank)} of ${card.suit}`
+  const label = card.isJoker ? 'Joker' : `${String(card.rank)} of ${card.suit}`
   const src = cardImageUrl(card)
 
   const face = (
@@ -72,9 +83,14 @@ export default function PlayingCard({
         // baseline and leaves descender space below it, which any
         // border or ring drawn around the card would then include
         'block overflow-hidden rounded-md bg-white shadow-sm select-none',
-        small ? 'h-10 w-7' : 'h-24 w-[66px]',
+        small
+          ? 'h-10 w-7'
+          : fluid
+            ? 'aspect-[11/16] h-auto w-full'
+            : 'h-24 w-[66px]',
         selected && '-translate-y-2 ring-2 ring-ring',
         onClick && 'cursor-pointer',
+        className,
       )}
     >
       {src ? (
@@ -101,6 +117,9 @@ export default function PlayingCard({
       className={cn(
         'relative appearance-none border-0 bg-transparent p-0 hover:z-20',
         selected ? 'z-10' : 'z-0',
+        // The face's percentage width needs a definite width to
+        // resolve against, which an inline button cannot provide
+        fluid && 'block w-full',
       )}
     >
       {face}
@@ -110,18 +129,21 @@ export default function PlayingCard({
 
 interface CardBackProps {
   small?: boolean
+  /** Extra classes, e.g. a responsive size override. */
+  className?: string
 }
 
 /**
  * A face-down card, used for the deck and opponents' hands.
  */
-export function CardBack({ small }: CardBackProps) {
+export function CardBack({ small, className }: CardBackProps) {
   return (
     <span
       aria-hidden="true"
       className={cn(
         'block rounded-md border border-black/30 bg-button-purple shadow-sm',
         small ? 'h-10 w-7' : 'h-24 w-[66px]',
+        className,
       )}
       style={{
         backgroundImage:

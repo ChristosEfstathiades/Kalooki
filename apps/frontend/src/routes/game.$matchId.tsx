@@ -1,16 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { currentUserQueryOptions } from '#/lib/auth'
 import { getStoredToken } from '#/lib/auth-token'
 import { getSocket } from '#/lib/socket'
 import { fetchGameView, formatChips, sendGameAction } from '#/lib/game'
 import { useTurnTitleAlert } from '#/lib/use-turn-title'
 import PlayingCard, { CardBack } from '#/components/game/PlayingCard'
+import StagingArea from '#/components/game/StagingArea'
+import {
+  CardDrag,
+  DropZone,
+  preciseCollision,
+  useGameDragSensors,
+} from '#/components/game/DragDrop'
 import MatchChatPanel from '#/components/chat/MatchChatPanel'
 import UserAvatar from '#/components/UserAvatar'
 import { Button } from '#/components/ui/button'
 import { cn } from '#/lib/utils'
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import type { DragData, DropData } from '#/components/game/DragDrop'
 import type {
   GameAction,
   GameCard,
@@ -162,7 +172,6 @@ function GamePage() {
   const { matchId } = Route.useParams()
   const { data: currentUser } = useQuery(currentUserQueryOptions)
   const [view, setView] = useState<GameView | null>(null)
-  const [lastEvent, setLastEvent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedCardIds, setSelectedCardIds] = useState<number[]>([])
   const [stagedMelds, setStagedMelds] = useState<number[][]>([])
@@ -171,8 +180,10 @@ function GamePage() {
   const [handOrder, setHandOrder] = useState<HandOrder>({ base: [], fresh: [] })
   const [roundPopupOpen, setRoundPopupOpen] = useState(false)
   const [turnFlash, setTurnFlash] = useState(false)
+  const [activeDrag, setActiveDrag] = useState<DragData | null>(null)
   const seenResultsRef = useRef<number | null>(null)
   const wasMyTurnRef = useRef(false)
+  const sensors = useGameDragSensors()
 
   // Initial view + live updates
   useEffect(() => {
@@ -197,7 +208,6 @@ function GamePage() {
     const onState = (payload: { view: GameView; event: string }) => {
       if (payload.view.matchId === matchId) {
         setView(payload.view)
-        setLastEvent(payload.event)
       }
     }
     socket.on('game:state', onState)
@@ -240,6 +250,28 @@ function GamePage() {
     }
   }, [hand, myTurnActive, sortMode])
 
+  // Cards that leave the hand (laid, discarded, swapped for a joker)
+  // also leave the staged sets and the selection
+  useEffect(() => {
+    if (!hand) {
+      return
+    }
+    const idsInHand = new Set(hand.map((card) => card.id))
+    setStagedMelds((current) => {
+      const pruned = current
+        .map((set) => set.filter((id) => idsInHand.has(id)))
+        .filter((set) => set.length > 0)
+      const unchanged =
+        pruned.length === current.length &&
+        pruned.every((set, index) => set.length === current[index].length)
+      return unchanged ? current : pruned
+    })
+    setSelectedCardIds((current) => {
+      const kept = current.filter((id) => idsInHand.has(id))
+      return kept.length === current.length ? current : kept
+    })
+  }, [hand])
+
   // Flash the table once as the turn arrives, then let it settle
   useEffect(() => {
     const wasMyTurn = wasMyTurnRef.current
@@ -270,8 +302,9 @@ function GamePage() {
       try {
         const next = await sendGameAction(matchId, action)
         setView(next)
+        // Staged sets survive the action; the prune effect drops any
+        // staged cards the action moved out of the hand
         setSelectedCardIds([])
-        setStagedMelds([])
       } catch (actionError) {
         setError(
           actionError instanceof Error
@@ -344,6 +377,107 @@ function GamePage() {
   const cardById = (cardId: number): GameCard | undefined =>
     handCards.find((card) => card.id === cardId)
 
+  /** Moves a card into a staged set; an index past the end starts a new set. */
+  const stageCardToSet = (cardId: number, setIndex: number) => {
+    setSelectedCardIds((current) => current.filter((id) => id !== cardId))
+    setStagedMelds((current) => {
+      const without = current.map((set) => set.filter((id) => id !== cardId))
+      if (setIndex < without.length) {
+        without[setIndex] = [...without[setIndex], cardId]
+      } else {
+        without.push([cardId])
+      }
+      return without.filter((set) => set.length > 0)
+    })
+  }
+
+  const unstageCard = (cardId: number) => {
+    setStagedMelds((current) =>
+      current
+        .map((set) => set.filter((id) => id !== cardId))
+        .filter((set) => set.length > 0),
+    )
+  }
+
+  // What the in-flight drag may legally land on, so only sensible
+  // targets light up (the server still has the final say)
+  const acting = myTurnActive && view.phase === 'acting' && !view.paused
+  const draggedCard =
+    activeDrag !== null &&
+    (activeDrag.source === 'hand' || activeDrag.source === 'staged')
+      ? activeDrag.card
+      : null
+  const canExtendMelds = acting && me?.hasComeDown === true
+  const goerDropActive =
+    draggedCard !== null &&
+    canExtendMelds &&
+    draggedCard.id !== view.you.pendingDiscardCardId &&
+    draggedCard.id !== view.you.pendingJokerCardId
+  const jokerDropActive =
+    draggedCard !== null && canExtendMelds && !draggedCard.isJoker
+  const discardDropEligible = draggedCard !== null && acting
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDrag((event.active.data.current as DragData | undefined) ?? null)
+  }
+
+  /** Maps a completed drag onto a game action or a staging change. */
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDrag(null)
+    const drag = event.active.data.current as DragData | undefined
+    const drop = event.over?.data.current as DropData | undefined
+    if (!drag || !drop) {
+      return
+    }
+    if (drag.source === 'deck') {
+      if (drop.target === 'hand') {
+        void act({ type: 'draw' })
+      }
+      return
+    }
+    if (drag.source === 'discard') {
+      if (drop.target === 'hand') {
+        void act({ type: 'takeDiscard' })
+      }
+      return
+    }
+    const cardId = drag.card.id
+    switch (drop.target) {
+      case 'discard':
+        void act({ type: 'discard', cardId })
+        break
+      case 'stagedSet':
+        stageCardToSet(cardId, drop.setIndex)
+        break
+      case 'hand':
+        if (drag.source === 'staged') {
+          unstageCard(cardId)
+        }
+        break
+      case 'meld':
+        void act({
+          type: 'goer',
+          meldId: drop.meldId,
+          cardId,
+          runEnd: drop.runEnd,
+        })
+        break
+      case 'joker':
+        // The dragged card plus any tap-selected cards, for the group
+        // case where the joker needs both natural replacements
+        void act({
+          type: 'takeJoker',
+          meldId: drop.meldId,
+          jokerCardId: drop.jokerCardId,
+          replacementCardIds: [
+            cardId,
+            ...unstagedSelected.filter((id) => id !== cardId),
+          ],
+        })
+        break
+    }
+  }
+
   return (
     <main className="flex min-h-screen flex-col bg-background">
       <TableHeader
@@ -360,106 +494,164 @@ function GamePage() {
         />
       )}
 
-      <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-3 p-3">
-        <div className="flex flex-wrap justify-center gap-3">
-          {opponents.map((player) => (
-            <PlayerSeat
-              key={player.userId}
-              player={player}
-              view={view}
-              isCurrent={view.currentPlayerUserId === player.userId}
-              isNext={nextPlayerUserId === player.userId}
-            />
-          ))}
-        </div>
-
-        <div className="relative flex flex-1 flex-col gap-4 rounded-xl bg-felt p-4 shadow-inner">
-          {view.paused && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl bg-black/60">
-              <p className="m-0 text-lg font-semibold text-white">
-                Game paused, waiting for a player to reconnect
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-start justify-center gap-8">
-            <PileSlot label={`Deck · ${view.deckCount}`} live={canDraw} flash={turnFlash}>
-              <button
-                type="button"
-                className="appearance-none border-0 bg-transparent p-0"
-                onClick={() => void act({ type: 'draw' })}
-                disabled={!canDraw}
-                title="Draw from the deck"
+      <DndContext
+        sensors={sensors}
+        collisionDetection={preciseCollision}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveDrag(null)}
+      >
+        <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-3 p-3">
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+            {opponents.map((player) => (
+              // Equal-width cells on small screens, so wrapped seats
+              // line up in tidy columns instead of ragged rows
+              <div
+                key={player.userId}
+                className="w-[calc(50%-0.25rem)] sm:w-auto"
               >
-                <CardBack />
-              </button>
-            </PileSlot>
-            <PileSlot
-              label={`Discard · ${view.discardCount}`}
-              live={canDraw && view.discardTop !== null}
-              flash={turnFlash}
-            >
-              {view.discardTop ? (
-                <PlayingCard
-                  card={view.discardTop}
-                  onClick={
-                    canDraw ? () => void act({ type: 'takeDiscard' }) : undefined
-                  }
+                <PlayerSeat
+                  player={player}
+                  view={view}
+                  isCurrent={view.currentPlayerUserId === player.userId}
+                  isNext={nextPlayerUserId === player.userId}
                 />
-              ) : (
-                <span className="flex h-24 w-[66px] items-center justify-center rounded-md border border-dashed border-white/40 text-xs text-white/60">
-                  Empty
-                </span>
-              )}
-            </PileSlot>
+              </div>
+            ))}
           </div>
 
-          <MeldsArea
-            view={view}
-            selectedCardIds={unstagedSelected}
-            cardById={cardById}
-            onGoer={(meldId, cardId, runEnd) =>
-              void act({ type: 'goer', meldId, cardId, runEnd })
-            }
-            onTakeJoker={(meldId, jokerCardId) =>
-              void act({
-                type: 'takeJoker',
-                meldId,
-                jokerCardId,
-                replacementCardIds: unstagedSelected,
-              })
-            }
-          />
-        </div>
+          <div className="relative flex flex-1 flex-col gap-4 rounded-xl bg-felt p-4 shadow-inner">
+            {view.paused && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl bg-black/60">
+                <p className="m-0 text-lg font-semibold text-white">
+                  Game paused, waiting for a player to reconnect
+                </p>
+              </div>
+            )}
 
-        <OwnArea
-          me={me}
-          view={view}
-          handCards={displayHand}
-          selectedCardIds={selectedCardIds}
-          stagedMelds={stagedMelds}
-          isMyTurn={isMyTurn}
-          isNext={nextPlayerUserId === currentUser.id}
-          turnFlash={turnFlash}
-          error={error}
-          lastEvent={lastEvent}
-          sortMode={sortMode}
-          onSort={applySort}
-          onToggleCard={toggleCard}
-          onStage={stageSelected}
-          onClearStaged={() => {
-            setStagedMelds([])
-            setSelectedCardIds([])
-          }}
-          onLayStaged={() => void act({ type: 'layMelds', melds: stagedMelds })}
-          onDiscard={() =>
-            unstagedSelected.length === 1 &&
-            void act({ type: 'discard', cardId: unstagedSelected[0] })
-          }
-          onReturnDiscard={() => void act({ type: 'returnDiscard' })}
-          onReturnJoker={() => void act({ type: 'returnJoker' })}
-        />
-      </section>
+            <div className="flex items-start justify-center gap-4 sm:gap-8">
+              <PileSlot
+                label={`Deck · ${view.deckCount}`}
+                live={canDraw}
+                flash={turnFlash}
+              >
+                <CardDrag
+                  id="deck"
+                  data={{ source: 'deck' }}
+                  disabled={!canDraw || view.paused}
+                >
+                  <button
+                    type="button"
+                    className="appearance-none border-0 bg-transparent p-0"
+                    onClick={() => void act({ type: 'draw' })}
+                    disabled={!canDraw}
+                    title="Drag the deck to your hand to draw, or tap it"
+                  >
+                    <CardBack className="h-[76px] w-[52px] sm:h-24 sm:w-[66px]" />
+                  </button>
+                </CardDrag>
+              </PileSlot>
+              <PileSlot
+                label={`Discard · ${view.discardCount}`}
+                live={
+                  (canDraw && view.discardTop !== null) || discardDropEligible
+                }
+                flash={turnFlash}
+              >
+                <DropZone
+                  id="discard-zone"
+                  data={{ target: 'discard' }}
+                  disabled={!discardDropEligible}
+                  className="inline-flex rounded-md transition-colors"
+                  overClassName="bg-white/25 ring-2 ring-white"
+                >
+                  {view.discardTop ? (
+                    <CardDrag
+                      id="discard-top"
+                      data={{ source: 'discard', card: view.discardTop }}
+                      disabled={!canDraw || view.paused}
+                    >
+                      <PlayingCard
+                        card={view.discardTop}
+                        className="h-[76px] w-[52px] sm:h-24 sm:w-[66px]"
+                        onClick={
+                          canDraw
+                            ? () => void act({ type: 'takeDiscard' })
+                            : undefined
+                        }
+                      />
+                    </CardDrag>
+                  ) : (
+                    <span className="flex h-[76px] w-[52px] items-center justify-center rounded-md border border-dashed border-white/40 text-xs text-white/60 sm:h-24 sm:w-[66px]">
+                      Empty
+                    </span>
+                  )}
+                </DropZone>
+              </PileSlot>
+            </div>
+
+            <MeldsArea
+              view={view}
+              selectedCardIds={unstagedSelected}
+              cardById={cardById}
+              goerDropActive={goerDropActive}
+              jokerDropActive={jokerDropActive}
+              onGoer={(meldId, cardId, runEnd) =>
+                void act({ type: 'goer', meldId, cardId, runEnd })
+              }
+              onTakeJoker={(meldId, jokerCardId) =>
+                void act({
+                  type: 'takeJoker',
+                  meldId,
+                  jokerCardId,
+                  replacementCardIds: unstagedSelected,
+                })
+              }
+            />
+          </div>
+
+          <OwnArea
+            me={me}
+            view={view}
+            handCards={displayHand}
+            selectedCardIds={selectedCardIds}
+            stagedMelds={stagedMelds}
+            cardById={cardById}
+            activeDrag={activeDrag}
+            isMyTurn={isMyTurn}
+            isNext={nextPlayerUserId === currentUser.id}
+            turnFlash={turnFlash}
+            error={error}
+            sortMode={sortMode}
+            onSort={applySort}
+            onToggleCard={toggleCard}
+            onStage={stageSelected}
+            onClearStaged={() => {
+              setStagedMelds([])
+              setSelectedCardIds([])
+            }}
+            onLayStaged={() =>
+              void act({ type: 'layMelds', melds: stagedMelds })
+            }
+            onDiscard={() =>
+              unstagedSelected.length === 1 &&
+              void act({ type: 'discard', cardId: unstagedSelected[0] })
+            }
+            onReturnDiscard={() => void act({ type: 'returnDiscard' })}
+            onReturnJoker={() => void act({ type: 'returnJoker' })}
+          />
+        </section>
+
+        <DragOverlay dropAnimation={null}>
+          {activeDrag === null ? null : activeDrag.source === 'deck' ? (
+            <CardBack />
+          ) : (
+            <span className="block rotate-6 drop-shadow-xl">
+              <PlayingCard card={activeDrag.card} />
+            </span>
+          )}
+        </DragOverlay>
+      </DndContext>
 
       {(view.phase === 'roundEnd' ||
         view.phase === 'finished' ||
@@ -675,6 +867,10 @@ interface MeldsAreaProps {
   view: GameView
   selectedCardIds: number[]
   cardById: (cardId: number) => GameCard | undefined
+  /** Whether the in-flight drag may land on a meld end as a go-er. */
+  goerDropActive: boolean
+  /** Whether the in-flight drag may land on a tabled joker to swap it out. */
+  jokerDropActive: boolean
   onGoer: (meldId: number, cardId: number, runEnd: 'low' | 'high') => void
   onTakeJoker: (meldId: number, jokerCardId: number) => void
 }
@@ -683,6 +879,8 @@ function MeldsArea({
   view,
   selectedCardIds,
   cardById,
+  goerDropActive,
+  jokerDropActive,
   onGoer,
   onTakeJoker,
 }: MeldsAreaProps) {
@@ -692,8 +890,8 @@ function MeldsArea({
   if (view.melds.length === 0) {
     return (
       <p className="m-0 text-center text-sm text-white/60">
-        No sets on the table yet, first to {view.rules.comeDownThreshold}{' '}
-        points comes down.
+        No sets on the table yet, first to {view.rules.comeDownThreshold} points
+        comes down.
       </p>
     )
   }
@@ -706,6 +904,8 @@ function MeldsArea({
           meld={meld}
           singleSelected={singleSelected}
           hasReplacementsSelected={selectedCardIds.length > 0}
+          goerDropActive={goerDropActive}
+          jokerDropActive={jokerDropActive}
           onGoer={onGoer}
           onTakeJoker={onTakeJoker}
         />
@@ -714,10 +914,36 @@ function MeldsArea({
   )
 }
 
+interface GoerDropZoneProps {
+  meldId: number
+  runEnd: 'low' | 'high'
+  /** Zone label; defaults to the run end name. */
+  label?: string
+}
+
+/**
+ * A drop target on the end of a tabled set: dropping the dragged card
+ * here plays it as a go-er (for runs, on the low or the high end).
+ */
+function GoerDropZone({ meldId, runEnd, label }: GoerDropZoneProps) {
+  return (
+    <DropZone
+      id={`meld-${meldId}-${runEnd}`}
+      data={{ target: 'meld', meldId, runEnd }}
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded border-2 border-dashed border-zinc-400 text-[10px] font-semibold text-zinc-500 uppercase"
+      overClassName="border-zinc-800 bg-zinc-800/10 text-zinc-900"
+    >
+      {label ?? runEnd}
+    </DropZone>
+  )
+}
+
 interface MeldGroupProps {
   meld: MeldView
   singleSelected: GameCard | undefined
   hasReplacementsSelected: boolean
+  goerDropActive: boolean
+  jokerDropActive: boolean
   onGoer: (meldId: number, cardId: number, runEnd: 'low' | 'high') => void
   onTakeJoker: (meldId: number, jokerCardId: number) => void
 }
@@ -740,25 +966,53 @@ function MeldGroup({
   meld,
   singleSelected,
   hasReplacementsSelected,
+  goerDropActive,
+  jokerDropActive,
   onGoer,
   onTakeJoker,
 }: MeldGroupProps) {
   return (
     <div className="rounded-md bg-white/90 px-2 py-1 shadow-sm">
       <div className="flex items-center gap-2">
-        {meld.cards.map((meldCard) => (
-          <MeldToken
-            key={meldCard.card.id}
-            rank={meldCard.rank}
-            suit={meldCard.suit}
-            isJoker={meldCard.card.isJoker}
-            onClick={
-              meldCard.card.isJoker && hasReplacementsSelected
-                ? () => onTakeJoker(meld.id, meldCard.card.id)
-                : undefined
-            }
+        {goerDropActive && meld.type === 'run' && (
+          <GoerDropZone meldId={meld.id} runEnd="low" />
+        )}
+        {meld.cards.map((meldCard) =>
+          meldCard.card.isJoker && jokerDropActive ? (
+            <DropZone
+              key={meldCard.card.id}
+              id={`joker-${meld.id}-${meldCard.card.id}`}
+              data={{
+                target: 'joker',
+                meldId: meld.id,
+                jokerCardId: meldCard.card.id,
+              }}
+              className="inline-flex rounded p-0.5 ring-2 ring-purple-400"
+              overClassName="bg-purple-200 ring-purple-600"
+            >
+              <MeldToken rank={meldCard.rank} suit={meldCard.suit} isJoker />
+            </DropZone>
+          ) : (
+            <MeldToken
+              key={meldCard.card.id}
+              rank={meldCard.rank}
+              suit={meldCard.suit}
+              isJoker={meldCard.card.isJoker}
+              onClick={
+                meldCard.card.isJoker && hasReplacementsSelected
+                  ? () => onTakeJoker(meld.id, meldCard.card.id)
+                  : undefined
+              }
+            />
+          ),
+        )}
+        {goerDropActive && (
+          <GoerDropZone
+            meldId={meld.id}
+            runEnd="high"
+            label={meld.type === 'run' ? undefined : 'add'}
           />
-        ))}
+        )}
       </div>
       {singleSelected && (
         <div className="mt-1 flex justify-center gap-1">
@@ -827,80 +1081,18 @@ function MeldToken({ rank, suit, isJoker, onClick }: MeldTokenProps) {
   )
 }
 
-/**
- * What you owe the table right now. A card taken from the discard, or a
- * joker reclaimed from a set, has to be tabled in a new set before you
- * may discard, and nothing used to say so.
- */
-function turnActionText(view: GameView): string {
-  if (view.phase === 'awaitingDraw') {
-    return 'Your turn, draw from the deck or take the discard'
-  }
-  if (view.you.pendingJokerCardId !== null) {
-    return 'Your turn, the joker you took must go into a new set, or return it'
-  }
-  if (view.you.pendingDiscardCardId !== null) {
-    return 'Your turn, the card you took must go into a new set, or return it'
-  }
-  return 'Your turn, lay sets, add go-ers, then discard to end your turn'
-}
-
-interface TurnBannerProps {
-  view: GameView
-  isMyTurn: boolean
-  flash: boolean
-  lastEvent: string | null
-}
-
-/**
- * The headline turn cue above your hand: an accented bar naming the
- * action you owe, or a muted one naming who the table is waiting on.
- * The latest table event sits alongside it.
- */
-function TurnBanner({ view, isMyTurn, flash, lastEvent }: TurnBannerProps) {
-  const active = isMyTurn && !view.paused
-  const waitingFor = view.players.find(
-    (player) => player.userId === view.currentPlayerUserId,
-  )?.username
-
-  const message = view.paused
-    ? 'Paused, waiting for a player to reconnect'
-    : isMyTurn
-      ? turnActionText(view)
-      : `Waiting for ${waitingFor ?? 'the next round'}`
-
-  return (
-    <div
-      aria-live="polite"
-      className={cn(
-        'flex flex-wrap items-center justify-between gap-2 rounded-md border-l-4 px-3 py-2 transition-colors',
-        active
-          ? 'border-ring bg-ring/15 text-foreground'
-          : 'border-border bg-muted text-muted-foreground',
-        active && flash && 'turn-pulse',
-      )}
-    >
-      <p className={cn('m-0 text-sm', active ? 'font-semibold' : 'font-medium')}>
-        {message}
-      </p>
-      {lastEvent && (
-        <p className="m-0 text-xs text-muted-foreground">{lastEvent}</p>
-      )}
-    </div>
-  )
-}
-
 interface OwnAreaProps {
   me: GamePlayerView | undefined
   view: GameView
   handCards: GameCard[]
   selectedCardIds: number[]
   stagedMelds: number[][]
+  cardById: (cardId: number) => GameCard | undefined
+  activeDrag: DragData | null
   isMyTurn: boolean
   isNext: boolean
   turnFlash: boolean
   error: string | null
-  lastEvent: string | null
   sortMode: SortMode | null
   onSort: (mode: SortMode) => void
   onToggleCard: (cardId: number) => void
@@ -918,11 +1110,12 @@ function OwnArea({
   handCards,
   selectedCardIds,
   stagedMelds,
+  cardById,
+  activeDrag,
   isMyTurn,
   isNext,
   turnFlash,
   error,
-  lastEvent,
   sortMode,
   onSort,
   onToggleCard,
@@ -937,92 +1130,79 @@ function OwnArea({
   const unstagedSelected = selectedCardIds.filter(
     (id) => !stagedIds.includes(id),
   )
-  const acting = isMyTurn && view.phase === 'acting'
+  const acting = isMyTurn && view.phase === 'acting' && !view.paused
+  // Staged cards live in the tray, not the hand row
+  const visibleHand = handCards.filter((card) => !stagedIds.includes(card.id))
+  const cardDragActive =
+    activeDrag !== null &&
+    (activeDrag.source === 'hand' || activeDrag.source === 'staged')
+  const pileDragActive =
+    activeDrag !== null &&
+    (activeDrag.source === 'deck' || activeDrag.source === 'discard')
 
   return (
     <div className="rounded-lg border border-border bg-card p-3">
-      <TurnBanner
-        view={view}
-        isMyTurn={isMyTurn}
-        flash={turnFlash}
-        lastEvent={lastEvent}
-      />
-
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-        {me && (
-          <PlayerSeat
-            player={me}
-            view={view}
-            isCurrent={isMyTurn}
-            isNext={isNext}
-            isSelf
-            flash={turnFlash}
-          />
-        )}
-        <p className="m-0 text-xs text-muted-foreground">
-          {me && view.rules.stakes ? `chips: ${formatChips(me.chips)}` : ''}
-          {me?.hasComeDown ? ' · down' : ''}
-        </p>
-      </div>
-
       {error && (
         <p className="mt-2 mb-0 rounded-md border border-destructive/50 bg-destructive/10 px-2 py-1 text-xs text-destructive-foreground">
           {error}
         </p>
       )}
 
-      {stagedMelds.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-muted p-2">
-          <span className="text-xs text-muted-foreground">Staged sets:</span>
-          {stagedMelds.map((meld, index) => (
-            <span key={index} className="flex gap-0.5">
-              {meld.map((cardId) => {
-                const card = handCards.find(
-                  (candidate) => candidate.id === cardId,
-                )
-                return card ? (
-                  <PlayingCard key={cardId} card={card} small />
-                ) : null
-              })}
-            </span>
-          ))}
-        </div>
+      {(acting || stagedMelds.length > 0) && (
+        <StagingArea
+          stagedMelds={stagedMelds}
+          cardById={cardById}
+          acting={acting}
+          cardDragActive={cardDragActive}
+          onLay={onLayStaged}
+          onClear={onClearStaged}
+        />
       )}
 
-      <div className="mt-3 flex flex-wrap [&>*:not(:first-child)]:-ml-5">
-        {handCards.map((card) => (
-          <PlayingCard
-            key={card.id}
-            card={card}
-            selected={
-              selectedCardIds.includes(card.id) || stagedIds.includes(card.id)
-            }
-            onClick={() => onToggleCard(card.id)}
-          />
-        ))}
-      </div>
+      <DropZone
+        id="hand-zone"
+        data={{ target: 'hand' }}
+        disabled={activeDrag === null || activeDrag.source === 'hand'}
+        className={cn(
+          'mt-3 block rounded-md transition-colors',
+          // Lit while the deck or discard is being dragged, so the
+          // "drop it here to take it" target is obvious
+          pileDragActive && 'ring-2 ring-ring/70',
+        )}
+        overClassName="bg-ring/10"
+      >
+        {/* No wrapping: each card is a shrinkable flex cell, so a big
+            hand compresses the cards instead of spilling onto a second
+            row */}
+        <div className="flex min-h-24 items-center justify-center py-1 [&>*:not(:first-child)]:-ml-5">
+          {visibleHand.map((card) => (
+            <CardDrag
+              key={card.id}
+              id={`hand-card-${card.id}`}
+              data={{ source: 'hand', card }}
+              disabled={!acting}
+              className="min-w-8 basis-[66px]"
+            >
+              <PlayingCard
+                card={card}
+                fluid
+                selected={selectedCardIds.includes(card.id)}
+                onClick={() => onToggleCard(card.id)}
+              />
+            </CardDrag>
+          ))}
+        </div>
+      </DropZone>
 
       <div className="mt-3 flex flex-wrap gap-2">
         <Button
           size="sm"
           disabled={!acting || unstagedSelected.length < 3}
+          title="Move the selected cards into the sets tray"
           onClick={onStage}
         >
           Stage set ({unstagedSelected.length})
         </Button>
-        <Button
-          size="sm"
-          className="bg-button-red hover:bg-button-red-hover"
-          disabled={!acting || stagedMelds.length === 0}
-          onClick={onLayStaged}
-        >
-          Lay down staged sets
-        </Button>
-        {stagedMelds.length > 0 && (
-          <Button size="sm" variant="secondary" onClick={onClearStaged}>
-            Clear staged
-          </Button>
-        )}
         <Button
           size="sm"
           variant="secondary"
@@ -1059,6 +1239,25 @@ function OwnArea({
             Sort: suit
           </Button>
         </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+        {me && (
+          <PlayerSeat
+            player={me}
+            view={view}
+            isCurrent={isMyTurn}
+            isNext={isNext}
+            isSelf
+            flash={turnFlash}
+          />
+        )}
+        {me && (view.rules.stakes || me.hasComeDown) ? (
+          <p className="m-0 text-right text-xs text-muted-foreground">
+            {view.rules.stakes ? `chips: ${formatChips(me.chips)}` : ''}
+            {me.hasComeDown ? ' · down' : ''}
+          </p>
+        ) : null}
       </div>
     </div>
   )

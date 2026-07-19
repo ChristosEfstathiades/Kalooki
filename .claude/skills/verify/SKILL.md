@@ -30,3 +30,4 @@ Use a dedicated debugging port (not 9222) and a throwaway profile dir to avoid c
 
 - Working directory resets between PowerShell calls in some harnesses — use absolute paths in `Set-Location`.
 - Live two-player game flows can be driven the same way with two Edge profiles/ports and two tokens; the public queue starts on a 10s countdown at 2+ players.
+- dnd-kit drags can be exercised over CDP: mouse via `Input.dispatchMouseEvent` (mousePressed, ~10 mouseMoved steps, mouseReleased; the MouseSensor activates after 4px). Touch via `Emulation.setDeviceMetricsOverride` + `Input.dispatchTouchEvent`: touchStart, **hold ~400ms still** (TouchSensor has a 200ms activation delay and 8px tolerance), then touchMove steps and touchEnd.
