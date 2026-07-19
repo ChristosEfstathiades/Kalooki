@@ -1,9 +1,7 @@
 # TODO
 
-- Displays statuses of users friends
-- Use match history to calculate stats such as win rate and avg points per round (after playing 15 games)
-- Create leaderboard to display global user stats
-
-fix bug where if you reclaim joker and cant use it the game breaks
-left early on bots match history
-need clarity on rules like adding go-ers same turn you first come down
+- Displays statuses of users friends (online/offline)
+- Admin page
+- more detailed popup when click on other users names (show pfp)
+- anti bot form tech like hidden input or captcha
+- points system = -50 points pers loss. +50 points for every player in lobby if win
