@@ -1174,7 +1174,7 @@ function OwnArea({
         {/* No wrapping: each card is a shrinkable flex cell, so a big
             hand compresses the cards instead of spilling onto a second
             row */}
-        <div className="flex min-h-24 items-center justify-center py-1 [&>*:not(:first-child)]:-ml-5">
+        <div className="flex min-h-24 items-center justify-center py-1 [&>*:not(:first-child)]:-ml-[33px]">
           {visibleHand.map((card) => (
             <CardDrag
               key={card.id}
@@ -1194,7 +1194,23 @@ function OwnArea({
         </div>
       </DropZone>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {me && (
+          <PlayerSeat
+            player={me}
+            view={view}
+            isCurrent={isMyTurn}
+            isNext={isNext}
+            isSelf
+            flash={turnFlash}
+          />
+        )}
+        {me && (view.rules.stakes || me.hasComeDown) ? (
+          <p className="m-0 text-xs text-muted-foreground">
+            {view.rules.stakes ? `chips: ${formatChips(me.chips)}` : ''}
+            {me.hasComeDown ? ' · down' : ''}
+          </p>
+        ) : null}
         <Button
           size="sm"
           disabled={!acting || unstagedSelected.length < 3}
@@ -1239,25 +1255,6 @@ function OwnArea({
             Sort: suit
           </Button>
         </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
-        {me && (
-          <PlayerSeat
-            player={me}
-            view={view}
-            isCurrent={isMyTurn}
-            isNext={isNext}
-            isSelf
-            flash={turnFlash}
-          />
-        )}
-        {me && (view.rules.stakes || me.hasComeDown) ? (
-          <p className="m-0 text-right text-xs text-muted-foreground">
-            {view.rules.stakes ? `chips: ${formatChips(me.chips)}` : ''}
-            {me.hasComeDown ? ' · down' : ''}
-          </p>
-        ) : null}
       </div>
     </div>
   )

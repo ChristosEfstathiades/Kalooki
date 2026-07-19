@@ -81,8 +81,11 @@ export default function PlayingCard({
       className={cn(
         // block, not inline-block: an inline card sits on the text
         // baseline and leaves descender space below it, which any
-        // border or ring drawn around the card would then include
-        'block overflow-hidden rounded-md bg-white shadow-sm select-none',
+        // border or ring drawn around the card would then include.
+        // translate-y-0 on every card keeps them all in the same
+        // paint phase, so a selected (translated) card never jumps
+        // above the neighbour overlapping it from the right
+        'block translate-y-0 overflow-hidden rounded-md bg-white shadow-sm select-none',
         small
           ? 'h-10 w-7'
           : fluid
@@ -115,8 +118,7 @@ export default function PlayingCard({
       onClick={onClick}
       aria-label={label}
       className={cn(
-        'relative appearance-none border-0 bg-transparent p-0 hover:z-20',
-        selected ? 'z-10' : 'z-0',
+        'appearance-none border-0 bg-transparent p-0',
         // The face's percentage width needs a definite width to
         // resolve against, which an inline button cannot provide
         fluid && 'block w-full',
