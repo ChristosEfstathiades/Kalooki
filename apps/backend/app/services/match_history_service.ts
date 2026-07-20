@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import Match from '#models/match'
 import MatchPlayer from '#models/match_player'
 import db from '@adonisjs/lucid/services/db'
+import { invalidateLeaderboard } from '#services/leaderboard_service'
 import type { ActiveMatch } from '#services/game/match_service'
 
 /**
@@ -41,8 +42,8 @@ function placements(match: ActiveMatch): { userId: number; placement: number }[]
 export async function recordMatch(match: ActiveMatch): Promise<Match> {
   const placementByUser = new Map(placements(match).map((entry) => [entry.userId, entry.placement]))
 
-  return db.transaction(async (trx) => {
-    const recorded = await Match.create(
+  const recorded = await db.transaction(async (trx) => {
+    const created = await Match.create(
       {
         runtimeId: match.id,
         kind: match.kind,
@@ -60,7 +61,7 @@ export async function recordMatch(match: ActiveMatch): Promise<Match> {
 
     await MatchPlayer.createMany(
       match.state.players.map((player) => ({
-        matchId: recorded.id,
+        matchId: created.id,
         userId: player.userId,
         placement: placementByUser.get(player.userId) ?? match.state.players.length,
         finalScore: player.score,
@@ -71,8 +72,16 @@ export async function recordMatch(match: ActiveMatch): Promise<Match> {
       { client: trx }
     )
 
-    return recorded
+    return created
   })
+
+  // Only completed public games feed the leaderboard, so nothing else
+  // needs to drop its cache.
+  if (recorded.kind === 'public' && recorded.completed) {
+    invalidateLeaderboard()
+  }
+
+  return recorded
 }
 
 /**

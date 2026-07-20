@@ -4,6 +4,7 @@ import User from '#models/user'
 import Match from '#models/match'
 import MatchPlayer from '#models/match_player'
 import { CLASSIC_RULES } from '#services/game/engine'
+import { invalidateLeaderboard } from '#services/leaderboard_service'
 import testUtils from '@adonisjs/core/services/test_utils'
 import type { RoundResult } from '#services/game/engine'
 
@@ -82,6 +83,9 @@ function standardSheet(alice: User, bobby: User): RoundResult[] {
 
 test.group('Leaderboard', (group) => {
   group.each.setup(() => testUtils.db().withGlobalTransaction())
+  // The board is cached process-wide, so each case must start clean or
+  // it would see the previous case's (rolled back) data.
+  group.each.setup(() => invalidateLeaderboard())
 
   test('ranks players with enough public matches by win rate, with full stats', async ({
     client,
@@ -197,6 +201,40 @@ test.group('Leaderboard', (group) => {
       entries.map((entry: { rank: number }) => entry.rank),
       [1, 2, 3, 4]
     )
+  })
+
+  test('serves a cached board until it is invalidated', async ({ client, assert }) => {
+    const alice = await makeUser('alice')
+    const bobby = await makeUser('bobby')
+    const base = DateTime.fromISO('2026-03-01T12:00:00.000Z')
+
+    for (let index = 0; index < 10; index += 1) {
+      await seedMatch({
+        kind: 'public',
+        players: [alice, bobby],
+        winner: index % 2 === 0 ? alice : bobby,
+        endedAt: base.plus({ days: index }),
+      })
+    }
+
+    const first = await client.get('/api/v1/leaderboard').loginAs(alice)
+    assert.equal(first.body().data.entries[0].gamesPlayed, 10)
+
+    for (let index = 10; index < 12; index += 1) {
+      await seedMatch({
+        kind: 'public',
+        players: [alice, bobby],
+        winner: alice,
+        endedAt: base.plus({ days: index }),
+      })
+    }
+
+    const cached = await client.get('/api/v1/leaderboard').loginAs(alice)
+    assert.equal(cached.body().data.entries[0].gamesPlayed, 10)
+
+    invalidateLeaderboard()
+    const recomputed = await client.get('/api/v1/leaderboard').loginAs(alice)
+    assert.equal(recomputed.body().data.entries[0].gamesPlayed, 12)
   })
 
   test('requires authentication and handles an empty board', async ({ client, assert }) => {

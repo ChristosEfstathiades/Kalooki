@@ -8,18 +8,7 @@ import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
 export class AuthAccessTokenSchema extends BaseModel {
-  static $columns = [
-    'abilities',
-    'createdAt',
-    'expiresAt',
-    'hash',
-    'id',
-    'lastUsedAt',
-    'name',
-    'tokenableId',
-    'type',
-    'updatedAt',
-  ] as const
+  static $columns = ['abilities', 'createdAt', 'expiresAt', 'hash', 'id', 'lastUsedAt', 'name', 'tokenableId', 'type', 'updatedAt'] as const
   $columns = AuthAccessTokenSchema.$columns
   @column()
   declare abilities: string
@@ -44,19 +33,7 @@ export class AuthAccessTokenSchema extends BaseModel {
 }
 
 export class ChatMessageSchema extends BaseModel {
-  static $columns = [
-    'body',
-    'channel',
-    'createdAt',
-    'deletedAt',
-    'deletedBy',
-    'groupId',
-    'id',
-    'matchId',
-    'updatedAt',
-    'userId',
-    'wasCensored',
-  ] as const
+  static $columns = ['body', 'channel', 'createdAt', 'deletedAt', 'deletedBy', 'groupId', 'id', 'matchId', 'updatedAt', 'userId', 'wasCensored'] as const
   $columns = ChatMessageSchema.$columns
   @column()
   declare body: string
@@ -158,17 +135,7 @@ export class GroupSchema extends BaseModel {
 }
 
 export class MatchPlayerSchema extends BaseModel {
-  static $columns = [
-    'chipsNet',
-    'createdAt',
-    'finalScore',
-    'id',
-    'leftEarly',
-    'matchId',
-    'placement',
-    'updatedAt',
-    'userId',
-  ] as const
+  static $columns = ['chipsNet', 'createdAt', 'finalScore', 'id', 'leftEarly', 'matchId', 'placement', 'updatedAt', 'userId'] as const
   $columns = MatchPlayerSchema.$columns
   @column()
   declare chipsNet: number | null
@@ -191,21 +158,7 @@ export class MatchPlayerSchema extends BaseModel {
 }
 
 export class MatchSchema extends BaseModel {
-  static $columns = [
-    'botDifficulty',
-    'completed',
-    'createdAt',
-    'endedAt',
-    'groupId',
-    'id',
-    'kind',
-    'rules',
-    'runtimeId',
-    'scoresheet',
-    'startedAt',
-    'updatedAt',
-    'winnerUserId',
-  ] as const
+  static $columns = ['botDifficulty', 'completed', 'createdAt', 'endedAt', 'groupId', 'id', 'kind', 'rules', 'runtimeId', 'scoresheet', 'startedAt', 'updatedAt', 'winnerUserId'] as const
   $columns = MatchSchema.$columns
   @column()
   declare botDifficulty: string | null
@@ -251,22 +204,7 @@ export class MessageReportSchema extends BaseModel {
 }
 
 export class ModerationActionSchema extends BaseModel {
-  static $columns = [
-    'action',
-    'actorId',
-    'actorRole',
-    'actorUsername',
-    'createdAt',
-    'details',
-    'id',
-    'messageBody',
-    'messageChannel',
-    'messageId',
-    'reason',
-    'targetUserId',
-    'targetUsername',
-    'updatedAt',
-  ] as const
+  static $columns = ['action', 'actorId', 'actorRole', 'actorUsername', 'createdAt', 'details', 'id', 'messageBody', 'messageChannel', 'messageId', 'reason', 'targetUserId', 'targetUsername', 'updatedAt'] as const
   $columns = ModerationActionSchema.$columns
   @column()
   declare action: string
@@ -299,15 +237,7 @@ export class ModerationActionSchema extends BaseModel {
 }
 
 export class ScheduledGameSchema extends BaseModel {
-  static $columns = [
-    'createdAt',
-    'groupId',
-    'id',
-    'opensAt',
-    'ownerUserId',
-    'rules',
-    'updatedAt',
-  ] as const
+  static $columns = ['createdAt', 'groupId', 'id', 'opensAt', 'ownerUserId', 'rules', 'updatedAt'] as const
   $columns = ScheduledGameSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -326,26 +256,7 @@ export class ScheduledGameSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = [
-    'banReason',
-    'bannedAt',
-    'bannedBy',
-    'chatColor',
-    'createdAt',
-    'deletedAt',
-    'email',
-    'emailVerifiedAt',
-    'id',
-    'isBot',
-    'muteReason',
-    'mutedAt',
-    'mutedBy',
-    'mutedUntil',
-    'password',
-    'role',
-    'updatedAt',
-    'username',
-  ] as const
+  static $columns = ['banReason', 'bannedAt', 'bannedBy', 'chatColor', 'createdAt', 'deletedAt', 'email', 'emailVerifiedAt', 'id', 'isBot', 'muteReason', 'mutedAt', 'mutedBy', 'mutedUntil', 'password', 'role', 'updatedAt', 'username'] as const
   $columns = UserSchema.$columns
   @column()
   declare banReason: string | null
