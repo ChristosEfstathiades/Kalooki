@@ -11,6 +11,8 @@ dist
 .env.local
 .env.production.local
 .env.development.local
+apps/admin
+Developer
 
 # Temp files
 /tmp
@@ -30,7 +32,6 @@ yarn-error.log
 
 # Frontend compiled assets
 public/assets
-apps/admin
 
 # Uploaded avatars (local disk storage)
 apps/backend/storage/
