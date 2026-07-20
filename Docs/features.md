@@ -21,6 +21,11 @@
 ## Friends
 
 - Users can send a friend request by typing another user's exact username and clicking "submit request". Typing does not reveal a list of users with similar names — only an exact username match is accepted. The recipient receives an in-app notification and can accept or decline the request; the sender can cancel a request that is still pending. Once accepted, the two users become friends, which grants them access to other friends-only features described later. Users can view a list of their friends and remove any connection; removal is silent and mutual (the connection is deleted for both users, and the other person is not notified).
+- The friends list shows who is online: each friend carries a green (online) or hollow (offline) dot, online friends sort to the top, and the heading counts how many of them are on right now. The list updates live while it is open, so a friend coming online appears without a refresh. Presence is friends-only — a user's online status is pushed to their friends and to nobody else.
+
+## Online Player Count
+
+- The header shows how many players are on the site right now, next to the wordmark. A player is online while they hold at least one live connection, so several open tabs still count as one player. The number is a live figure, not a total of registered accounts, and is public — signed-out visitors on the content pages see it too.
 
 ## Chat Messages
 

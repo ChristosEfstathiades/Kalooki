@@ -31,6 +31,18 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/access_tokens_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'presence.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/presence'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/presence_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/presence_controller').default['index']>>>
+    }
+  }
   'profile.profile.show': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/account/profile'

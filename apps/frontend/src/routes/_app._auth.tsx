@@ -9,6 +9,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { clearStoredToken, getStoredToken } from '#/lib/auth-token'
 import { closeSocket, getSocket } from '#/lib/socket'
 import { currentUserQueryOptions } from '#/lib/auth'
+import { usePresenceSync } from '#/lib/presence'
 
 /**
  * Pathless guard for signed-in-only pages: anyone without a stored
@@ -27,6 +28,8 @@ export const Route = createFileRoute('/_app/_auth')({
 function AuthedLayout() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  usePresenceSync()
 
   useEffect(() => {
     const socket = getSocket()

@@ -27,6 +27,10 @@ router
       .as('auth')
       .use(authThrottle)
 
+    // Public: the online player count is shown on the welcome page too,
+    // before anyone has signed in.
+    router.get('presence', [controllers.Presence, 'index']).use(apiThrottle)
+
     router
       .group(() => {
         router.get('profile', [controllers.Profile, 'show'])

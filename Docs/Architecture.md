@@ -32,6 +32,7 @@ Built using adonisjs. Use adonisjs documentation to understand folder layout ([h
 - Real-time gameplay and chat run over **Socket.IO**, attached to the AdonisJS HTTP server.
 - Rationale: Kalooki is turn-based, so raw latency matters less than reliability and connection management. Socket.IO gives us rooms/namespaces (one room per match, per group chat, and the global chat), built-in auto-reconnect (which pairs directly with the 5-minute rejoin timer), and acknowledgement callbacks so a client move can be validated server-side and confirmed/rejected in one round trip. Native `ws` would mean hand-rolling rooms, heartbeats, and reconnection; SSE-based options (e.g. `@adonisjs/transmit`) are server→client only and can't carry player moves.
 - Auth: the socket handshake carries the API token; sockets are authenticated the same way as HTTP requests, and a socket only joins rooms it's authorized for (enforcing the authorization rules above — a player never receives other players' hidden state).
+- Presence (who is online) is derived from live connections rather than stored: the socket server keeps an in-memory count of open sockets per user, so several tabs are one online player and a restart clears the map along with the connections. Coming online or going offline emits `presence:friend` to the user's friends only (through their `user:{id}` rooms) and a debounced `presence:count` with the site-wide total to everyone. `GET /api/v1/presence` serves the count for first paint and for pages with no socket.
 
 ### File storage
 

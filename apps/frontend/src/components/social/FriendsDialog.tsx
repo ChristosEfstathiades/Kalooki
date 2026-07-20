@@ -13,6 +13,7 @@ import {
   useSendFriendRequest,
 } from '#/lib/social'
 import UserAvatar from '#/components/UserAvatar'
+import PresenceDot from '#/components/PresenceDot'
 import FormErrors from '#/components/FormErrors'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
@@ -32,7 +33,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
-import type { Group, PublicUser } from '#/lib/social'
+import type { Friend, Group, PublicUser } from '#/lib/social'
 
 interface FriendsDialogProps {
   open: boolean
@@ -41,22 +42,42 @@ interface FriendsDialogProps {
 
 interface UserRowProps {
   user: PublicUser
+  /** Omitted for rows where presence is not shown, e.g. requests. */
+  online?: boolean
   children: React.ReactNode
 }
 
 /**
- * One row in the friends dialog: avatar, username, and actions.
+ * One row in the friends dialog: avatar, username, and actions, with a
+ * presence dot when the row is a friend.
  */
-function UserRow({ user, children }: UserRowProps) {
+function UserRow({ user, online, children }: UserRowProps) {
   return (
     <li className="flex items-center justify-between gap-2 py-2">
       <span className="flex min-w-0 items-center gap-2">
-        <UserAvatar user={user} />
+        <UserAvatar
+          user={user}
+          className={online === false ? 'opacity-60' : undefined}
+        />
+        {online !== undefined && (
+          <PresenceDot online={online} label={user.username} />
+        )}
         <span className="truncate text-sm font-medium">{user.username}</span>
       </span>
       <span className="flex shrink-0 gap-2">{children}</span>
     </li>
   )
+}
+
+/**
+ * Online friends first, then alphabetically, so whoever can actually
+ * play right now is at the top of the list.
+ */
+function byPresenceThenName(a: Friend, b: Friend): number {
+  if (a.online !== b.online) {
+    return a.online ? -1 : 1
+  }
+  return a.username.localeCompare(b.username)
 }
 
 /**
@@ -97,6 +118,10 @@ export default function FriendsDialog({
 
   const incoming = requests.data?.incoming ?? []
   const outgoing = requests.data?.outgoing ?? []
+  const sortedFriends = [...(friends.data ?? [])].sort(byPresenceThenName)
+  const onlineFriendCount = sortedFriends.filter(
+    (friend) => friend.online,
+  ).length
   const ownedGroups = (groups.data ?? []).filter(
     (group) => group.ownerId === currentUser?.id,
   )
@@ -206,7 +231,10 @@ export default function FriendsDialog({
 
         <section>
           <h3 className="m-0 text-sm font-semibold text-muted-foreground">
-            Your friends {friends.data ? `(${friends.data.length})` : ''}
+            Your friends{' '}
+            {friends.data
+              ? `(${onlineFriendCount} of ${friends.data.length} online)`
+              : ''}
           </h3>
           <FormErrors errors={inviteError} />
           {friends.data && friends.data.length === 0 ? (
@@ -215,8 +243,8 @@ export default function FriendsDialog({
             </p>
           ) : (
             <ul className="m-0 list-none divide-y divide-border p-0">
-              {(friends.data ?? []).map((friend) => (
-                <UserRow key={friend.id} user={friend}>
+              {sortedFriends.map((friend) => (
+                <UserRow key={friend.id} user={friend} online={friend.online}>
                   <FriendActionsMenu
                     friend={friend}
                     invitableGroups={ownedGroups.filter(

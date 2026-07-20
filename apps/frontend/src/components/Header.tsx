@@ -3,12 +3,14 @@ import { useQuery } from '@tanstack/react-query'
 import { Settings } from 'lucide-react'
 import { currentUserQueryOptions } from '#/lib/auth'
 import UserAvatar from '#/components/UserAvatar'
+import OnlineCount from '#/components/OnlineCount'
 import { Button } from '#/components/ui/button'
 
 /**
- * Site header: wordmark on the left, the signed-in user's identity and
- * a link to settings on the right. Shown on every page except the
- * welcome and gameplay pages (docs/Frontend-design.md).
+ * Site header: wordmark and the live online-player count on the left,
+ * the signed-in user's identity and a link to settings on the right.
+ * Shown on every page except the welcome and gameplay pages
+ * (docs/Frontend-design.md).
  */
 export default function Header() {
   const { data: user } = useQuery(currentUserQueryOptions)
@@ -16,9 +18,12 @@ export default function Header() {
   return (
     <header className="border-b border-border bg-panel">
       <div className="page-wrap flex h-14 items-center justify-between">
-        <Link to="/" className="text-lg font-bold tracking-tight">
-          Kalooki<span className="text-button-red">Online</span>
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link to="/" className="text-lg font-bold tracking-tight">
+            Kalooki<span className="text-button-red">Online</span>
+          </Link>
+          <OnlineCount className="hidden sm:flex" />
+        </div>
 
         {user ? (
           <div className="flex items-center gap-3">

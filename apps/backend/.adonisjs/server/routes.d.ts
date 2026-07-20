@@ -6,6 +6,7 @@ export type ScannedRoutes = {
   ALL: {
     'auth.new_account.store': { paramsTuple?: []; params?: {} }
     'auth.access_tokens.store': { paramsTuple?: []; params?: {} }
+    'presence.index': { paramsTuple?: []; params?: {} }
     'profile.profile.show': { paramsTuple?: []; params?: {} }
     'profile.profile.update': { paramsTuple?: []; params?: {} }
     'profile.access_tokens.destroy': { paramsTuple?: []; params?: {} }
@@ -43,6 +44,7 @@ export type ScannedRoutes = {
     'admin.admin.list_moderation_actions': { paramsTuple?: []; params?: {} }
   }
   GET: {
+    'presence.index': { paramsTuple?: []; params?: {} }
     'profile.profile.show': { paramsTuple?: []; params?: {} }
     'social.friends.index': { paramsTuple?: []; params?: {} }
     'social.friend_requests.index': { paramsTuple?: []; params?: {} }
@@ -59,6 +61,7 @@ export type ScannedRoutes = {
     'admin.admin.list_moderation_actions': { paramsTuple?: []; params?: {} }
   }
   HEAD: {
+    'presence.index': { paramsTuple?: []; params?: {} }
     'profile.profile.show': { paramsTuple?: []; params?: {} }
     'social.friends.index': { paramsTuple?: []; params?: {} }
     'social.friend_requests.index': { paramsTuple?: []; params?: {} }

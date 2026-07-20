@@ -7,6 +7,7 @@
 import type { InferData, InferVariants } from '@adonisjs/core/types/transformers'
 import type ChatMessageTransformer from '#transformers/chat_message_transformer'
 import type FriendRequestTransformer from '#transformers/friend_request_transformer'
+import type FriendTransformer from '#transformers/friend_transformer'
 import type GroupDetailTransformer from '#transformers/group_detail_transformer'
 import type GroupInviteTransformer from '#transformers/group_invite_transformer'
 import type GroupTransformer from '#transformers/group_transformer'
@@ -24,6 +25,10 @@ export namespace Data {
   export type FriendRequest = InferData<FriendRequestTransformer>
   export namespace FriendRequest {
     export type Variants = InferVariants<FriendRequestTransformer>
+  }
+  export type Friend = InferData<FriendTransformer>
+  export namespace Friend {
+    export type Variants = InferVariants<FriendTransformer>
   }
   export type GroupDetail = InferData<GroupDetailTransformer>
   export namespace GroupDetail {

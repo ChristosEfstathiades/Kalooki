@@ -1,15 +1,17 @@
 import { friendsOf, removeFriendship } from '#services/friendship_service'
-import PublicUserTransformer from '#transformers/public_user_transformer'
+import FriendTransformer from '#transformers/friend_transformer'
 import type { HttpContext } from '@adonisjs/core/http'
 
 export default class FriendsController {
   /**
-   * Lists the user's friends.
+   * Lists the user's friends, each flagged online or offline. The list
+   * is a snapshot: the client keeps it current from the presence events
+   * the socket server pushes.
    */
   async index({ auth, serialize }: HttpContext) {
     const user = auth.getUserOrFail()
     const friends = await friendsOf(user.id)
-    return serialize({ friends: PublicUserTransformer.transform(friends) })
+    return serialize({ friends: FriendTransformer.transform(friends) })
   }
 
   /**

@@ -82,7 +82,7 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 ## header
 
 - on all pages except the gameplay and welcome.
-- left hand side contains logo of the website which is yet to be made, "KalookiOnline" for now
+- left hand side contains logo of the website which is yet to be made, "KalookiOnline" for now, followed by a small live "N players online" count with a green dot (hidden on the narrowest screens)
 - right hand side Contains the username and a cog icon that takes user to settings page
 
 ## footer

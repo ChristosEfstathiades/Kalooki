@@ -7,7 +7,15 @@ import ScheduledGame from '#models/scheduled_game'
 import User from '#models/user'
 import { groupIdsOf, isGroupMember } from '#services/group_service'
 import { assertMatchChatAccess, postChatMessage } from '#services/chat_service'
+import { friendIdsOf } from '#services/friendship_service'
 import { isBanned } from '#services/role_service'
+import {
+  onlineCount,
+  resetPresence,
+  trackConnection,
+  trackDisconnection,
+  userRoom,
+} from '#services/presence_service'
 import {
   configureScheduledLobbyStore,
   onMatchFinished,
@@ -121,6 +129,7 @@ export function bootSocketServer(nodeServer: NodeHttpServer): Server {
   io.on('connection', (socket) => {
     void joinAuthorizedRooms(socket)
     bindGameHandlers(io as Server, socket, socketUser(socket))
+    trackPresence(socket)
 
     socket.on('chat:send', (payload: unknown, ack?: SendAck) => {
       void handleChatSend(socket, payload, ack)
@@ -169,9 +178,81 @@ export function broadcastMessageDeleted(channel: ChatChannel, messageId: number)
  * Closes the Socket.IO server (used on app shutdown).
  */
 export async function closeSocketServer(): Promise<void> {
+  if (countBroadcastTimer) {
+    clearTimeout(countBroadcastTimer)
+    countBroadcastTimer = null
+  }
+  resetPresence()
   if (io) {
     await io.close()
     io = null
+  }
+}
+
+/**
+ * Bursts of connects and disconnects (a deploy, a flaky network) are
+ * collapsed into one broadcast on this interval rather than one emit
+ * per socket.
+ */
+const COUNT_BROADCAST_DELAY_MS = 1000
+
+let countBroadcastTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Counts a socket toward its user's presence and tells the rest of the
+ * site about it: everyone sees the online total, and the user's friends
+ * see them switch between online and offline. Several tabs count as one
+ * online player, so only the first and last socket move the needle.
+ */
+function trackPresence(socket: Socket): void {
+  const user = socketUser(socket)
+
+  if (trackConnection(user.id)) {
+    scheduleOnlineCountBroadcast()
+    void broadcastFriendPresence(user.id, true)
+  }
+
+  // Counted first, so the arriving player sees themselves in the total
+  // rather than waiting for the next broadcast
+  socket.emit('presence:count', { count: onlineCount() })
+
+  socket.on('disconnect', () => {
+    if (trackDisconnection(user.id)) {
+      scheduleOnlineCountBroadcast()
+      void broadcastFriendPresence(user.id, false)
+    }
+  })
+}
+
+/**
+ * Queues an online-total broadcast to every connected socket, at most
+ * one per COUNT_BROADCAST_DELAY_MS.
+ */
+function scheduleOnlineCountBroadcast(): void {
+  if (countBroadcastTimer) {
+    return
+  }
+  countBroadcastTimer = setTimeout(() => {
+    countBroadcastTimer = null
+    io?.emit('presence:count', { count: onlineCount() })
+  }, COUNT_BROADCAST_DELAY_MS)
+  // Never hold the process open just to announce a count
+  countBroadcastTimer.unref?.()
+}
+
+/**
+ * Tells a user's friends that they came online or went offline. Only
+ * their friends are told, so presence is never broadcast to strangers.
+ */
+async function broadcastFriendPresence(userId: number, online: boolean): Promise<void> {
+  try {
+    const friendIds = await friendIdsOf(userId)
+    if (friendIds.length === 0) {
+      return
+    }
+    io?.to(friendIds.map(userRoom)).emit('presence:friend', { userId, online })
+  } catch (error) {
+    logger.error({ err: error }, 'Failed to broadcast friend presence')
   }
 }
 

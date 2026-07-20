@@ -43,14 +43,23 @@ export async function removeFriendship(userIdA: number, userIdB: number): Promis
 }
 
 /**
+ * Lists the ids of a user's friends. Used where only the identities are
+ * needed (e.g. telling friends a player came online) so the rows never
+ * have to be loaded.
+ */
+export async function friendIdsOf(userId: number): Promise<number[]> {
+  const friendships = await Friendship.query().where('userAId', userId).orWhere('userBId', userId)
+
+  return friendships.map((friendship) =>
+    friendship.userAId === userId ? friendship.userBId : friendship.userAId
+  )
+}
+
+/**
  * Lists a user's friends ordered by username.
  */
 export async function friendsOf(userId: number): Promise<User[]> {
-  const friendships = await Friendship.query().where('userAId', userId).orWhere('userBId', userId)
-
-  const friendIds = friendships.map((friendship) =>
-    friendship.userAId === userId ? friendship.userBId : friendship.userAId
-  )
+  const friendIds = await friendIdsOf(userId)
 
   if (friendIds.length === 0) {
     return []

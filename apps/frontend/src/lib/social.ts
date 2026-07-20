@@ -20,6 +20,11 @@ export interface PublicUser {
   role: string
 }
 
+/** A friend, plus whether they are connected right now. */
+export interface Friend extends PublicUser {
+  online: boolean
+}
+
 export type Group = Data.Group
 
 /** Pending requests and invites refresh on this interval until

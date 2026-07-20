@@ -22,6 +22,8 @@
   --button-red-hover: #7e3a47;
   --button-purple: #533367;
   --button-purple-hover: #633e7b;
+  /* Presence dots: brighter than the felt so a 8px dot still reads */
+  --online: #4ba872;
 
   /* Fonts: system stacks for now, swappable in one place */
   --font-display:
@@ -117,6 +119,7 @@
   --color-button-purple: var(--button-purple);
   --color-button-purple-hover: var(--button-purple-hover);
   --color-panel: var(--bg-panel);
+  --color-online: var(--online);
 }
 
 html,

@@ -2,6 +2,7 @@ import { test } from '@japa/runner'
 import User from '#models/user'
 import FriendRequest from '#models/friend_request'
 import { areFriends, createFriendship } from '#services/friendship_service'
+import { resetPresence, trackConnection } from '#services/presence_service'
 import testUtils from '@adonisjs/core/services/test_utils'
 
 /**
@@ -180,6 +181,29 @@ test.group('Friends list', (group) => {
     assert.lengthOf(friends, 1)
     assert.equal(friends[0].username, 'bobby')
     assert.notProperty(friends[0], 'email')
+  })
+
+  test('flags each friend online or offline', async ({ client, assert }) => {
+    const alice = await makeUser('alice')
+    const bobby = await makeUser('bobby')
+    const carol = await makeUser('carol')
+    await createFriendship(alice.id, bobby.id)
+    await createFriendship(alice.id, carol.id)
+
+    resetPresence()
+    trackConnection(bobby.id)
+
+    const response = await client.get('/api/v1/friends').loginAs(alice)
+    response.assertStatus(200)
+    const friends = response.body().data.friends as { username: string; online: boolean }[]
+    assert.deepEqual(
+      friends.map((friend) => [friend.username, friend.online]),
+      [
+        ['bobby', true],
+        ['carol', false],
+      ]
+    )
+    resetPresence()
   })
 
   test('removal is mutual and silent', async ({ client, assert }) => {

@@ -22,6 +22,7 @@ import { BOT_DIFFICULTIES } from '#services/game/bot'
 import { MAX_BOT_OPPONENTS, ensureBotUsers } from '#services/game/bot_users'
 import { isGroupMember } from '#services/group_service'
 import { chatRoom } from '#services/socket_service'
+import { userRoom } from '#services/presence_service'
 import { UNLIMITED_BUY_INS } from '#services/game/engine'
 import type User from '#models/user'
 import type { BotDifficulty } from '#services/game/bot'
@@ -45,7 +46,7 @@ type Ack = (result: { ok: boolean; error?: string; data?: unknown }) => void
 export function bindMatchEmitter(io: Server): void {
   configureMatchService({
     toUser: (userId, event, payload) => {
-      io.to(`user:${userId}`).emit(event, payload)
+      io.to(userRoom(userId)).emit(event, payload)
     },
     toGroup: (groupId, event, payload) => {
       io.to(chatRoom({ type: 'group', groupId })).emit(event, payload)
@@ -173,7 +174,7 @@ function parseOpensAt(value: unknown): number | null {
  * socket and reports reconnection to any running match.
  */
 export function bindGameHandlers(io: Server, socket: Socket, user: User): void {
-  void socket.join(`user:${user.id}`)
+  void socket.join(userRoom(user.id))
 
   // Rejoining a running match after a disconnect
   const runningMatch = playerReconnected(user.id)
@@ -299,7 +300,7 @@ export function bindGameHandlers(io: Server, socket: Socket, user: User): void {
  * (multiple tabs count as one presence).
  */
 async function handleUserDisconnect(io: Server, userId: number): Promise<void> {
-  const remaining = await io.in(`user:${userId}`).fetchSockets()
+  const remaining = await io.in(userRoom(userId)).fetchSockets()
   if (remaining.length === 0) {
     playerDisconnected(userId)
   }

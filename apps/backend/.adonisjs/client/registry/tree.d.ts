@@ -10,6 +10,9 @@ export interface ApiDefinition {
       store: typeof routes['auth.access_tokens.store']
     }
   }
+  presence: {
+    index: typeof routes['presence.index']
+  }
   profile: {
     profile: {
       show: typeof routes['profile.profile.show']
