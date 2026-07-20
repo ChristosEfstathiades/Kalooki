@@ -3,6 +3,8 @@
  * (classic: 2 decks + 2 jokers = 106 cards). See docs/Kalooki.md.
  */
 
+import { webcrypto } from 'node:crypto'
+
 export type Suit = 'hearts' | 'diamonds' | 'clubs' | 'spades'
 
 export type Rank = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 'J' | 'Q' | 'K' | 'A'
@@ -89,6 +91,18 @@ export function buildDeck(decks: number, jokers: number): Card[] {
  * hands.
  */
 export type Rng = () => number
+
+/**
+ * Cryptographically secure random source in [0, 1), built from 53 bits
+ * of entropy. The production default for shuffles and deals: unlike
+ * `Math.random`, its internal state cannot be recovered from the card
+ * sequences players observe over a long session.
+ */
+export function cryptoRng(): number {
+  const words = new Uint32Array(2)
+  webcrypto.getRandomValues(words)
+  return ((words[0] >>> 5) * 2 ** 26 + (words[1] >>> 6)) / 2 ** 53
+}
 
 /**
  * Fisher-Yates shuffle. Returns a new array; the input is untouched.

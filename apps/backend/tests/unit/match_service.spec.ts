@@ -251,6 +251,57 @@ test.group('Match service', (group) => {
     assert.isNull(matchForUser(2))
   })
 
+  test('a queued player cannot also sit in a lobby, and the reverse', ({ assert }) => {
+    joinPublicQueue(identity(1))
+    createLobby(7, identity(2), CLASSIC_RULES)
+    // Already holding a place: two pending games could otherwise both
+    // seat this player when they start
+    assert.throws(() => joinLobby(7, identity(1)), /already waiting/)
+
+    joinLobby(7, identity(3))
+    assert.throws(() => joinPublicQueue(identity(3)), /already waiting/)
+
+    // Re-entering the place you already hold stays harmless
+    assert.equal(joinPublicQueue(identity(1)).queueSize, 1)
+    assert.lengthOf(lobbyViewForGroup(7)?.players ?? [], 2)
+  })
+
+  test('a player already in a game is never seated by a queue start', async ({ assert }) => {
+    createLobby(7, identity(1), CLASSIC_RULES)
+    joinLobby(7, identity(2))
+    const match = startLobby(7, 1)
+
+    assert.throws(() => joinPublicQueue(identity(1)), /already in a game/)
+
+    // A public match starting around them must not deal them in
+    joinPublicQueue(identity(3))
+    joinPublicQueue(identity(4))
+    joinPublicQueue(identity(5))
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    assert.equal(matchForUser(1)?.id, match.id)
+    assert.equal(matchForUser(2)?.id, match.id)
+    assert.notEqual(matchForUser(3)?.id, match.id)
+    assert.lengthOf(match.state.players, 2)
+  })
+
+  test('quitting frees the quitter while the rest of the game plays on', ({ assert }) => {
+    createLobby(7, identity(1), CLASSIC_RULES)
+    joinLobby(7, identity(2))
+    joinLobby(7, identity(3))
+    const match = startLobby(7, 1)
+
+    applyGameAction(match.id, 1, { type: 'quit' })
+
+    assert.notEqual(match.state.phase, 'finished')
+    assert.equal(matchForUser(2)?.id, match.id)
+    // Released immediately, rather than held until the game they left ends
+    assert.isNull(matchForUser(1))
+    assert.equal(joinPublicQueue(identity(1)).queueSize, 1)
+    // They still cannot act in the game they walked out of
+    assert.throws(() => applyGameAction(match.id, 1, { type: 'quit' }), /not part of this game/)
+  })
+
   test('the idle sweep ends a match abandoned for 12 hours', ({ assert }) => {
     const match = startTwoPlayerMatch()
 

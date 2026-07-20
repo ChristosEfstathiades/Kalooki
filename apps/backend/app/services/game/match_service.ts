@@ -18,6 +18,7 @@ import {
 } from '#services/game/engine'
 import { decideBotAction } from '#services/game/bot'
 import { MAX_BOT_OPPONENTS } from '#services/game/bot_users'
+import { cryptoRng } from '#services/game/cards'
 import type { BotDifficulty } from '#services/game/bot'
 import type { GameRules, GameState, TabledMeld, RoundResult } from '#services/game/engine'
 import type { Card, Rng } from '#services/game/cards'
@@ -219,7 +220,7 @@ let emitter: MatchEmitter = {
   toUser: () => {},
   toGroup: () => {},
 }
-let rng: Rng = Math.random
+let rng: Rng = cryptoRng
 
 /** Fixed bot thinking time override; null means the jittered default. */
 let botDelayMsOverride: number | null = null
@@ -286,6 +287,69 @@ export function getMatch(matchId: string): ActiveMatch | null {
   return matches.get(matchId) ?? null
 }
 
+/** A place a user already holds: a live match, the queue, or a lobby. */
+type Reservation = 'match' | 'queue' | 'lobby'
+
+function reservationFor(userId: number): Reservation | null {
+  if (matchForUser(userId)) {
+    return 'match'
+  }
+  if (publicQueue.some((queued) => queued.id === userId)) {
+    return 'queue'
+  }
+  for (const lobby of lobbies.values()) {
+    if (lobby.players.some((player) => player.id === userId)) {
+      return 'lobby'
+    }
+  }
+  return null
+}
+
+/**
+ * Guards every entry into a game. A player holds at most one place
+ * across matches, the queue, and lobbies, so two of them can never
+ * seat the same person. Callers let a player re-enter the place they
+ * already hold before reaching this.
+ *
+ * @throws GameError when the user is committed somewhere else.
+ */
+function assertNotReserved(userId: number): void {
+  const held = reservationFor(userId)
+  if (held === null) {
+    return
+  }
+  throw held === 'match'
+    ? new GameError('You are already in a game', 'E_ALREADY_IN_GAME')
+    : new GameError('You are already waiting for a game to start', 'E_ALREADY_WAITING')
+}
+
+/** Drops a user from every lobby they sit in (cancelling ones they own). */
+function dropFromLobbies(userId: number): void {
+  for (const [groupId, lobby] of [...lobbies]) {
+    if (lobby.players.some((player) => player.id === userId)) {
+      leaveLobby(groupId, userId)
+    }
+  }
+}
+
+/**
+ * Removes a player from the engine and releases their seat, so leaving
+ * a game (a quit, a timeout, or a lapsed rejoin window) frees them to
+ * start another right away rather than waiting for the game they left
+ * to finish. They keep read access to it through `identities`.
+ */
+function removeFromMatch(
+  match: ActiveMatch,
+  userId: number,
+  options: { markRemoved?: boolean } = {}
+): void {
+  removePlayer(match.state, userId, rng, options)
+  // Bots are never indexed: the same bot sits in many matches at once
+  if (!match.botIds.has(userId)) {
+    matchIdByUser.delete(userId)
+  }
+}
+
 /* -------------------------------------------------------------------
  * Public matchmaking
  * ---------------------------------------------------------------- */
@@ -305,10 +369,8 @@ export interface QueueStatus {
  * grace runs so a 4th or 5th can still make it.
  */
 export function joinPublicQueue(identity: PlayerIdentity): QueueStatus {
-  if (matchForUser(identity.id)) {
-    throw new GameError('You are already in a game', 'E_ALREADY_IN_GAME')
-  }
   if (!publicQueue.some((queued) => queued.id === identity.id)) {
+    assertNotReserved(identity.id)
     publicQueue.push(identity)
   }
 
@@ -402,6 +464,8 @@ function resetQueueTimers(): void {
 
 function startPublicMatch(): void {
   resetQueueTimers()
+  // Backstop: anyone seated elsewhere since queueing is not dealt in
+  publicQueue = publicQueue.filter((queued) => !matchIdByUser.has(queued.id))
   if (publicQueue.length < PUBLIC_MIN_PLAYERS) {
     broadcastQueueStatus()
     return
@@ -445,10 +509,10 @@ export function createLobby(
       throw new GameError('This group already has a game in progress', 'E_GAME_IN_PROGRESS')
     }
   }
-  // Scheduling doesn't seat the owner, so being in a game is only a
-  // conflict for a lobby that opens right away
-  if (opensAt === null && matchForUser(owner.id)) {
-    throw new GameError('You are already in a game', 'E_ALREADY_IN_GAME')
+  // Scheduling doesn't seat the owner, so holding a place elsewhere is
+  // only a conflict for a lobby that opens right away
+  if (opensAt === null) {
+    assertNotReserved(owner.id)
   }
 
   const lobby: PrivateLobby = {
@@ -553,13 +617,11 @@ export function joinLobby(groupId: number, identity: PlayerIdentity): void {
   if (!lobbyIsOpen(lobby)) {
     throw new GameError('This game has not opened for joining yet', 'E_LOBBY_NOT_OPEN')
   }
-  if (matchForUser(identity.id)) {
-    throw new GameError('You are already in a game', 'E_ALREADY_IN_GAME')
-  }
   if (lobby.players.length >= PRIVATE_MAX_PLAYERS) {
     throw new GameError('This game is full (6 players max)', 'E_LOBBY_FULL')
   }
   if (!lobby.players.some((player) => player.id === identity.id)) {
+    assertNotReserved(identity.id)
     lobby.players.push(identity)
   }
   broadcastLobby(groupId)
@@ -647,8 +709,24 @@ function createMatch(
   groupId: number | null,
   practice?: { botIds: number[]; difficulty: BotDifficulty }
 ): ActiveMatch {
+  // Seating is the only place a double booking can do harm, so it is
+  // also where the invariant is enforced. The check below and the
+  // matchIdByUser writes further down run without an await between
+  // them, so nothing can seat the same player in between.
+  // Snapshot first: releasing pending places mutates the queue and
+  // lobby arrays that `players` may point at.
+  const seating = [...players]
+  const botIds = new Set(practice?.botIds ?? [])
+  // Bots are exempt: the same bot legitimately plays many matches
+  const doubleSeated = seating.find(
+    (player) => !botIds.has(player.id) && matchIdByUser.has(player.id)
+  )
+  if (doubleSeated) {
+    throw new GameError(`${doubleSeated.username} is already in a game`, 'E_ALREADY_IN_GAME')
+  }
+
   const state = createGame(
-    players.map((player) => player.id),
+    seating.map((player) => player.id),
     rules,
     rng
   )
@@ -659,9 +737,9 @@ function createMatch(
     groupId,
     rules,
     state,
-    identities: new Map(players.map((player) => [player.id, player])),
+    identities: new Map(seating.map((player) => [player.id, player])),
     runtime: new Map(
-      players.map((player) => [
+      seating.map((player) => [
         player.id,
         {
           connected: true,
@@ -673,7 +751,7 @@ function createMatch(
         },
       ])
     ),
-    botIds: new Set(practice?.botIds ?? []),
+    botIds,
     botDifficulty: practice?.difficulty ?? null,
     botTimer: null,
     turnStartedAt: Date.now(),
@@ -688,13 +766,16 @@ function createMatch(
   }
 
   matches.set(match.id, match)
-  for (const player of players) {
+  for (const player of seating) {
     // Bots never connect, so they stay out of the per-user match
-    // index — the same bot may sit in many matches at once
-    if (match.botIds.has(player.id)) {
+    // index: the same bot may sit in many matches at once
+    if (botIds.has(player.id)) {
       continue
     }
     matchIdByUser.set(player.id, match.id)
+    // Leave no pending place behind that could seat them a second time
+    leavePublicQueue(player.id)
+    dropFromLobbies(player.id)
     emitter.toUser(player.id, 'game:start', { matchId: match.id })
   }
   scheduleTurnTimer(match)
@@ -713,9 +794,7 @@ export function startPracticeMatch(
   bots: PlayerIdentity[],
   difficulty: BotDifficulty
 ): ActiveMatch {
-  if (matchForUser(human.id)) {
-    throw new GameError('You are already in a game', 'E_ALREADY_IN_GAME')
-  }
+  assertNotReserved(human.id)
   if (bots.length < 1 || bots.length > MAX_BOT_OPPONENTS) {
     throw new GameError(
       `Practice games take 1 to ${MAX_BOT_OPPONENTS} bot opponents`,
@@ -793,7 +872,7 @@ function performAction(match: ActiveMatch, userId: number, action: GameAction): 
       decideBuyIn(match.state, userId, action.accept, rng)
       return action.accept ? `${username} bought back in` : `${username} is out`
     case 'quit':
-      removePlayer(match.state, userId, rng)
+      removeFromMatch(match, userId)
       return `${username} left the game`
   }
 }
@@ -941,7 +1020,7 @@ function recoverBotStep(match: ActiveMatch, botId: number): string {
       throw error
     }
   }
-  removePlayer(match.state, botId, rng)
+  removeFromMatch(match, botId)
   return `${username} could not move and was removed`
 }
 
@@ -965,7 +1044,7 @@ function settlePracticeIfHumanOut(match: ActiveMatch): void {
     const leaders = activePlayers(match.state).sort((a, b) => b.score - a.score)
     // Folded to settle the game, not a genuine early departure — history
     // must not record these bots as having left
-    removePlayer(match.state, leaders[0].userId, rng, { markRemoved: false })
+    removeFromMatch(match, leaders[0].userId, { markRemoved: false })
   }
 }
 
@@ -1017,7 +1096,7 @@ function scheduleTurnTimer(match: ActiveMatch): void {
 
 function timeOutPlayer(match: ActiveMatch, userId: number): void {
   const username = match.identities.get(userId)?.username ?? 'A player'
-  removePlayer(match.state, userId, rng)
+  removeFromMatch(match, userId)
   afterStateChange(match, userId)
   broadcastState(match, `${username} ran out of time and was removed`)
 }
@@ -1108,11 +1187,7 @@ function clearMilestoneTimers(runtime: ParticipantRuntime): void {
  */
 export function playerDisconnected(userId: number): void {
   leavePublicQueue(userId)
-  for (const [groupId, lobby] of lobbies) {
-    if (lobby.players.some((player) => player.id === userId)) {
-      leaveLobby(groupId, userId)
-    }
-  }
+  dropFromLobbies(userId)
 
   const match = matchForUser(userId)
   if (!match || match.finishedAt !== null) {
@@ -1141,7 +1216,7 @@ export function playerDisconnected(userId: number): void {
   runtime.rejoinTimer = setTimeout(() => {
     runtime.rejoinTimer = null
     clearMilestoneTimers(runtime)
-    removePlayer(match.state, userId, rng)
+    removeFromMatch(match, userId)
     resumeIfNobodyDisconnected(match)
     afterStateChange(match, userId)
     broadcastState(match, `${username} did not reconnect in time and was removed`)
@@ -1286,7 +1361,7 @@ function expireIdleMatch(match: ActiveMatch): void {
     if (humans.length === 0) {
       break
     }
-    removePlayer(match.state, humans[0].userId, rng)
+    removeFromMatch(match, humans[0].userId)
   }
   afterStateChange(match, null)
   broadcastState(match, 'The game sat idle for too long and has ended')
