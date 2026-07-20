@@ -68,5 +68,32 @@ router
       })
       .as('social')
       .use([middleware.auth(), apiThrottle])
+
+    // Moderator tools, used by the inline controls on the player site
+    // and by the admin app. The service layer also checks that the
+    // acting user outranks the target.
+    router
+      .group(() => {
+        router.get('users/:userId', [controllers.Moderation, 'showUser'])
+        router.delete('messages/:id', [controllers.Moderation, 'destroyMessage'])
+        router.post('users/:userId/ban', [controllers.Moderation, 'ban'])
+        router.delete('users/:userId/ban', [controllers.Moderation, 'unban'])
+        router.post('users/:userId/mute', [controllers.Moderation, 'mute'])
+        router.delete('users/:userId/mute', [controllers.Moderation, 'unmute'])
+      })
+      .prefix('moderation')
+      .as('moderation')
+      .use([middleware.auth(), middleware.role('moderator'), apiThrottle])
+
+    // Admin-only endpoints backing admin.{domain}.
+    router
+      .group(() => {
+        router.get('users', [controllers.Admin, 'listUsers'])
+        router.patch('users/:userId/role', [controllers.Admin, 'updateUserRole'])
+        router.get('moderation-actions', [controllers.Admin, 'listModerationActions'])
+      })
+      .prefix('admin')
+      .as('admin')
+      .use([middleware.auth(), middleware.role('admin'), apiThrottle])
   })
   .prefix('/api/v1')

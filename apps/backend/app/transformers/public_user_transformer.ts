@@ -12,6 +12,8 @@ export function publicUserShape(user: User) {
     id: user.id,
     username: user.username,
     chatColor: user.chatColor,
+    // Not sensitive, and lets chat badge moderators and admins
+    role: user.role,
     // SQLite hands booleans back as 0/1
     isBot: Boolean(user.isBot),
   }

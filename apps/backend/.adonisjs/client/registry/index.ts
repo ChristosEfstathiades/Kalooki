@@ -174,6 +174,60 @@ const routes = {
     tokens: [{"old":"/api/v1/leaderboard","type":0,"val":"api","end":""},{"old":"/api/v1/leaderboard","type":0,"val":"v1","end":""},{"old":"/api/v1/leaderboard","type":0,"val":"leaderboard","end":""}],
     types: placeholder as Registry['social.leaderboard.index']['types'],
   },
+  'moderation.moderation.show_user': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/moderation/users/:userId',
+    tokens: [{"old":"/api/v1/moderation/users/:userId","type":0,"val":"api","end":""},{"old":"/api/v1/moderation/users/:userId","type":0,"val":"v1","end":""},{"old":"/api/v1/moderation/users/:userId","type":0,"val":"moderation","end":""},{"old":"/api/v1/moderation/users/:userId","type":0,"val":"users","end":""},{"old":"/api/v1/moderation/users/:userId","type":1,"val":"userId","end":""}],
+    types: placeholder as Registry['moderation.moderation.show_user']['types'],
+  },
+  'moderation.moderation.destroy_message': {
+    methods: ["DELETE"],
+    pattern: '/api/v1/moderation/messages/:id',
+    tokens: [{"old":"/api/v1/moderation/messages/:id","type":0,"val":"api","end":""},{"old":"/api/v1/moderation/messages/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/moderation/messages/:id","type":0,"val":"moderation","end":""},{"old":"/api/v1/moderation/messages/:id","type":0,"val":"messages","end":""},{"old":"/api/v1/moderation/messages/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['moderation.moderation.destroy_message']['types'],
+  },
+  'moderation.moderation.ban': {
+    methods: ["POST"],
+    pattern: '/api/v1/moderation/users/:userId/ban',
+    tokens: [{"old":"/api/v1/moderation/users/:userId/ban","type":0,"val":"api","end":""},{"old":"/api/v1/moderation/users/:userId/ban","type":0,"val":"v1","end":""},{"old":"/api/v1/moderation/users/:userId/ban","type":0,"val":"moderation","end":""},{"old":"/api/v1/moderation/users/:userId/ban","type":0,"val":"users","end":""},{"old":"/api/v1/moderation/users/:userId/ban","type":1,"val":"userId","end":""},{"old":"/api/v1/moderation/users/:userId/ban","type":0,"val":"ban","end":""}],
+    types: placeholder as Registry['moderation.moderation.ban']['types'],
+  },
+  'moderation.moderation.unban': {
+    methods: ["DELETE"],
+    pattern: '/api/v1/moderation/users/:userId/ban',
+    tokens: [{"old":"/api/v1/moderation/users/:userId/ban","type":0,"val":"api","end":""},{"old":"/api/v1/moderation/users/:userId/ban","type":0,"val":"v1","end":""},{"old":"/api/v1/moderation/users/:userId/ban","type":0,"val":"moderation","end":""},{"old":"/api/v1/moderation/users/:userId/ban","type":0,"val":"users","end":""},{"old":"/api/v1/moderation/users/:userId/ban","type":1,"val":"userId","end":""},{"old":"/api/v1/moderation/users/:userId/ban","type":0,"val":"ban","end":""}],
+    types: placeholder as Registry['moderation.moderation.unban']['types'],
+  },
+  'moderation.moderation.mute': {
+    methods: ["POST"],
+    pattern: '/api/v1/moderation/users/:userId/mute',
+    tokens: [{"old":"/api/v1/moderation/users/:userId/mute","type":0,"val":"api","end":""},{"old":"/api/v1/moderation/users/:userId/mute","type":0,"val":"v1","end":""},{"old":"/api/v1/moderation/users/:userId/mute","type":0,"val":"moderation","end":""},{"old":"/api/v1/moderation/users/:userId/mute","type":0,"val":"users","end":""},{"old":"/api/v1/moderation/users/:userId/mute","type":1,"val":"userId","end":""},{"old":"/api/v1/moderation/users/:userId/mute","type":0,"val":"mute","end":""}],
+    types: placeholder as Registry['moderation.moderation.mute']['types'],
+  },
+  'moderation.moderation.unmute': {
+    methods: ["DELETE"],
+    pattern: '/api/v1/moderation/users/:userId/mute',
+    tokens: [{"old":"/api/v1/moderation/users/:userId/mute","type":0,"val":"api","end":""},{"old":"/api/v1/moderation/users/:userId/mute","type":0,"val":"v1","end":""},{"old":"/api/v1/moderation/users/:userId/mute","type":0,"val":"moderation","end":""},{"old":"/api/v1/moderation/users/:userId/mute","type":0,"val":"users","end":""},{"old":"/api/v1/moderation/users/:userId/mute","type":1,"val":"userId","end":""},{"old":"/api/v1/moderation/users/:userId/mute","type":0,"val":"mute","end":""}],
+    types: placeholder as Registry['moderation.moderation.unmute']['types'],
+  },
+  'admin.admin.list_users': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/admin/users',
+    tokens: [{"old":"/api/v1/admin/users","type":0,"val":"api","end":""},{"old":"/api/v1/admin/users","type":0,"val":"v1","end":""},{"old":"/api/v1/admin/users","type":0,"val":"admin","end":""},{"old":"/api/v1/admin/users","type":0,"val":"users","end":""}],
+    types: placeholder as Registry['admin.admin.list_users']['types'],
+  },
+  'admin.admin.update_user_role': {
+    methods: ["PATCH"],
+    pattern: '/api/v1/admin/users/:userId/role',
+    tokens: [{"old":"/api/v1/admin/users/:userId/role","type":0,"val":"api","end":""},{"old":"/api/v1/admin/users/:userId/role","type":0,"val":"v1","end":""},{"old":"/api/v1/admin/users/:userId/role","type":0,"val":"admin","end":""},{"old":"/api/v1/admin/users/:userId/role","type":0,"val":"users","end":""},{"old":"/api/v1/admin/users/:userId/role","type":1,"val":"userId","end":""},{"old":"/api/v1/admin/users/:userId/role","type":0,"val":"role","end":""}],
+    types: placeholder as Registry['admin.admin.update_user_role']['types'],
+  },
+  'admin.admin.list_moderation_actions': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/admin/moderation-actions',
+    tokens: [{"old":"/api/v1/admin/moderation-actions","type":0,"val":"api","end":""},{"old":"/api/v1/admin/moderation-actions","type":0,"val":"v1","end":""},{"old":"/api/v1/admin/moderation-actions","type":0,"val":"admin","end":""},{"old":"/api/v1/admin/moderation-actions","type":0,"val":"moderation-actions","end":""}],
+    types: placeholder as Registry['admin.admin.list_moderation_actions']['types'],
+  },
 } as const satisfies Record<string, AdonisEndpoint>
 
 export { routes }

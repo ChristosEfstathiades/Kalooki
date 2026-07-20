@@ -343,4 +343,112 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/leaderboard_controller').default['index']>>>
     }
   }
+  'moderation.moderation.show_user': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/moderation/users/:userId'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { userId: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/moderation_controller').default['showUser']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/moderation_controller').default['showUser']>>>
+    }
+  }
+  'moderation.moderation.destroy_message': {
+    methods: ["DELETE"]
+    pattern: '/api/v1/moderation/messages/:id'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/moderation').deleteMessageValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/moderation').deleteMessageValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/moderation_controller').default['destroyMessage']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/moderation_controller').default['destroyMessage']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'moderation.moderation.ban': {
+    methods: ["POST"]
+    pattern: '/api/v1/moderation/users/:userId/ban'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/moderation').banUserValidator)>>
+      paramsTuple: [ParamValue]
+      params: { userId: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/moderation').banUserValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/moderation_controller').default['ban']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/moderation_controller').default['ban']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'moderation.moderation.unban': {
+    methods: ["DELETE"]
+    pattern: '/api/v1/moderation/users/:userId/ban'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/moderation').liftModerationValidator)>>
+      paramsTuple: [ParamValue]
+      params: { userId: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/moderation').liftModerationValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/moderation_controller').default['unban']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/moderation_controller').default['unban']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'moderation.moderation.mute': {
+    methods: ["POST"]
+    pattern: '/api/v1/moderation/users/:userId/mute'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/moderation').muteUserValidator)>>
+      paramsTuple: [ParamValue]
+      params: { userId: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/moderation').muteUserValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/moderation_controller').default['mute']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/moderation_controller').default['mute']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'moderation.moderation.unmute': {
+    methods: ["DELETE"]
+    pattern: '/api/v1/moderation/users/:userId/mute'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/moderation').liftModerationValidator)>>
+      paramsTuple: [ParamValue]
+      params: { userId: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/moderation').liftModerationValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/moderation_controller').default['unmute']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/moderation_controller').default['unmute']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'admin.admin.list_users': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/admin/users'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/moderation').listUsersValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/admin_controller').default['listUsers']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/admin_controller').default['listUsers']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'admin.admin.update_user_role': {
+    methods: ["PATCH"]
+    pattern: '/api/v1/admin/users/:userId/role'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/moderation').setUserRoleValidator)>>
+      paramsTuple: [ParamValue]
+      params: { userId: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/moderation').setUserRoleValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/admin_controller').default['updateUserRole']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/admin_controller').default['updateUserRole']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'admin.admin.list_moderation_actions': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/admin/moderation-actions'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/admin_controller').default['listModerationActions']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/admin_controller').default['listModerationActions']>>>
+    }
+  }
 }

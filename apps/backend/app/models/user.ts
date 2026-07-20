@@ -4,6 +4,7 @@ import { compose } from '@adonisjs/core/helpers'
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid'
 import { type AccessToken, DbAccessTokensProvider } from '@adonisjs/auth/access_tokens'
 import type { LucidModel } from '@adonisjs/lucid/types/model'
+import type { UserRole } from '#services/role_service'
 
 export default class User extends compose(
   UserSchema,
@@ -11,6 +12,10 @@ export default class User extends compose(
 ) {
   static accessTokens = DbAccessTokensProvider.forModel(User)
   declare currentAccessToken?: AccessToken
+
+  // Narrows the generated `string` column to the known roles. `declare`
+  // emits no runtime code, so the base class's @column() still applies.
+  declare role: UserRole
 
   /**
    * Finds the user during login. Overrides the withAuthFinder lookup so

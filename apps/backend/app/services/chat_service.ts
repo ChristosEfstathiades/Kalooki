@@ -3,6 +3,7 @@ import ChatMessage from '#models/chat_message'
 import type User from '#models/user'
 import { censorMessage } from '#services/profanity_filter'
 import { isGroupMember } from '#services/group_service'
+import { isMuted, muteNotice } from '#services/role_service'
 import { getMatch } from '#services/game/match_service'
 import { Exception } from '@adonisjs/core/exceptions'
 
@@ -141,6 +142,11 @@ export async function postChatMessage(
     })
   }
 
+  // Muted users keep playing and reading chat; only posting is blocked.
+  if (isMuted(user)) {
+    throw new Exception(muteNotice(user), { status: 403, code: 'E_USER_MUTED' })
+  }
+
   if (channel.type === 'group') {
     if (!(await isGroupMember(channel.groupId, user.id))) {
       throw new Exception('Group not found', { status: 404, code: 'E_GROUP_NOT_FOUND' })
@@ -172,6 +178,9 @@ export async function postChatMessage(
 export async function recentChatMessages(channel: ChatChannel): Promise<ChatMessage[]> {
   const query = ChatMessage.query()
     .where('createdAt', '>=', retentionCutoffSql())
+    // Messages a moderator removed are hidden from everyone, author
+    // included; the row survives for reports and the audit trail.
+    .whereNull('deletedAt')
     .preload('user')
     .orderBy('createdAt', 'desc')
     .limit(HISTORY_LIMIT)

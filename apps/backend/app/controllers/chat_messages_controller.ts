@@ -59,7 +59,7 @@ export default class ChatMessagesController {
     const user = auth.getUserOrFail()
 
     const message = await ChatMessage.find(Number(params.id))
-    if (!message) {
+    if (!message || message.deletedAt !== null) {
       throw new Exception('Message not found', { status: 404, code: 'E_MESSAGE_NOT_FOUND' })
     }
     if (

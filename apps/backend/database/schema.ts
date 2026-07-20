@@ -48,6 +48,8 @@ export class ChatMessageSchema extends BaseModel {
     'body',
     'channel',
     'createdAt',
+    'deletedAt',
+    'deletedBy',
     'groupId',
     'id',
     'matchId',
@@ -62,6 +64,10 @@ export class ChatMessageSchema extends BaseModel {
   declare channel: string
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column.dateTime()
+  declare deletedAt: DateTime | null
+  @column()
+  declare deletedBy: number | null
   @column()
   declare groupId: number | null
   @column({ isPrimary: true })
@@ -244,6 +250,54 @@ export class MessageReportSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class ModerationActionSchema extends BaseModel {
+  static $columns = [
+    'action',
+    'actorId',
+    'actorRole',
+    'actorUsername',
+    'createdAt',
+    'details',
+    'id',
+    'messageBody',
+    'messageChannel',
+    'messageId',
+    'reason',
+    'targetUserId',
+    'targetUsername',
+    'updatedAt',
+  ] as const
+  $columns = ModerationActionSchema.$columns
+  @column()
+  declare action: string
+  @column()
+  declare actorId: number | null
+  @column()
+  declare actorRole: string
+  @column()
+  declare actorUsername: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare details: string | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare messageBody: string | null
+  @column()
+  declare messageChannel: string | null
+  @column()
+  declare messageId: number | null
+  @column()
+  declare reason: string | null
+  @column()
+  declare targetUserId: number | null
+  @column()
+  declare targetUsername: string | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class ScheduledGameSchema extends BaseModel {
   static $columns = [
     'createdAt',
@@ -273,6 +327,9 @@ export class ScheduledGameSchema extends BaseModel {
 
 export class UserSchema extends BaseModel {
   static $columns = [
+    'banReason',
+    'bannedAt',
+    'bannedBy',
     'chatColor',
     'createdAt',
     'deletedAt',
@@ -280,11 +337,22 @@ export class UserSchema extends BaseModel {
     'emailVerifiedAt',
     'id',
     'isBot',
+    'muteReason',
+    'mutedAt',
+    'mutedBy',
+    'mutedUntil',
     'password',
+    'role',
     'updatedAt',
     'username',
   ] as const
   $columns = UserSchema.$columns
+  @column()
+  declare banReason: string | null
+  @column.dateTime()
+  declare bannedAt: DateTime | null
+  @column()
+  declare bannedBy: number | null
   @column()
   declare chatColor: string | null
   @column.dateTime({ autoCreate: true })
@@ -299,8 +367,18 @@ export class UserSchema extends BaseModel {
   declare id: number
   @column()
   declare isBot: boolean
+  @column()
+  declare muteReason: string | null
+  @column.dateTime()
+  declare mutedAt: DateTime | null
+  @column()
+  declare mutedBy: number | null
+  @column.dateTime()
+  declare mutedUntil: DateTime | null
   @column({ serializeAs: null })
   declare password: string
+  @column()
+  declare role: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
   @column()

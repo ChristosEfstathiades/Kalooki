@@ -6,6 +6,7 @@
 export const controllers = {
   AccessTokens: () => import('#controllers/access_tokens_controller'),
   AccountDeletion: () => import('#controllers/account_deletion_controller'),
+  Admin: () => import('#controllers/admin_controller'),
   ChatMessages: () => import('#controllers/chat_messages_controller'),
   FriendRequests: () => import('#controllers/friend_requests_controller'),
   Friends: () => import('#controllers/friends_controller'),
@@ -14,6 +15,7 @@ export const controllers = {
   Groups: () => import('#controllers/groups_controller'),
   Leaderboard: () => import('#controllers/leaderboard_controller'),
   Matches: () => import('#controllers/matches_controller'),
+  Moderation: () => import('#controllers/moderation_controller'),
   NewAccount: () => import('#controllers/new_account_controller'),
   Profile: () => import('#controllers/profile_controller'),
 }

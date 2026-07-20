@@ -7,6 +7,7 @@ import ScheduledGame from '#models/scheduled_game'
 import User from '#models/user'
 import { groupIdsOf, isGroupMember } from '#services/group_service'
 import { assertMatchChatAccess, postChatMessage } from '#services/chat_service'
+import { isBanned } from '#services/role_service'
 import {
   configureScheduledLobbyStore,
   onMatchFinished,
@@ -134,6 +135,37 @@ export function bootSocketServer(nodeServer: NodeHttpServer): Server {
 }
 
 /**
+ * Drops every live connection belonging to a user, with a reason the
+ * client can show. Used when an account is banned so the ban takes
+ * effect immediately rather than at the next page load.
+ */
+export function disconnectUser(userId: number, reason: string): void {
+  if (!io) {
+    return
+  }
+  for (const socket of io.sockets.sockets.values()) {
+    const user = socket.data.user as User | undefined
+    if (user?.id === userId) {
+      socket.emit('session:revoked', { reason })
+      socket.disconnect(true)
+    }
+  }
+}
+
+/**
+ * Tells a channel's room that a message was removed by a moderator, so
+ * it disappears for everyone currently watching without a refresh.
+ */
+export function broadcastMessageDeleted(channel: ChatChannel, messageId: number): void {
+  io?.to(chatRoom(channel)).emit('chat:message-deleted', {
+    channel: channel.type,
+    groupId: channel.type === 'group' ? channel.groupId : null,
+    matchId: channel.type === 'match' ? channel.matchId : null,
+    messageId,
+  })
+}
+
+/**
  * Closes the Socket.IO server (used on app shutdown).
  */
 export async function closeSocketServer(): Promise<void> {
@@ -200,7 +232,9 @@ async function authenticateSocket(socket: Socket): Promise<User | null> {
   if (!accessToken) {
     return null
   }
-  return User.find(accessToken.tokenableId)
+  const user = await User.find(accessToken.tokenableId)
+  // Banned accounts get no realtime connection at all.
+  return user && !isBanned(user) ? user : null
 }
 
 /**

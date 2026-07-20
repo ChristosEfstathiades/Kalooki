@@ -11,6 +11,8 @@ import type GroupDetailTransformer from '#transformers/group_detail_transformer'
 import type GroupInviteTransformer from '#transformers/group_invite_transformer'
 import type GroupTransformer from '#transformers/group_transformer'
 import type MatchTransformer from '#transformers/match_transformer'
+import type ModerationActionTransformer from '#transformers/moderation_action_transformer'
+import type ModerationUserTransformer from '#transformers/moderation_user_transformer'
 import type PublicUserTransformer from '#transformers/public_user_transformer'
 import type UserTransformer from '#transformers/user_transformer'
 
@@ -38,6 +40,14 @@ export namespace Data {
   export type Match = InferData<MatchTransformer>
   export namespace Match {
     export type Variants = InferVariants<MatchTransformer>
+  }
+  export type ModerationAction = InferData<ModerationActionTransformer>
+  export namespace ModerationAction {
+    export type Variants = InferVariants<ModerationActionTransformer>
+  }
+  export type ModerationUser = InferData<ModerationUserTransformer>
+  export namespace ModerationUser {
+    export type Variants = InferVariants<ModerationUserTransformer>
   }
   export type PublicUser = InferData<PublicUserTransformer>
   export namespace PublicUser {

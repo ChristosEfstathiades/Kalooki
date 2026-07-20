@@ -16,6 +16,8 @@ export interface PublicUser {
   id: number
   username: string
   chatColor: string | null
+  /** 'player', 'moderator' or 'admin'; lets chat badge the staff. */
+  role: string
 }
 
 export type Group = Data.Group

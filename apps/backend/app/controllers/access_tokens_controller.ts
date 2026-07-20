@@ -3,6 +3,7 @@ import { loginValidator } from '#validators/user'
 import { failedLoginAttemptsLimiter } from '#start/limiter'
 import { mintAccessToken } from '#services/access_token_service'
 import { isWithinRestoreWindow } from '#services/account_deletion_service'
+import { isBanned } from '#services/role_service'
 import UserTransformer from '#transformers/user_transformer'
 import app from '@adonisjs/core/services/app'
 import { Exception } from '@adonisjs/core/exceptions'
@@ -40,6 +41,16 @@ export default class AccessTokensController {
       // Signing in during the grace period restores the account.
       user.deletedAt = null
       await user.save()
+    }
+
+    // A banned account still exists but can never sign in again until a
+    // moderator lifts the ban (docs/features.md, Roles & Moderation).
+    if (isBanned(user)) {
+      const reason = user.banReason ? ` Reason: ${user.banReason}` : ''
+      throw new Exception(`Your account has been banned.${reason}`, {
+        status: 403,
+        code: 'E_ACCOUNT_BANNED',
+      })
     }
 
     // Email verification is enforced in production only (docs/features.md).

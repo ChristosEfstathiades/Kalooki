@@ -15,7 +15,13 @@ import {
   groupsQueryOptions,
   useSendFriendRequest,
 } from '#/lib/social'
+import {
+  canModerate,
+  isModerator,
+  useChatModerationUpdates,
+} from '#/lib/moderation'
 import LobbyPinnedBanner from '#/components/game/LobbyPinnedBanner'
+import ModeratorActions from '#/components/chat/ModeratorActions'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { cn } from '#/lib/utils'
@@ -115,6 +121,13 @@ export function ChatConversation({ channel }: ChatConversationProps) {
   const sendFriendRequest = useSendFriendRequest()
   const reportMessage = useReportMessage()
 
+  useChatModerationUpdates()
+
+  // Moderators police the public chatroom and live game chats; private
+  // group conversations stay out of reach (docs/features.md).
+  const showModeratorTools = isModerator(currentUser)
+  const canDeleteMessages = showModeratorTools && channel.type !== 'group'
+
   // No point offering a friend request to existing friends or anyone
   // with a request already pending in either direction
   const noRequestNeededIds = new Set<number>([
@@ -198,6 +211,11 @@ export function ChatConversation({ channel }: ChatConversationProps) {
               </p>
             )
           }
+          const isOwnMessage = author.id === currentUser?.id
+          const moderatorToolsApply =
+            canDeleteMessages ||
+            canModerate(currentUser, author.role, author.id)
+
           return (
             <div key={message.id} className="relative text-sm">
               <button
@@ -216,38 +234,57 @@ export function ChatConversation({ channel }: ChatConversationProps) {
               >
                 {author.username}
               </button>
+              <StaffBadge role={author.role} />
               {': '}
               <span className="break-words">{message.body}</span>
               {menuMessageId === message.id &&
-                author.id !== currentUser?.id && (
-                  <span className="absolute left-0 z-10 mt-5 flex gap-1 rounded-md border border-border bg-popover p-1 shadow-md">
-                    {!noRequestNeededIds.has(author.id) && (
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        onClick={() =>
-                          runAction(
-                            () =>
-                              sendFriendRequest.mutateAsync(author.username),
-                            `Friend request sent to ${author.username}`,
-                          )
-                        }
-                      >
-                        Send friend request
-                      </Button>
+                (!isOwnMessage || moderatorToolsApply) && (
+                  <span className="absolute left-0 z-10 mt-5 flex flex-wrap gap-1 rounded-md border border-border bg-popover p-1 shadow-md">
+                    {!isOwnMessage && (
+                      <>
+                        {!noRequestNeededIds.has(author.id) && (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            onClick={() =>
+                              runAction(
+                                () =>
+                                  sendFriendRequest.mutateAsync(
+                                    author.username,
+                                  ),
+                                `Friend request sent to ${author.username}`,
+                              )
+                            }
+                          >
+                            Send friend request
+                          </Button>
+                        )}
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          onClick={() =>
+                            runAction(
+                              () => reportMessage.mutateAsync(message.id),
+                              'Report submitted for moderator review',
+                            )
+                          }
+                        >
+                          Report message
+                        </Button>
+                      </>
                     )}
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      onClick={() =>
-                        runAction(
-                          () => reportMessage.mutateAsync(message.id),
-                          'Report submitted for moderator review',
-                        )
-                      }
-                    >
-                      Report message
-                    </Button>
+                    {showModeratorTools && (
+                      <ModeratorActions
+                        currentUser={currentUser}
+                        author={author}
+                        messageId={message.id}
+                        canDeleteMessages={canDeleteMessages}
+                        onFinished={(text) => {
+                          setMenuMessageId(null)
+                          setFeedback(text)
+                        }}
+                      />
+                    )}
                   </span>
                 )}
             </div>
@@ -266,22 +303,70 @@ export function ChatConversation({ channel }: ChatConversationProps) {
         </p>
       )}
 
-      <form className="flex gap-2 border-t border-border p-3" onSubmit={submit}>
-        <Input
-          value={draft}
-          onChange={(event) => {
-            setDraft(event.target.value)
-            setSendError(null)
-            setFeedback(null)
-          }}
-          placeholder="Send a message"
-          aria-label="Send a message"
-          maxLength={500}
-        />
-        <Button type="submit" disabled={draft.trim() === ''}>
-          Send
-        </Button>
-      </form>
+      {currentUser?.isMuted ? (
+        <p className="m-0 border-t border-border px-4 py-3 text-xs text-muted-foreground">
+          {muteNotice(currentUser.mutedUntil, currentUser.muteReason)}
+        </p>
+      ) : (
+        <form
+          className="flex gap-2 border-t border-border p-3"
+          onSubmit={submit}
+        >
+          <Input
+            value={draft}
+            onChange={(event) => {
+              setDraft(event.target.value)
+              setSendError(null)
+              setFeedback(null)
+            }}
+            placeholder="Send a message"
+            aria-label="Send a message"
+            maxLength={500}
+          />
+          <Button type="submit" disabled={draft.trim() === ''}>
+            Send
+          </Button>
+        </form>
+      )}
     </>
   )
+}
+
+interface StaffBadgeProps {
+  role: string
+}
+
+/**
+ * Marks moderators and admins in chat so players can tell who is
+ * official. Renders nothing for ordinary players.
+ */
+function StaffBadge({ role }: StaffBadgeProps) {
+  if (role !== 'moderator' && role !== 'admin') {
+    return null
+  }
+
+  return (
+    <span
+      className={cn(
+        'ml-1 rounded px-1 py-px align-middle text-[0.625rem] font-semibold tracking-wide uppercase',
+        role === 'admin'
+          ? 'bg-button-purple text-white'
+          : 'bg-accent text-accent-foreground',
+      )}
+    >
+      {role === 'admin' ? 'Admin' : 'Mod'}
+    </span>
+  )
+}
+
+/**
+ * Explains an active mute in the chat box, including when it lifts and
+ * the reason a moderator recorded.
+ */
+function muteNotice(mutedUntil: string | null, muteReason: string | null): string {
+  const until =
+    mutedUntil === null
+      ? 'You are muted and cannot post in chat.'
+      : `You are muted until ${new Date(mutedUntil).toLocaleString()} and cannot post in chat.`
+  return muteReason ? `${until} Reason: ${muteReason}` : until
 }

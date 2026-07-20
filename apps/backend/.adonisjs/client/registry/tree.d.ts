@@ -62,4 +62,21 @@ export interface ApiDefinition {
       index: typeof routes['social.leaderboard.index']
     }
   }
+  moderation: {
+    moderation: {
+      showUser: typeof routes['moderation.moderation.show_user']
+      destroyMessage: typeof routes['moderation.moderation.destroy_message']
+      ban: typeof routes['moderation.moderation.ban']
+      unban: typeof routes['moderation.moderation.unban']
+      mute: typeof routes['moderation.moderation.mute']
+      unmute: typeof routes['moderation.moderation.unmute']
+    }
+  }
+  admin: {
+    admin: {
+      listUsers: typeof routes['admin.admin.list_users']
+      updateUserRole: typeof routes['admin.admin.update_user_role']
+      listModerationActions: typeof routes['admin.admin.list_moderation_actions']
+    }
+  }
 }

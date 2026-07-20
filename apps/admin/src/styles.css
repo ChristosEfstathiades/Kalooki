@@ -1,0 +1,46 @@
+@import 'tailwindcss';
+
+/*
+ * Kalooki Admin theme. Deliberately colder and denser than the player
+ * site's card-room palette (docs/Frontend-design.md) so it is obvious
+ * at a glance which app you are looking at. Dark only: this is an
+ * internal tool, not a public page.
+ */
+@theme {
+  --color-surface: #0d1117;
+  --color-panel: #151b23;
+  --color-panel-raised: #1c242e;
+  --color-edge: #263141;
+  --color-ink: #e6edf3;
+  --color-ink-soft: #8b98a8;
+  --color-accent: #533367;
+  --color-accent-hover: #633e7b;
+  --color-danger: #6a303b;
+  --color-danger-hover: #7e3a47;
+  --color-warn: #6b5320;
+  --color-ok: #35654d;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Slim scrollbars keep dense tables from feeling cluttered */
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-edge) transparent;
+}

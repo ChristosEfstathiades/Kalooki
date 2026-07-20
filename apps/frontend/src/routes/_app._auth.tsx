@@ -5,8 +5,10 @@ import {
   redirect,
   useNavigate,
 } from '@tanstack/react-router'
-import { getStoredToken } from '#/lib/auth-token'
-import { getSocket } from '#/lib/socket'
+import { useQueryClient } from '@tanstack/react-query'
+import { clearStoredToken, getStoredToken } from '#/lib/auth-token'
+import { closeSocket, getSocket } from '#/lib/socket'
+import { currentUserQueryOptions } from '#/lib/auth'
 
 /**
  * Pathless guard for signed-in-only pages: anyone without a stored
@@ -24,6 +26,7 @@ export const Route = createFileRoute('/_app/_auth')({
 
 function AuthedLayout() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     const socket = getSocket()
@@ -33,11 +36,23 @@ function AuthedLayout() {
         params: { matchId: payload.matchId },
       })
     }
+
+    // The server drops a socket when the account is banned mid-session;
+    // tear the local session down rather than leaving a dead page up.
+    const onSessionRevoked = () => {
+      clearStoredToken()
+      closeSocket()
+      queryClient.setQueryData(currentUserQueryOptions.queryKey, null)
+      void navigate({ to: '/signin' })
+    }
+
     socket.on('game:start', onGameStart)
+    socket.on('session:revoked', onSessionRevoked)
     return () => {
       socket.off('game:start', onGameStart)
+      socket.off('session:revoked', onSessionRevoked)
     }
-  }, [navigate])
+  }, [navigate, queryClient])
 
   return <Outlet />
 }
