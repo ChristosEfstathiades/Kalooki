@@ -84,8 +84,10 @@ export default function PlayingCard({
         // border or ring drawn around the card would then include.
         // translate-y-0 on every card keeps them all in the same
         // paint phase, so a selected (translated) card never jumps
-        // above the neighbour overlapping it from the right
-        'block translate-y-0 overflow-hidden rounded-md bg-white shadow-sm select-none',
+        // above the neighbour overlapping it from the right.
+        // playing-card: see styles.css, kills the mobile long-press
+        // image callout so a touch-drag is not hijacked
+        'playing-card block translate-y-0 overflow-hidden rounded-md bg-white shadow-sm select-none',
         small
           ? 'h-10 w-7'
           : fluid
@@ -118,10 +120,12 @@ export default function PlayingCard({
       onClick={onClick}
       aria-label={label}
       className={cn(
-        'appearance-none border-0 bg-transparent p-0',
-        // The face's percentage width needs a definite width to
-        // resolve against, which an inline button cannot provide
-        fluid && 'block w-full',
+        // block for the same reason as the face: an inline-block button
+        // sits on the baseline and leaves descender space below the card.
+        // It also gives the face's percentage width a definite width to
+        // resolve against, which an inline button cannot provide.
+        'playing-card block appearance-none border-0 bg-transparent p-0',
+        fluid && 'w-full',
       )}
     >
       {face}
@@ -143,7 +147,7 @@ export function CardBack({ small, className }: CardBackProps) {
     <span
       aria-hidden="true"
       className={cn(
-        'block rounded-md border border-black/30 bg-button-purple shadow-sm',
+        'playing-card block rounded-md border border-black/30 bg-button-purple shadow-sm',
         small ? 'h-10 w-7' : 'h-24 w-[66px]',
         className,
       )}

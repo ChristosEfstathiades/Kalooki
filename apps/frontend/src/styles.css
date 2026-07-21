@@ -160,6 +160,19 @@ body {
   margin-inline: auto;
 }
 
+/* Playing-card art is drag-only on touch: suppress the mobile
+   long-press callout (Save/Copy/Share), the native image drag ghost,
+   text selection, and the tap-highlight flash, so a touch-drag is not
+   hijacked by the browser's default image gestures. */
+.playing-card,
+.playing-card * {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Slim themed scrollbar for chat and other in-panel scroll areas */
 .thin-scrollbar {
   scrollbar-width: thin;

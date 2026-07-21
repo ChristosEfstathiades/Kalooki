@@ -164,6 +164,28 @@ function nextUpUserId(view: GameView): number | null {
 }
 
 /**
+ * True on narrow (below `sm`) viewports, where the tap-select action
+ * buttons are hidden and the table is drag-only. Used to drop the card
+ * tap-to-select handler on touch so a quick tap does not compete with
+ * the drag gesture.
+ */
+function useIsCompactViewport(): boolean {
+  const [compact, setCompact] = useState<boolean>(() =>
+    typeof window !== 'undefined'
+      ? window.matchMedia('(max-width: 639px)').matches
+      : false,
+  )
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 639px)')
+    const update = (): void => setCompact(query.matches)
+    update()
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+  return compact
+}
+
+/**
  * The live Kalooki table: opponents around the top of the felt, sets
  * and piles in the middle, your hand and actions at the bottom
  * (docs/Frontend-design.md). No header or footer on this page.
@@ -501,7 +523,7 @@ function GamePage() {
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveDrag(null)}
       >
-        <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-3 p-3">
+        <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-3 px-0 pt-3 pb-0 sm:pb-3 sm:px-3">
           <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
             {opponents.map((player) => (
               // Equal-width cells on small screens, so wrapped seats
@@ -542,7 +564,7 @@ function GamePage() {
                 >
                   <button
                     type="button"
-                    className="appearance-none border-0 bg-transparent p-0"
+                    className="block appearance-none border-0 bg-transparent p-0"
                     onClick={() => void act({ type: 'draw' })}
                     disabled={!canDraw}
                     title="Drag the deck to your hand to draw, or tap it"
@@ -717,7 +739,7 @@ function TableHeader({ view, onQuit, onToggleChat }: TableHeaderProps) {
     <header className="flex items-center justify-between border-b border-border bg-panel px-4 py-2">
       <p className="m-0 text-sm font-semibold">
         Kalooki · Round {view.roundNumber} ·{' '}
-        <span className="text-muted-foreground">
+        <span className="text-muted-foreground hidden sm:inline ">
           {view.kind === 'private' ? 'Custom rules' : 'Classic rules'}
           {view.kind === 'practice' && ' · Practice'} · out at{' '}
           {view.rules.scoreLimit + 1}
@@ -813,13 +835,14 @@ function PlayerSeat({
   return (
     <div
       className={cn(
-        'flex items-center gap-2 rounded-lg border bg-card px-3 py-2 transition-all',
+        // Tighter padding/gap on mobile so two opponent seats fit a row
+        'flex items-center gap-1.5 rounded-lg border bg-card px-2 py-1.5 transition-all sm:gap-2 sm:px-3 sm:py-2',
         isCurrent ? 'border-ring ring-2 ring-ring' : 'border-border opacity-60',
         isCurrent && flash && 'turn-pulse',
         player.eliminated && 'opacity-50',
       )}
     >
-      <UserAvatar user={player} />
+      <UserAvatar user={player} className="size-7 sm:size-8" />
       <div className="text-xs">
         <p className="m-0 font-semibold">
           {isSelf ? 'You' : player.username}
@@ -1126,6 +1149,7 @@ function OwnArea({
   onReturnDiscard,
   onReturnJoker,
 }: OwnAreaProps) {
+  const isCompact = useIsCompactViewport()
   const stagedIds = stagedMelds.flat()
   const unstagedSelected = selectedCardIds.filter(
     (id) => !stagedIds.includes(id),
@@ -1141,7 +1165,7 @@ function OwnArea({
     (activeDrag.source === 'deck' || activeDrag.source === 'discard')
 
   return (
-    <div className="rounded-lg border border-border bg-card p-3">
+    <div className="rounded-lg border border-border bg-card px-3 pb-3 pt-0 sm:pt-3">
       {error && (
         <p className="mt-2 mb-0 rounded-md border border-destructive/50 bg-destructive/10 px-2 py-1 text-xs text-destructive-foreground">
           {error}
@@ -1187,73 +1211,104 @@ function OwnArea({
                 card={card}
                 fluid
                 selected={selectedCardIds.includes(card.id)}
-                onClick={() => onToggleCard(card.id)}
+                // Drag-only on mobile: dropping the tap handler keeps a
+                // quick touch from competing with the drag gesture
+                onClick={isCompact ? undefined : () => onToggleCard(card.id)}
               />
             </CardDrag>
           ))}
         </div>
       </DropZone>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      {/* Own seat on its own row on mobile, then the move buttons; the
+          whole bar collapses back to a single inline row from sm up */}
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         {me && (
-          <PlayerSeat
-            player={me}
-            view={view}
-            isCurrent={isMyTurn}
-            isNext={isNext}
-            isSelf
-            flash={turnFlash}
-          />
+          // Your own seat is redundant on mobile (your hand is right
+          // there), so it only shows from sm up to save vertical space
+          <div className="hidden items-center gap-2 sm:flex">
+            <PlayerSeat
+              player={me}
+              view={view}
+              isCurrent={isMyTurn}
+              isNext={isNext}
+              isSelf
+              flash={turnFlash}
+            />
+            {(view.rules.stakes || me.hasComeDown) && (
+              <p className="m-0 text-xs text-muted-foreground">
+                {view.rules.stakes ? `chips: ${formatChips(me.chips)}` : ''}
+                {me.hasComeDown ? ' · down' : ''}
+              </p>
+            )}
+          </div>
         )}
-        {me && (view.rules.stakes || me.hasComeDown) ? (
-          <p className="m-0 text-xs text-muted-foreground">
-            {view.rules.stakes ? `chips: ${formatChips(me.chips)}` : ''}
-            {me.hasComeDown ? ' · down' : ''}
-          </p>
-        ) : null}
-        <Button
-          size="sm"
-          disabled={!acting || unstagedSelected.length < 3}
-          title="Move the selected cards into the sets tray"
-          onClick={onStage}
-        >
-          Stage set ({unstagedSelected.length})
-        </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={!acting || unstagedSelected.length !== 1}
-          onClick={onDiscard}
-        >
-          Discard selected
-        </Button>
-        {view.you.pendingDiscardCardId !== null && (
-          <Button size="sm" variant="secondary" onClick={onReturnDiscard}>
-            Return taken discard
-          </Button>
-        )}
-        {view.you.pendingJokerCardId !== null && (
-          <Button size="sm" variant="secondary" onClick={onReturnJoker}>
-            Return taken joker
-          </Button>
-        )}
-        <div className="ml-auto flex gap-2">
+
+        {/* Move controls tile as a 2-column grid on mobile so the four
+            buttons stay full-width and tappable, and flow back into an
+            inline row from sm up */}
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-1 sm:flex-wrap sm:items-center">
+          {/* Stage/discard are drag-only on mobile: the buttons show
+              from sm up, below that you drag cards to the tray or the
+              discard pile */}
           <Button
             size="sm"
-            variant={sortMode === 'rank' ? 'default' : 'secondary'}
-            title="Sort your hand from highest to lowest"
-            onClick={() => onSort('rank')}
+            className="hidden sm:inline-flex"
+            disabled={!acting || unstagedSelected.length < 3}
+            title="Move the selected cards into the sets tray"
+            onClick={onStage}
           >
-            Sort: high–low
+            Stage set ({unstagedSelected.length})
           </Button>
           <Button
             size="sm"
-            variant={sortMode === 'suit' ? 'default' : 'secondary'}
-            title="Sort your hand by suit"
-            onClick={() => onSort('suit')}
+            variant="secondary"
+            className="hidden sm:inline-flex"
+            disabled={!acting || unstagedSelected.length !== 1}
+            onClick={onDiscard}
           >
-            Sort: suit
+            Discard selected
           </Button>
+          {view.you.pendingDiscardCardId !== null && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-full sm:w-auto"
+              onClick={onReturnDiscard}
+            >
+              Return taken discard
+            </Button>
+          )}
+          {view.you.pendingJokerCardId !== null && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-full sm:w-auto"
+              onClick={onReturnJoker}
+            >
+              Return taken joker
+            </Button>
+          )}
+          <div className="col-span-2 grid grid-cols-2 gap-2 sm:col-auto sm:ml-auto sm:flex">
+            <Button
+              size="sm"
+              variant={sortMode === 'rank' ? 'default' : 'secondary'}
+              className="w-full sm:w-auto"
+              title="Sort your hand from highest to lowest"
+              onClick={() => onSort('rank')}
+            >
+              Sort: high–low
+            </Button>
+            <Button
+              size="sm"
+              variant={sortMode === 'suit' ? 'default' : 'secondary'}
+              className="w-full sm:w-auto"
+              title="Sort your hand by suit"
+              onClick={() => onSort('suit')}
+            >
+              Sort: suit
+            </Button>
+          </div>
         </div>
       </div>
     </div>

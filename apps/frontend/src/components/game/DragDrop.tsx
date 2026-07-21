@@ -101,6 +101,10 @@ export function CardDrag({
     <span
       ref={setNodeRef}
       {...listeners}
+      // Block the long-press context menu (Save/Copy/Share) so a
+      // touch-drag on a card is not interrupted by it, covering
+      // browsers where -webkit-touch-callout has no effect (Android)
+      onContextMenu={(event) => event.preventDefault()}
       className={cn(
         'inline-block',
         // touch-action none only while draggable, so idle cards
