@@ -60,7 +60,11 @@ export default function GroupsDialog({
         onOpenChange(nextOpen)
       }}
     >
-      <DialogContent>
+      <DialogContent
+        // Don't pull focus into the dialog on open: on mobile that
+        // springs the keyboard. The user taps a field to start typing.
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
         {selectedGroupId === null ? (
           <GroupsOverview onOpenGroup={setSelectedGroupId} />
         ) : (

@@ -102,7 +102,16 @@ export default function FriendSuggestInput({
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         aria-label={label}
+        // Friend lookup, not a login field: block browser/password-
+        // manager username autofill and mobile auto-capitalisation
         autoComplete="off"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        data-1p-ignore="true"
+        data-lpignore="true"
+        data-bwignore="true"
+        data-form-type="other"
         role="combobox"
         aria-expanded={open}
         aria-controls={listId}

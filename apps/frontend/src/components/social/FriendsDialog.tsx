@@ -140,7 +140,12 @@ export default function FriendsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent
+        // Don't pull focus into the dialog on open: on mobile that
+        // springs the keyboard and the browser's saved-login autofill.
+        // The user taps the field when they actually want to type.
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Friends</DialogTitle>
           <DialogDescription>
@@ -165,7 +170,17 @@ export default function FriendsDialog({
                 onChange={(event) => setUsername(event.target.value)}
                 placeholder="Exact username"
                 aria-label="Username"
+                // This looks up a friend, it is not a login field, so
+                // block browser/password-manager username autofill and
+                // mobile auto-capitalisation of the entered name
                 autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                data-1p-ignore="true"
+                data-lpignore="true"
+                data-bwignore="true"
+                data-form-type="other"
               />
               <Button
                 type="submit"
