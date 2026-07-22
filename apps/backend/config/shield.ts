@@ -1,4 +1,5 @@
 import { defineConfig } from '@adonisjs/shield'
+import app from '@adonisjs/core/services/app'
 
 const shieldConfig = defineConfig({
   /**
@@ -8,13 +9,24 @@ const shieldConfig = defineConfig({
   csp: {
     /**
      * Enable the Content-Security-Policy header.
+     *
+     * Production only: the development exception page renders inline
+     * styles and scripts that this policy would block, and there is
+     * nothing to protect there. The player-facing policy lives with the
+     * frontend (apps/frontend/security-headers.ts, AUDIT.md S5).
      */
-    enabled: false,
+    enabled: app.inProduction,
 
     /**
-     * Per-resource CSP directives.
+     * This app only ever answers with JSON, so nothing it returns should
+     * be able to load a resource, be framed, or submit a form.
      */
-    directives: {},
+    directives: {
+      defaultSrc: [`'none'`],
+      frameAncestors: [`'none'`],
+      baseUri: [`'none'`],
+      formAction: [`'none'`],
+    },
 
     /**
      * Report violations without blocking resources.

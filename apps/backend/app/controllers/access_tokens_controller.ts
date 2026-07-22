@@ -4,6 +4,7 @@ import { failedLoginAttemptsLimiter } from '#start/limiter'
 import { mintAccessToken } from '#services/access_token_service'
 import { isWithinRestoreWindow } from '#services/account_deletion_service'
 import { isBanned } from '#services/role_service'
+import { disconnectAccessToken } from '#services/socket_service'
 import UserTransformer from '#transformers/user_transformer'
 import app from '@adonisjs/core/services/app'
 import { Exception } from '@adonisjs/core/exceptions'
@@ -73,7 +74,12 @@ export default class AccessTokensController {
   async destroy({ auth, serialize }: HttpContext) {
     const user = auth.getUserOrFail()
     if (user.currentAccessToken) {
-      await User.accessTokens.delete(user, user.currentAccessToken.identifier)
+      const { identifier } = user.currentAccessToken
+      await User.accessTokens.delete(user, identifier)
+      // Sockets authenticate once, at handshake, so the revoked token
+      // would otherwise keep its live connections (AUDIT.md S4). Only
+      // this token's sockets go: other devices stay signed in.
+      disconnectAccessToken(user.id, identifier, 'You have been signed out.')
     }
 
     return serialize({ message: 'Logged out successfully' })

@@ -122,7 +122,9 @@ export function useUpdateProfile() {
       const response = await api.patch('/api/v1/account/profile', {
         body: {
           ...(input.username !== undefined ? { username: input.username } : {}),
-          ...(input.chatColor !== undefined ? { chatColor: input.chatColor } : {}),
+          ...(input.chatColor !== undefined
+            ? { chatColor: input.chatColor }
+            : {}),
         },
       })
       return response.data
@@ -142,6 +144,10 @@ export function useLogout() {
 
   return useMutation({
     mutationFn: async () => {
+      // Closed before the request, not after: revoking the token now
+      // drops its live sockets server-side, and this tab should tear its
+      // own connection down rather than react to that as a revocation.
+      closeSocket()
       await api.post('/api/v1/account/logout', {}).safe()
     },
     onSettled: () => {
@@ -163,6 +169,9 @@ export function useDeleteAccount() {
 
   return useMutation({
     mutationFn: async () => {
+      // As in useLogout: the backend drops this account's sockets as part
+      // of the delete, so close ours first and keep the local teardown.
+      closeSocket()
       await api.delete('/api/v1/account', {})
     },
     onSuccess: () => {

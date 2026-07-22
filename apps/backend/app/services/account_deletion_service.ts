@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon'
 import User from '#models/user'
+import { disconnectUser } from '#services/socket_service'
 
 /**
  * How long a soft-deleted account is kept before it is permanently
@@ -21,6 +22,11 @@ export async function softDeleteAccount(user: User): Promise<void> {
   for (const token of tokens) {
     await User.accessTokens.delete(user, token.identifier)
   }
+
+  // Revoking a token does not close the sockets it already opened, so a
+  // deleted account would keep playing and chatting until its connection
+  // happened to drop (AUDIT.md S4).
+  disconnectUser(user.id, 'Your account has been deleted.')
 }
 
 /**

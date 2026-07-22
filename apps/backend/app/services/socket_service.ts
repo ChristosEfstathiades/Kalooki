@@ -65,6 +65,19 @@ function socketUser(socket: Socket): User {
 }
 
 /**
+ * An access token's database identifier, in the shape Adonis exposes it.
+ */
+export type TokenIdentifier = string | number | BigInt
+
+/**
+ * Normalizes a token identifier for comparison, since the same token can
+ * surface as a number on one code path and a string on another.
+ */
+function tokenKey(identifier: TokenIdentifier): string {
+  return String(identifier)
+}
+
+/**
  * Parses an untrusted chat:send payload into a channel, or null when
  * the payload is malformed.
  */
@@ -104,12 +117,15 @@ export function bootSocketServer(nodeServer: NodeHttpServer): Server {
 
   io.use((socket, next) => {
     authenticateSocket(socket)
-      .then((user) => {
-        if (!user) {
+      .then((authenticated) => {
+        if (!authenticated) {
           next(new Error('Authentication required'))
           return
         }
-        socket.data.user = user
+        socket.data.user = authenticated.user
+        // Kept so revoking one token can drop exactly the connections it
+        // opened, without signing the user out on their other devices.
+        socket.data.tokenIdentifier = tokenKey(authenticated.tokenIdentifier)
         next()
       })
       .catch(() => next(new Error('Authentication failed')))
@@ -145,16 +161,42 @@ export function bootSocketServer(nodeServer: NodeHttpServer): Server {
 
 /**
  * Drops every live connection belonging to a user, with a reason the
- * client can show. Used when an account is banned so the ban takes
+ * client can show. Used when an account is banned or deleted so it takes
  * effect immediately rather than at the next page load.
  */
 export function disconnectUser(userId: number, reason: string): void {
+  disconnectSockets(reason, (socket) => (socket.data.user as User | undefined)?.id === userId)
+}
+
+/**
+ * Drops the live connections opened with one specific access token,
+ * leaving the user's other sessions alone. A socket authenticates once,
+ * at handshake, so without this a revoked token keeps playing and
+ * chatting until its connection happens to drop (AUDIT.md S4).
+ */
+export function disconnectAccessToken(
+  userId: number,
+  tokenIdentifier: TokenIdentifier,
+  reason: string
+): void {
+  const identifier = tokenKey(tokenIdentifier)
+  disconnectSockets(reason, (socket) => {
+    return (
+      (socket.data.user as User | undefined)?.id === userId &&
+      socket.data.tokenIdentifier === identifier
+    )
+  })
+}
+
+/**
+ * Tells every matching socket its session ended, then closes it.
+ */
+function disconnectSockets(reason: string, matches: (socket: Socket) => boolean): void {
   if (!io) {
     return
   }
   for (const socket of io.sockets.sockets.values()) {
-    const user = socket.data.user as User | undefined
-    if (user?.id === userId) {
+    if (matches(socket)) {
       socket.emit('session:revoked', { reason })
       socket.disconnect(true)
     }
@@ -304,7 +346,9 @@ function wireScheduledLobbyPersistence(): void {
 /**
  * Verifies the handshake token and loads its user, or returns null.
  */
-async function authenticateSocket(socket: Socket): Promise<User | null> {
+async function authenticateSocket(
+  socket: Socket
+): Promise<{ user: User; tokenIdentifier: TokenIdentifier } | null> {
   const token: unknown = socket.handshake.auth.token
   if (typeof token !== 'string' || token === '') {
     return null
@@ -315,7 +359,10 @@ async function authenticateSocket(socket: Socket): Promise<User | null> {
   }
   const user = await User.find(accessToken.tokenableId)
   // Banned accounts get no realtime connection at all.
-  return user && !isBanned(user) ? user : null
+  if (!user || isBanned(user)) {
+    return null
+  }
+  return { user, tokenIdentifier: accessToken.identifier }
 }
 
 /**

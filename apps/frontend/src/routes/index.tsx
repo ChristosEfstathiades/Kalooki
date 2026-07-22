@@ -69,7 +69,7 @@ function WelcomePage() {
             KalookiOnline
           </p>
           <h1 className="mt-3 mb-0 max-w-2xl text-4xl font-bold sm:text-5xl">
-            Play Kalooki online, in real time
+            Play Kalooki online
           </h1>
           <p className="mt-4 mb-8 max-w-xl text-lg text-muted-foreground">
             The classic Rummy card game loved in the UK, Jamaica, and Cyprus.
@@ -84,7 +84,7 @@ function WelcomePage() {
             >
               <Link to="/signup">Play now, it&apos;s free</Link>
             </Button>
-            <Button asChild size="lg" variant="ghost">
+            <Button asChild size="lg" variant="secondary">
               <Link to="/signin">I already have an account</Link>
             </Button>
           </div>
