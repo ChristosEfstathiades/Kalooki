@@ -9,6 +9,7 @@ import { useForm } from '@tanstack/react-form'
 import { z } from 'zod'
 import { extractApiErrors, useSignup } from '#/lib/auth'
 import { getStoredToken } from '#/lib/auth-token'
+import { useSiteFlags } from '#/lib/site'
 import TextField from '#/components/TextField'
 import FormErrors from '#/components/FormErrors'
 import { Button } from '#/components/ui/button'
@@ -62,6 +63,8 @@ function SignupPage() {
     },
   })
 
+  const { signupsEnabled } = useSiteFlags()
+
   return (
     <div className="page-wrap flex justify-center py-12 sm:py-20">
       <section className="w-full max-w-sm rounded-lg border border-border bg-card p-6">
@@ -75,6 +78,15 @@ function SignupPage() {
             Sign in
           </Link>
         </p>
+
+        {!signupsEnabled && (
+          <p
+            role="status"
+            className="mt-0 mb-6 rounded-md border border-border bg-muted px-3 py-2 text-sm"
+          >
+            New accounts are temporarily closed. Please check back shortly.
+          </p>
+        )}
 
         <form
           className="space-y-4"
@@ -143,7 +155,7 @@ function SignupPage() {
               <Button
                 type="submit"
                 className="w-full bg-button-red hover:bg-button-red-hover"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !signupsEnabled}
               >
                 {isSubmitting ? 'Creating account…' : 'Create account and play'}
               </Button>

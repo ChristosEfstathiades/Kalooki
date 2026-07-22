@@ -77,6 +77,12 @@ async function eligiblePlayers(): Promise<EligiblePlayer[]> {
     .join('matches', 'matches.id', 'match_players.match_id')
     .where('matches.kind', 'public')
     .where('matches.completed', true)
+    // Accounts an admin has excluded (e.g. caught cheating) keep their
+    // history but never appear on the board.
+    .whereNotIn(
+      'match_players.user_id',
+      db.from('users').where('excluded_from_leaderboard', true).select('id')
+    )
     .groupBy('match_players.user_id')
     .havingRaw('count(*) >= ?', [LEADERBOARD_MIN_MATCHES])
     .select('match_players.user_id as userId')

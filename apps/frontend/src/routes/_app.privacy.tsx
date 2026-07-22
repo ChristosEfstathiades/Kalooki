@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import ContentPage, { ContentSection } from '#/components/ContentPage'
 
 export const Route = createFileRoute('/_app/privacy')({
@@ -14,9 +14,10 @@ function PrivacyPage() {
       <ContentSection heading="What we collect">
         <ul className="m-0 list-disc space-y-1 pl-5">
           <li>
-            <strong>Account details</strong>: your email address, username, a
-            hashed password, and an optional profile photo. We never store your
-            password in readable form.
+            <strong>Account details</strong>: your email address, username, and
+            a hashed password. We never store your password in readable form.
+            Your avatar is a robot generated from your username, not an uploaded
+            photo.
           </li>
           <li>
             <strong>Gameplay records</strong>: the matches you play, including
@@ -24,8 +25,9 @@ function PrivacyPage() {
             visible only to the players who took part and are kept indefinitely.
           </li>
           <li>
-            <strong>Chat messages</strong>: messages in the global chatroom and
-            in group chats are stored for 30 days and then deleted automatically.
+            <strong>Chat messages</strong>: messages in the global chatroom,
+            group chats, and in-game table chats are stored for 30 days and then
+            deleted automatically.
           </li>
           <li>
             <strong>Social connections</strong>: your friends list, friend
@@ -46,7 +48,16 @@ function PrivacyPage() {
       <ContentSection heading="Your choices">
         <ul className="m-0 list-disc space-y-1 pl-5">
           <li>You can remove friends and leave groups at any time.</li>
-          <li>Your profile photo is optional and can be changed or removed.</li>
+          <li>
+            Your avatar changes automatically if you change your username, in{' '}
+            <Link
+              to="/settings"
+              className="font-medium underline underline-offset-4"
+            >
+              settings
+            </Link>
+            .
+          </li>
           <li>
             To delete your account and its data, contact{' '}
             <a

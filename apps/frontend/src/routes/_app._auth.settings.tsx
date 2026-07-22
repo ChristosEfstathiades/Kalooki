@@ -25,7 +25,11 @@ import {
 } from '#/components/ui/dialog'
 import { cn } from '#/lib/utils'
 import { getStoredTheme, setTheme } from '#/lib/theme'
-import { chatNameColor, USERNAME_COLORS, usernameColor } from '#/lib/username-color'
+import {
+  chatNameColor,
+  USERNAME_COLORS,
+  usernameColor,
+} from '#/lib/username-color'
 import type { Theme } from '#/lib/theme'
 import type { CurrentUser } from '#/lib/auth'
 
@@ -43,7 +47,7 @@ const usernameSchema = z
   )
 
 /**
- * Account settings: edit the profile (username and photo) and sign out.
+ * Account settings: edit the profile (username) and sign out.
  */
 function SettingsPage() {
   const navigate = useNavigate()
@@ -139,8 +143,8 @@ function DeleteAccountSection() {
             <DialogTitle>Delete your account?</DialogTitle>
             <DialogDescription>
               Your account will be scheduled for permanent deletion. Signing
-              back in within 30 days restores it; after that, your account
-              and its data are gone for good.
+              back in within 30 days restores it; after that, your account and
+              its data are gone for good.
             </DialogDescription>
           </DialogHeader>
           <FormErrors errors={serverErrors} />
@@ -321,10 +325,16 @@ function ChatColorSection({ user }: ChatColorSectionProps) {
           {user.username}
         </span>
         {': '}
-        <span className="text-muted-foreground">This is what it looks like</span>
+        <span className="text-muted-foreground">
+          This is what it looks like
+        </span>
       </p>
 
-      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Chat colour">
+      <div
+        className="flex flex-wrap gap-2"
+        role="radiogroup"
+        aria-label="Chat colour"
+      >
         {USERNAME_COLORS.map((color) => (
           <button
             key={color}
@@ -336,7 +346,9 @@ function ChatColorSection({ user }: ChatColorSectionProps) {
             onClick={() => updateProfile.mutate({ chatColor: color })}
             className={cn(
               'size-8 rounded-full ring-offset-2 ring-offset-card transition',
-              color === activeColor ? 'ring-2 ring-foreground' : 'hover:opacity-80',
+              color === activeColor
+                ? 'ring-2 ring-foreground'
+                : 'hover:opacity-80',
             )}
             style={{ backgroundColor: color }}
           />

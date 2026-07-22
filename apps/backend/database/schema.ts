@@ -189,7 +189,7 @@ export class MatchSchema extends BaseModel {
 }
 
 export class MessageReportSchema extends BaseModel {
-  static $columns = ['createdAt', 'id', 'messageId', 'reporterId', 'updatedAt'] as const
+  static $columns = ['createdAt', 'id', 'messageId', 'outcome', 'reporterId', 'resolutionNote', 'resolvedAt', 'resolvedBy', 'updatedAt'] as const
   $columns = MessageReportSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -198,7 +198,15 @@ export class MessageReportSchema extends BaseModel {
   @column()
   declare messageId: number
   @column()
+  declare outcome: string | null
+  @column()
   declare reporterId: number
+  @column()
+  declare resolutionNote: string | null
+  @column.dateTime()
+  declare resolvedAt: DateTime | null
+  @column()
+  declare resolvedBy: number | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }
@@ -236,6 +244,27 @@ export class ModerationActionSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class NewsItemSchema extends BaseModel {
+  static $columns = ['authorUserId', 'body', 'createdAt', 'id', 'isPinned', 'isPublished', 'publishedAt', 'updatedAt'] as const
+  $columns = NewsItemSchema.$columns
+  @column()
+  declare authorUserId: number | null
+  @column()
+  declare body: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare isPinned: boolean
+  @column()
+  declare isPublished: boolean
+  @column.dateTime()
+  declare publishedAt: DateTime
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class ScheduledGameSchema extends BaseModel {
   static $columns = ['createdAt', 'groupId', 'id', 'opensAt', 'ownerUserId', 'rules', 'updatedAt'] as const
   $columns = ScheduledGameSchema.$columns
@@ -255,8 +284,25 @@ export class ScheduledGameSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class SiteSettingSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'key', 'updatedAt', 'updatedBy', 'value'] as const
+  $columns = SiteSettingSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare key: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare updatedBy: number | null
+  @column()
+  declare value: string
+}
+
 export class UserSchema extends BaseModel {
-  static $columns = ['banReason', 'bannedAt', 'bannedBy', 'chatColor', 'createdAt', 'deletedAt', 'email', 'emailVerifiedAt', 'id', 'isBot', 'muteReason', 'mutedAt', 'mutedBy', 'mutedUntil', 'password', 'role', 'updatedAt', 'username'] as const
+  static $columns = ['banReason', 'bannedAt', 'bannedBy', 'chatColor', 'createdAt', 'deletedAt', 'email', 'emailVerifiedAt', 'excludedFromLeaderboard', 'id', 'isBot', 'muteReason', 'mutedAt', 'mutedBy', 'mutedUntil', 'password', 'role', 'updatedAt', 'username'] as const
   $columns = UserSchema.$columns
   @column()
   declare banReason: string | null
@@ -274,6 +320,8 @@ export class UserSchema extends BaseModel {
   declare email: string
   @column.dateTime()
   declare emailVerifiedAt: DateTime | null
+  @column()
+  declare excludedFromLeaderboard: boolean
   @column({ isPrimary: true })
   declare id: number
   @column()

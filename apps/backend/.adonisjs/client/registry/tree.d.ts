@@ -13,6 +13,12 @@ export interface ApiDefinition {
   presence: {
     index: typeof routes['presence.index']
   }
+  site: {
+    site: {
+      status: typeof routes['site.site.status']
+      news: typeof routes['site.site.news']
+    }
+  }
   profile: {
     profile: {
       show: typeof routes['profile.profile.show']
@@ -78,8 +84,40 @@ export interface ApiDefinition {
   admin: {
     admin: {
       listUsers: typeof routes['admin.admin.list_users']
+      showUser: typeof routes['admin.admin.show_user']
       updateUserRole: typeof routes['admin.admin.update_user_role']
       listModerationActions: typeof routes['admin.admin.list_moderation_actions']
+    }
+    adminMetrics: {
+      index: typeof routes['admin.admin_metrics.index']
+    }
+    adminReports: {
+      index: typeof routes['admin.admin_reports.index']
+      authors: typeof routes['admin.admin_reports.authors']
+      openCount: typeof routes['admin.admin_reports.open_count']
+      resolve: typeof routes['admin.admin_reports.resolve']
+      reopen: typeof routes['admin.admin_reports.reopen']
+    }
+    adminChat: {
+      index: typeof routes['admin.admin_chat.index']
+    }
+    adminNews: {
+      index: typeof routes['admin.admin_news.index']
+      store: typeof routes['admin.admin_news.store']
+      update: typeof routes['admin.admin_news.update']
+      destroy: typeof routes['admin.admin_news.destroy']
+    }
+    adminSettings: {
+      show: typeof routes['admin.admin_settings.show']
+      updateFlags: typeof routes['admin.admin_settings.update_flags']
+      announce: typeof routes['admin.admin_settings.announce']
+      clearAnnouncement: typeof routes['admin.admin_settings.clear_announcement']
+      notice: typeof routes['admin.admin_settings.notice']
+    }
+    adminStats: {
+      rebuildLeaderboard: typeof routes['admin.admin_stats.rebuild_leaderboard']
+      setExclusion: typeof routes['admin.admin_stats.set_exclusion']
+      wipe: typeof routes['admin.admin_stats.wipe']
     }
   }
 }

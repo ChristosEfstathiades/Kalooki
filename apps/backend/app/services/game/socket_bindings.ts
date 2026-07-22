@@ -23,8 +23,10 @@ import { MAX_BOT_OPPONENTS, ensureBotUsers } from '#services/game/bot_users'
 import { isGroupMember } from '#services/group_service'
 import { chatRoom } from '#services/socket_service'
 import { userRoom } from '#services/presence_service'
+import { getSiteFlags } from '#services/site_settings_service'
 import { UNLIMITED_BUY_INS } from '#services/game/engine'
 import type User from '#models/user'
+import type { SiteFlags } from '#services/site_settings_service'
 import type { BotDifficulty } from '#services/game/bot'
 import type { GameRules, MatchStakes } from '#services/game/engine'
 import type { GameAction, PlayerIdentity } from '#services/game/match_service'
@@ -74,6 +76,20 @@ async function acked(ack: Ack | undefined, handler: () => Promise<unknown>): Pro
       return
     }
     ack?.({ ok: false, error: 'Something went wrong' })
+  }
+}
+
+/**
+ * Refuses an action while an admin has that feature switched off from
+ * admin.{domain}. Thrown as a GameError so the client shows the reason
+ * in its ack, the same as any other refused move.
+ *
+ * @throws GameError when the flag is off.
+ */
+async function assertFeatureEnabled(flag: keyof SiteFlags, message: string): Promise<void> {
+  const flags = await getSiteFlags()
+  if (!flags[flag]) {
+    throw new GameError(message, 'E_FEATURE_DISABLED')
   }
 }
 
@@ -183,7 +199,10 @@ export function bindGameHandlers(io: Server, socket: Socket, user: User): void {
   }
 
   socket.on('match:queue', (_payload: unknown, ack?: Ack) => {
-    void acked(ack, async () => joinPublicQueue(identityOf(user)))
+    void acked(ack, async () => {
+      await assertFeatureEnabled('publicMatchmakingEnabled', 'Public matchmaking is paused')
+      return joinPublicQueue(identityOf(user))
+    })
   })
 
   socket.on('match:unqueue', (_payload: unknown, ack?: Ack) => {
@@ -195,6 +214,7 @@ export function bindGameHandlers(io: Server, socket: Socket, user: User): void {
 
   socket.on('match:practice', (payload: unknown, ack?: Ack) => {
     void acked(ack, async () => {
+      await assertFeatureEnabled('practiceGamesEnabled', 'Practice games are paused')
       const input = (payload ?? {}) as { difficulty?: unknown; opponents?: unknown }
       const difficulty = parseBotDifficulty(input.difficulty)
       const opponents = intIn(input.opponents, 1, MAX_BOT_OPPONENTS, 2)

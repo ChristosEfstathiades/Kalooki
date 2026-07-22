@@ -1,6 +1,7 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { MessageSquare, Shuffle, Trophy, Users } from 'lucide-react'
 import { getStoredToken } from '#/lib/auth-token'
+import AnnouncementBanner from '#/components/AnnouncementBanner'
 import Footer from '#/components/Footer'
 import { Button } from '#/components/ui/button'
 
@@ -63,6 +64,7 @@ const rulesDigest = [
 function WelcomePage() {
   return (
     <div className="flex min-h-screen flex-col">
+      <AnnouncementBanner />
       <main className="flex-1">
         <section className="page-wrap py-16 sm:py-24">
           <p className="m-0 text-sm font-semibold tracking-widest text-muted-foreground uppercase">

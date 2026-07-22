@@ -28,6 +28,7 @@ export function moderationUserShape(user: User) {
     // Null while muted means the mute is permanent; read it with isMuted
     mutedUntil: user.mutedUntil?.toISO() ?? null,
     muteReason: user.muteReason,
+    excludedFromLeaderboard: Boolean(user.excludedFromLeaderboard),
   }
 }
 

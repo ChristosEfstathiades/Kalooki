@@ -31,6 +31,18 @@ router
     // before anyone has signed in.
     router.get('presence', [controllers.Presence, 'index']).use(apiThrottle)
 
+    // Public: admin-managed site content. The announcement banner shows
+    // on the welcome page before sign in, and the news panel is read
+    // straight after it.
+    router
+      .group(() => {
+        router.get('/', [controllers.Site, 'status'])
+        router.get('news', [controllers.Site, 'news'])
+      })
+      .prefix('site')
+      .as('site')
+      .use(apiThrottle)
+
     router
       .group(() => {
         router.get('profile', [controllers.Profile, 'show'])
@@ -93,8 +105,34 @@ router
     router
       .group(() => {
         router.get('users', [controllers.Admin, 'listUsers'])
+        router.get('users/:userId', [controllers.Admin, 'showUser'])
         router.patch('users/:userId/role', [controllers.Admin, 'updateUserRole'])
         router.get('moderation-actions', [controllers.Admin, 'listModerationActions'])
+
+        router.get('metrics', [controllers.AdminMetrics, 'index'])
+
+        router.get('reports', [controllers.AdminReports, 'index'])
+        router.get('reports/authors', [controllers.AdminReports, 'authors'])
+        router.get('reports/open-count', [controllers.AdminReports, 'openCount'])
+        router.post('reports/messages/:messageId/resolve', [controllers.AdminReports, 'resolve'])
+        router.delete('reports/messages/:messageId/resolve', [controllers.AdminReports, 'reopen'])
+
+        router.get('chat/messages', [controllers.AdminChat, 'index'])
+
+        router.get('news', [controllers.AdminNews, 'index'])
+        router.post('news', [controllers.AdminNews, 'store'])
+        router.patch('news/:id', [controllers.AdminNews, 'update'])
+        router.delete('news/:id', [controllers.AdminNews, 'destroy'])
+
+        router.get('settings', [controllers.AdminSettings, 'show'])
+        router.patch('settings/flags', [controllers.AdminSettings, 'updateFlags'])
+        router.post('settings/announcement', [controllers.AdminSettings, 'announce'])
+        router.delete('settings/announcement', [controllers.AdminSettings, 'clearAnnouncement'])
+        router.post('settings/notice', [controllers.AdminSettings, 'notice'])
+
+        router.post('stats/leaderboard/rebuild', [controllers.AdminStats, 'rebuildLeaderboard'])
+        router.patch('stats/users/:userId/exclusion', [controllers.AdminStats, 'setExclusion'])
+        router.delete('stats/users/:userId', [controllers.AdminStats, 'wipe'])
       })
       .prefix('admin')
       .as('admin')

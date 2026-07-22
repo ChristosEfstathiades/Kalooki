@@ -12,6 +12,7 @@ import {
   startPracticeMatch,
 } from '#/lib/game'
 import { getSocket } from '#/lib/socket'
+import { useSiteFlags } from '#/lib/site'
 import FriendsDialog from '#/components/social/FriendsDialog'
 import GroupsDialog from '#/components/social/GroupsDialog'
 import ChatSidebar from '#/components/chat/ChatSidebar'
@@ -54,6 +55,7 @@ function PlayPage() {
   )
   const requests = useQuery(friendRequestsQueryOptions)
   const invites = useQuery(groupInvitesQueryOptions)
+  const flags = useSiteFlags()
 
   const incomingRequestCount = requests.data?.incoming.length ?? 0
   const inviteCount = invites.data?.length ?? 0
@@ -62,7 +64,7 @@ function PlayPage() {
     <div className="page-wrap grid gap-6 py-8 lg:grid-cols-[1fr_320px]">
       <section className="space-y-6">
         <MatchmakingCard />
-        <PracticeCard />
+        {flags.practiceGamesEnabled && <PracticeCard />}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Button
@@ -123,6 +125,7 @@ function PlayPage() {
 function MatchmakingCard() {
   const [status, setStatus] = useState<QueueStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const { publicMatchmakingEnabled } = useSiteFlags()
   // Epoch ms the match starts at, so the countdown ticks between updates
   const [startsAt, setStartsAt] = useState<number | null>(null)
   const [nowMs, setNowMs] = useState<number>(Date.now())
@@ -188,10 +191,17 @@ function MatchmakingCard() {
             : 'w-full bg-button-red hover:bg-button-red-hover sm:w-auto'
         }
         variant={inQueue ? 'secondary' : 'default'}
+        disabled={!publicMatchmakingEnabled && !inQueue}
         onClick={() => void toggleQueue()}
       >
         {inQueue ? 'Leave queue' : 'Find public match'}
       </Button>
+      {!publicMatchmakingEnabled && (
+        <p className="mt-2 mb-0 text-xs text-muted-foreground">
+          Public matchmaking is paused right now. Private games with your groups
+          are unaffected.
+        </p>
+      )}
       {inQueue && status && (
         <p className="mt-2 mb-0 text-xs text-muted-foreground">
           {status.queueSize} {status.queueSize === 1 ? 'player' : 'players'}{' '}

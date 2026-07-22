@@ -287,6 +287,40 @@ export function getMatch(matchId: string): ActiveMatch | null {
   return matches.get(matchId) ?? null
 }
 
+/** A snapshot of what the game service is doing right now. */
+export type LiveGameStats = {
+  matchesInProgress: number
+  publicMatches: number
+  privateMatches: number
+  practiceMatches: number
+  playersInMatches: number
+  playersQueued: number
+  openLobbies: number
+}
+
+/**
+ * Counts of live games, queued players and open lobbies, for the admin
+ * dashboard. Read straight from the in-memory maps, so it reflects this
+ * process only — the same caveat presence already carries.
+ */
+export function liveGameStats(): LiveGameStats {
+  const running = [...matches.values()].filter((match) => match.finishedAt === null)
+
+  return {
+    matchesInProgress: running.length,
+    publicMatches: running.filter((match) => match.kind === 'public').length,
+    privateMatches: running.filter((match) => match.kind === 'private').length,
+    practiceMatches: running.filter((match) => match.kind === 'practice').length,
+    playersInMatches: running.reduce(
+      (total, match) =>
+        total + [...match.identities.keys()].filter((id) => !match.botIds.has(id)).length,
+      0
+    ),
+    playersQueued: publicQueue.length,
+    openLobbies: lobbies.size,
+  }
+}
+
 /** A place a user already holds: a live match, the queue, or a lobby. */
 type Reservation = 'match' | 'queue' | 'lobby'
 

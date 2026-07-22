@@ -1,7 +1,9 @@
 import ModerationAction from '#models/moderation_action'
 import User from '#models/user'
 import { findModerationTarget, setUserRole } from '#services/moderation_service'
+import { buildUserDossier } from '#services/user_dossier_service'
 import { listUsersValidator, setUserRoleValidator } from '#validators/moderation'
+import { listModerationActionsValidator, parseIsoBound } from '#validators/admin'
 import { moderationActionShape } from '#transformers/moderation_action_transformer'
 import { moderationUserShape } from '#transformers/moderation_user_transformer'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -9,8 +11,8 @@ import type { HttpContext } from '@adonisjs/core/http'
 /** Users per page when the request does not ask for a different size. */
 const DEFAULT_PER_PAGE = 25
 
-/** Audit entries returned by the moderation feed. */
-const ACTION_FEED_LIMIT = 50
+/** Audit entries per page when the request does not ask for a size. */
+const DEFAULT_ACTION_PER_PAGE = 50
 
 /**
  * Endpoints backing the admin app on admin.{domain}. Every route here
@@ -54,6 +56,17 @@ export default class AdminController {
   }
 
   /**
+   * The full dossier for one account: play record, recent chat, the
+   * reports for and against them, and their moderation history — so a
+   * ban or mute is decided on the record rather than on the single
+   * message that happened to be reported.
+   */
+  async showUser({ params, serialize }: HttpContext) {
+    const target = await findModerationTarget(Number(params.userId))
+    return serialize(await buildUserDossier(target))
+  }
+
+  /**
    * Promotes or demotes a user. Admins cannot change their own role, so
    * the last admin can never lock themselves out.
    */
@@ -66,14 +79,48 @@ export default class AdminController {
   }
 
   /**
-   * The most recent moderator and admin actions, newest first.
+   * The moderation audit trail, newest first, filterable by action
+   * type, by the acting or targeted username, and by date range.
    */
-  async listModerationActions({ serialize }: HttpContext) {
-    const actions = await ModerationAction.query()
-      .orderBy('createdAt', 'desc')
-      .orderBy('id', 'desc')
-      .limit(ACTION_FEED_LIMIT)
+  async listModerationActions({ request, serialize }: HttpContext) {
+    const filters = await request.validateUsing(listModerationActionsValidator, {
+      data: request.qs(),
+    })
 
-    return serialize({ actions: actions.map(moderationActionShape) })
+    const query = ModerationAction.query().orderBy('createdAt', 'desc').orderBy('id', 'desc')
+
+    if (filters.action) {
+      query.where('action', filters.action)
+    }
+    if (filters.actor) {
+      query.whereRaw('lower(actor_username) like ?', [`%${filters.actor.toLowerCase()}%`])
+    }
+    if (filters.target) {
+      query.whereRaw('lower(target_username) like ?', [`%${filters.target.toLowerCase()}%`])
+    }
+
+    const from = parseIsoBound(filters.from, 'from')
+    if (from) {
+      query.where('createdAt', '>=', from.toSQL() ?? '')
+    }
+    const to = parseIsoBound(filters.to, 'to')
+    if (to) {
+      query.where('createdAt', '<', to.toSQL() ?? '')
+    }
+
+    const paginator = await query.paginate(
+      filters.page ?? 1,
+      filters.perPage ?? DEFAULT_ACTION_PER_PAGE
+    )
+
+    return serialize({
+      actions: paginator.all().map(moderationActionShape),
+      meta: {
+        page: paginator.currentPage,
+        perPage: paginator.perPage,
+        total: paginator.total,
+        lastPage: paginator.lastPage,
+      },
+    })
   }
 }

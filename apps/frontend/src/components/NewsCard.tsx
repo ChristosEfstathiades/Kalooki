@@ -14,7 +14,10 @@ export default function NewsCard() {
   return (
     <section className="rounded-lg border border-border bg-card">
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-        <Newspaper aria-hidden="true" className="size-4 text-muted-foreground" />
+        <Newspaper
+          aria-hidden="true"
+          className="size-4 text-muted-foreground"
+        />
         <h2 className="m-0 text-sm font-semibold">News</h2>
       </div>
       {items.length > 0 ? (

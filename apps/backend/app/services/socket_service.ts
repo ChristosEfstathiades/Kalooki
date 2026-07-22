@@ -217,6 +217,50 @@ export function broadcastMessageDeleted(channel: ChatChannel, messageId: number)
 }
 
 /**
+ * Ids handed to server-authored global chat lines. Negative and
+ * descending, matching the match chat's convention, so they never
+ * collide with database message ids in the client's message list.
+ */
+let nextGlobalSystemMessageId = -1
+
+/**
+ * Posts a server-authored line into the global chatroom, used for admin
+ * announcements. The line is pushed live only — it is deliberately not
+ * stored, so it cannot be reported, deleted or replayed from history.
+ */
+export function broadcastGlobalSystemMessage(body: string): void {
+  io?.to(chatRoom({ type: 'global' })).emit('chat:message', {
+    channel: 'global',
+    groupId: null,
+    matchId: null,
+    message: {
+      id: nextGlobalSystemMessageId--,
+      body,
+      createdAt: new Date().toISOString(),
+      user: null,
+      system: true,
+    },
+  })
+}
+
+/**
+ * Pushes the site-wide announcement banner (or its removal, when the
+ * payload is null) to every connected client, so a notice appears
+ * without anyone reloading the page.
+ */
+export function broadcastAnnouncement(announcement: unknown): void {
+  io?.emit('site:announcement', { announcement })
+}
+
+/**
+ * Tells every connected client the operational flags changed, so the
+ * player site can react (e.g. hiding matchmaking) without a reload.
+ */
+export function broadcastSiteFlags(flags: unknown): void {
+  io?.emit('site:flags', { flags })
+}
+
+/**
  * Closes the Socket.IO server (used on app shutdown).
  */
 export async function closeSocketServer(): Promise<void> {

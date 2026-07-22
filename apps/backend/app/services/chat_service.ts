@@ -8,11 +8,11 @@ import { getMatch } from '#services/game/match_service'
 import { Exception } from '@adonisjs/core/exceptions'
 
 /**
- * Chat rules from docs/features.md: one message every 3 seconds in the
- * global chatroom and in-game chats, messages kept for 30 days, blocked
- * words masked.
+ * Chat rules from docs/features.md: one message every second in the
+ * global chatroom and in-game chats, messages kept for 30 days,
+ * blocked words masked.
  */
-export const CHAT_RATE_LIMIT_MS = 3000
+export const CHAT_RATE_LIMIT_MS = 1000
 export const MESSAGE_RETENTION_DAYS = 30
 export const MAX_MESSAGE_LENGTH = 500
 
@@ -89,7 +89,7 @@ export function resetChatRateLimits(): void {
 }
 
 /**
- * Enforces one message per user every 3 seconds within a scope.
+ * Enforces one message per user every second within a scope.
  *
  * @throws Exception (429) when the user posted too recently.
  */
@@ -98,7 +98,7 @@ function enforceRateLimit(scope: string, userId: number): void {
   const last = lastMessageAt.get(key)
   const now = Date.now()
   if (last !== undefined && now - last < CHAT_RATE_LIMIT_MS) {
-    throw new Exception('You can only send one message every 3 seconds', {
+    throw new Exception('You can only send one message every second', {
       status: 429,
       code: 'E_CHAT_RATE_LIMITED',
     })

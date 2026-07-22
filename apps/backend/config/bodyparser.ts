@@ -45,13 +45,28 @@ const bodyParserConfig = defineConfig({
 
   /**
    * Config for the "multipart/form-data" content-type parser.
-   * File uploads are handled by the multipart parser.
+   *
+   * Disabled: this API has no upload endpoints at all (avatars are
+   * DiceBear robots generated in the browser, and docs/features.md rules
+   * out photo upload), so nothing here should ever receive a file.
+   *
+   * Leaving the starter kit's defaults in place was a liability rather
+   * than dead config (AUDIT.md S9). The body parser runs in the global
+   * router stack, ahead of the per-route auth and throttle middleware,
+   * so with `autoProcess` on, any unauthenticated request to any route
+   * had its 20 MB of parts streamed to the system tmp directory before
+   * anything could reject it, and `streamFile` only cleans up on error,
+   * so the file stayed there after the response.
+   *
+   * An empty `types` list means the parser never claims a request (see
+   * the `types.length` guard in its `isType` check), so a multipart body
+   * is now ignored and the request fails validation with an empty body.
+   * If an upload endpoint is ever added, restore the content type and
+   * name that one route in `processManually` rather than turning
+   * `autoProcess` back on globally.
    */
   multipart: {
-    /**
-     * Automatically process uploaded files into the system tmp directory.
-     */
-    autoProcess: true,
+    autoProcess: false,
 
     /**
      * Normalize empty string values to null.
@@ -68,10 +83,7 @@ const bodyParserConfig = defineConfig({
      */
     limit: '20mb',
 
-    /**
-     * Content types handled by the multipart parser.
-     */
-    types: ['multipart/form-data'],
+    types: [],
   },
 })
 

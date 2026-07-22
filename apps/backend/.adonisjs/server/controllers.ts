@@ -6,7 +6,13 @@
 export const controllers = {
   AccessTokens: () => import('#controllers/access_tokens_controller'),
   AccountDeletion: () => import('#controllers/account_deletion_controller'),
+  AdminChat: () => import('#controllers/admin_chat_controller'),
   Admin: () => import('#controllers/admin_controller'),
+  AdminMetrics: () => import('#controllers/admin_metrics_controller'),
+  AdminNews: () => import('#controllers/admin_news_controller'),
+  AdminReports: () => import('#controllers/admin_reports_controller'),
+  AdminSettings: () => import('#controllers/admin_settings_controller'),
+  AdminStats: () => import('#controllers/admin_stats_controller'),
   ChatMessages: () => import('#controllers/chat_messages_controller'),
   FriendRequests: () => import('#controllers/friend_requests_controller'),
   Friends: () => import('#controllers/friends_controller'),
@@ -19,4 +25,5 @@ export const controllers = {
   NewAccount: () => import('#controllers/new_account_controller'),
   Presence: () => import('#controllers/presence_controller'),
   Profile: () => import('#controllers/profile_controller'),
+  Site: () => import('#controllers/site_controller'),
 }

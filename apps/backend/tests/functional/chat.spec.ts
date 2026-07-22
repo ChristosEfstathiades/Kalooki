@@ -108,13 +108,13 @@ test.group('Chat messages', (group) => {
     assert.isTrue(message.wasCensored)
   })
 
-  test('global chat allows one message every 3 seconds', async ({ assert }) => {
+  test('global chat allows one message every second', async ({ assert }) => {
     const alice = await makeUser('rate_limited_alice')
     await postChatMessage(alice, { type: 'global' }, 'first')
 
     await assert.rejects(
       () => postChatMessage(alice, { type: 'global' }, 'second'),
-      'You can only send one message every 3 seconds'
+      'You can only send one message every second'
     )
   })
 
@@ -199,7 +199,7 @@ test.group('Match chat', (group) => {
     )
   })
 
-  test('match chat allows one message every 3 seconds', async ({ assert }) => {
+  test('match chat allows one message every second', async ({ assert }) => {
     const alice = await makeUser('alice')
     const bobby = await makeUser('bobby')
     const sharks = await makeGroup(alice, 'Card Sharks')
@@ -208,7 +208,7 @@ test.group('Match chat', (group) => {
     await postChatMessage(alice, { type: 'match', matchId: match.id }, 'first')
     await assert.rejects(
       () => postChatMessage(alice, { type: 'match', matchId: match.id }, 'second'),
-      'You can only send one message every 3 seconds'
+      'You can only send one message every second'
     )
 
     // The limit is per chat: the other player is unaffected

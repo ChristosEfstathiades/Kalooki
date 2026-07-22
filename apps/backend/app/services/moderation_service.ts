@@ -25,7 +25,7 @@ export const MUTE_DURATIONS_MINUTES = [60, 60 * 24, 60 * 24 * 7] as const
  * are excluded so moderation never reaches into a group's conversation. */
 const MODERATABLE_CHANNELS = ['global', 'match']
 
-interface RecordActionInput {
+export interface RecordActionInput {
   action: ModerationActionName
   actor: User
   target?: User | null
@@ -37,9 +37,10 @@ interface RecordActionInput {
 /**
  * Writes one entry to the moderation audit trail, snapshotting the
  * usernames and (for deletions) the message body so the history stays
- * readable after the underlying rows are gone.
+ * readable after the underlying rows are gone. Exported so the admin
+ * services (reports, news, settings) log through the same trail.
  */
-async function recordAction(input: RecordActionInput): Promise<ModerationAction> {
+export async function recordAction(input: RecordActionInput): Promise<ModerationAction> {
   return ModerationAction.create({
     action: input.action,
     actorId: input.actor.id,

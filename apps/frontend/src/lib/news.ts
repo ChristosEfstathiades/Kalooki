@@ -1,28 +1,25 @@
 import { queryOptions } from '@tanstack/react-query'
-import { z } from 'zod'
+import { api } from '#/lib/api'
 
-const newsItemSchema = z.object({
-  id: z.number(),
-  date: z.string(),
-  body: z.string(),
-})
-
-export type NewsItem = z.infer<typeof newsItemSchema>
+export interface NewsItem {
+  id: number
+  /** Pre-formatted publication date, shown verbatim in the panel. */
+  date: string
+  body: string
+  isPinned: boolean
+}
 
 /**
- * Query for the site news shown on the play page. The items live in
- * public/news.json (newest first), so announcements can be changed by
- * editing that file — on a deployed server the static file can be
- * swapped without rebuilding the app.
+ * Query for the site news shown on the play page. Items are written by
+ * admins on admin.{domain} and served from the backend, so a notice
+ * goes up without a redeploy. Pinned items come first, then newest by
+ * publication date.
  */
 export const newsQueryOptions = queryOptions({
   queryKey: ['news'],
   queryFn: async (): Promise<NewsItem[]> => {
-    const response = await fetch('/news.json')
-    if (!response.ok) {
-      throw new Error(`Could not load news (HTTP ${response.status})`)
-    }
-    return z.array(newsItemSchema).parse(await response.json())
+    const response = await api.get('/api/v1/site/news', {})
+    return response.data.news
   },
   staleTime: 5 * 60 * 1000,
 })

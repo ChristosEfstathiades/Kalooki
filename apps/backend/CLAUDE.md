@@ -28,6 +28,8 @@ router.post('signup', [controllers.NewAccount, 'store'])
 return serialize({ user: UserTransformer.transform(user), token: ... })
 ```
 
+**Gotcha: use `type` aliases, never `interface`, for anything a controller serializes.** The serializer's return type only wraps the payload in `data` when the value satisfies its JSON constraint, and an `interface` has no implicit index signature, so it silently fails that check — `serialize()` then types as the bare payload and the generated client loses the `data` wrapper (the runtime response still has it, so this shows up as a type error in the consuming app, not a test failure). Declare shapes returned through `serialize()` as `export type X = { ... }`.
+
 ## Auth: two guards
 `config/auth.ts` defines `api` (opaque access tokens via `DbAccessTokensProvider`, the **default** guard, stateless) and `web` (session). Signup/login mint an access token (`User.accessTokens.create`). Protected routes use the named `auth()` middleware; `silent_auth_middleware` runs globally to populate the user when a token is present without forcing auth.
 
