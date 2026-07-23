@@ -106,14 +106,12 @@ export async function matchHistoryFor(
   filters: MatchHistoryFilters = {},
   limit = 50
 ): Promise<Match[]> {
-  const participations = await MatchPlayer.query().where('userId', userId)
-  const matchIds = participations.map((participation) => participation.matchId)
-  if (matchIds.length === 0) {
-    return []
-  }
-
+  // Participation is a subquery so the filters, ordering and limit all
+  // run in SQL rather than after loading every row the user has played.
   const query = Match.query()
-    .whereIn('id', matchIds)
+    .whereIn('id', (participationQuery) => {
+      participationQuery.from('match_players').select('match_id').where('user_id', userId)
+    })
     .preload('matchPlayers', (playersQuery) => {
       playersQuery.preload('user')
     })
