@@ -44,7 +44,7 @@ async function ensureBotUser(baseUsername: string): Promise<PlayerIdentity> {
 
     if (existing) {
       if (existing.isBot) {
-        return { id: existing.id, username: existing.username }
+        return { id: existing.id, username: existing.username, chatColor: existing.chatColor }
       }
       continue
     }
@@ -57,14 +57,14 @@ async function ensureBotUser(baseUsername: string): Promise<PlayerIdentity> {
         isBot: true,
         emailVerifiedAt: DateTime.now(),
       })
-      return { id: bot.id, username: bot.username }
+      return { id: bot.id, username: bot.username, chatColor: bot.chatColor }
     } catch {
       // Lost a race with a concurrent create — re-check this name
       const raced = await User.query()
         .whereRaw('LOWER(username) = ?', [username.toLowerCase()])
         .first()
       if (raced?.isBot) {
-        return { id: raced.id, username: raced.username }
+        return { id: raced.id, username: raced.username, chatColor: raced.chatColor }
       }
     }
   }
