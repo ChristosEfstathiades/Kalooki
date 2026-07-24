@@ -67,6 +67,8 @@ export interface RoundResultView {
 export interface GamePlayerView {
   userId: number
   username: string
+  /** The player's chosen chat name colour, or null to fall back to the hashed default. */
+  chatColor: string | null
   seat: number
   isBot: boolean
   handCount: number
