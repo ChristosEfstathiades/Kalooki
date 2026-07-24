@@ -60,6 +60,7 @@ function identityOf(user: User): PlayerIdentity {
   return {
     id: user.id,
     username: user.username,
+    chatColor: user.chatColor,
   }
 }
 
