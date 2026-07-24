@@ -26,7 +26,7 @@ interface Emission {
 let emissions: Emission[] = []
 
 function identity(id: number): PlayerIdentity {
-  return { id, username: id >= 900 ? `bot_${id}` : `player_${id}` }
+  return { id, username: id >= 900 ? `bot_${id}` : `player_${id}`, chatColor: null }
 }
 
 /** Deterministic rng so the same game plays out every run. */
