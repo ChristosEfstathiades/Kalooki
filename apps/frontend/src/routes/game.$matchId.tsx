@@ -19,6 +19,7 @@ import MatchChatPanel from '#/components/chat/MatchChatPanel'
 import UserAvatar from '#/components/UserAvatar'
 import { Button } from '#/components/ui/button'
 import { cn } from '#/lib/utils'
+import { chatNameColor, usernameColor } from '#/lib/username-color'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import type { DragData, DropData } from '#/components/game/DragDrop'
 import type {
@@ -845,7 +846,17 @@ function PlayerSeat({
       <UserAvatar user={player} className="size-7 sm:size-8" />
       <div className="text-xs">
         <p className="m-0 font-semibold">
-          {isSelf ? 'You' : player.username}
+          {/* Name in the player's chosen colour, matching how it reads in
+              chat, falling back to the deterministic hashed colour */}
+          <span
+            style={{
+              color: chatNameColor(
+                player.chatColor ?? usernameColor(player.username),
+              ),
+            }}
+          >
+            {isSelf ? 'You' : player.username}
+          </span>
           {player.isBot && (
             <span className="ml-1 rounded bg-muted px-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
               Bot
