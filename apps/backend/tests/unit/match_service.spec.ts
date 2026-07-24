@@ -34,7 +34,7 @@ interface Emission {
 let emissions: Emission[] = []
 
 function identity(id: number): PlayerIdentity {
-  return { id, username: `player_${id}` }
+  return { id, username: `player_${id}`, chatColor: null }
 }
 
 /**
