@@ -35,6 +35,8 @@ import type { Card, Rng } from '#services/game/cards'
 export interface PlayerIdentity {
   id: number
   username: string
+  /** The player's chosen chat name colour, or null to fall back to the hashed default. */
+  chatColor: string | null
 }
 
 /** Public queue game, private group game, or solo play against bots. */
@@ -140,6 +142,7 @@ export interface ClientGameView {
   players: {
     userId: number
     username: string
+    chatColor: string | null
     seat: number
     isBot: boolean
     handCount: number
@@ -1437,6 +1440,7 @@ export function redactedView(match: ActiveMatch, viewerUserId: number): ClientGa
       return {
         userId: player.userId,
         username: identity?.username ?? `Player ${player.userId}`,
+        chatColor: identity?.chatColor ?? null,
         seat,
         isBot: match.botIds.has(player.userId),
         handCount: player.hand.length,
