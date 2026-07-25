@@ -17,6 +17,15 @@ import { usePresenceSync } from '#/lib/presence'
  * match navigates straight to the table from any page.
  */
 export const Route = createFileRoute('/_app/_auth')({
+  /*
+   * Blanket noindex for everything behind the guard. Each page sets its
+   * own title and description below, but this is the backstop: a signed
+   * out crawler only ever gets the redirect to signin, so any authed
+   * route added later stays out of search results by default.
+   */
+  head: () => ({
+    meta: [{ name: 'robots', content: 'noindex, nofollow' }],
+  }),
   beforeLoad: () => {
     if (!getStoredToken()) {
       throw redirect({ to: '/signin' })

@@ -19,6 +19,7 @@ import MatchChatPanel from '#/components/chat/MatchChatPanel'
 import UserAvatar from '#/components/UserAvatar'
 import { Button } from '#/components/ui/button'
 import { cn } from '#/lib/utils'
+import { seo } from '#/lib/seo'
 import { chatNameColor, usernameColor } from '#/lib/username-color'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import type { DragData, DropData } from '#/components/game/DragDrop'
@@ -34,6 +35,14 @@ import type {
 } from '#/lib/game'
 
 export const Route = createFileRoute('/game/$matchId')({
+  // No canonical: a match URL is private to its players and gone once
+  // the game ends, so there is nothing here worth indexing
+  head: () =>
+    seo({
+      title: 'Match',
+      description: 'A Kalooki match in progress.',
+      noindex: true,
+    }),
   beforeLoad: () => {
     if (!getStoredToken()) {
       throw redirect({ to: '/signin' })
@@ -1358,6 +1367,25 @@ function RoundEndOverlay({
     view.players.find((player) => player.userId === userId)?.username ??
     `Player ${userId}`
 
+  /**
+   * A player's name in their chosen chat colour, matching how it reads
+   * at the seats, and falling back to the deterministic hashed colour.
+   */
+  const coloredName = (userId: number) => {
+    const player = view.players.find((seat) => seat.userId === userId)
+    return (
+      <span
+        style={{
+          color: chatNameColor(
+            player?.chatColor ?? usernameColor(usernameOf(userId)),
+          ),
+        }}
+      >
+        {usernameOf(userId)}
+      </span>
+    )
+  }
+
   const roundTitle =
     latest && latest.winnerUserId !== null
       ? `${usernameOf(latest.winnerUserId)} won round ${latest.roundNumber}${
@@ -1401,7 +1429,7 @@ function RoundEndOverlay({
                 return (
                   <tr key={userId} className="border-t border-border">
                     <td className="py-1">
-                      {usernameOf(userId)}
+                      {coloredName(userId)}
                       {latest.winnerUserId === userId && (
                         <span className="ml-1 text-xs text-muted-foreground">
                           {latest.calledKalooki ? '(kalooki!)' : '(called up)'}
@@ -1439,7 +1467,8 @@ function RoundEndOverlay({
                     player.userId === view.winnerUserId && 'font-semibold',
                   )}
                 >
-                  {player.username}: {formatChips(player.chips)} chips
+                  {coloredName(player.userId)}: {formatChips(player.chips)}{' '}
+                  chips
                 </li>
               ))}
             </ul>

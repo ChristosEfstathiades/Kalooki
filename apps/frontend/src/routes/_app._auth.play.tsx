@@ -13,6 +13,7 @@ import {
 } from '#/lib/game'
 import { getSocket } from '#/lib/socket'
 import { useSiteFlags } from '#/lib/site'
+import { seo } from '#/lib/seo'
 import FriendsDialog from '#/components/social/FriendsDialog'
 import GroupsDialog from '#/components/social/GroupsDialog'
 import ChatSidebar from '#/components/chat/ChatSidebar'
@@ -22,6 +23,14 @@ import { cn } from '#/lib/utils'
 import type { BotDifficulty, QueueStatus } from '#/lib/game'
 
 export const Route = createFileRoute('/_app/_auth/play')({
+  head: () =>
+    seo({
+      title: 'Play',
+      description:
+        'Join the queue for a public Kalooki match, start a private game with friends, or practise against bots.',
+      path: '/play',
+      noindex: true,
+    }),
   component: PlayPage,
 })
 

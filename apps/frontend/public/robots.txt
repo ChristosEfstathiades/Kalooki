@@ -1,3 +1,16 @@
 # https://www.robotstxt.org/robotstxt.html
+
 User-agent: *
-Disallow:
+Allow: /
+
+# Behind the signin guard: a crawler only ever gets the redirect to
+# signin, so there is no page here for it to index. These also carry a
+# noindex meta tag for anything that reaches them another way.
+Disallow: /play
+Disallow: /leaderboard
+Disallow: /history
+Disallow: /settings
+Disallow: /signin
+Disallow: /game/
+
+Sitemap: https://kalookionline.com/sitemap.xml

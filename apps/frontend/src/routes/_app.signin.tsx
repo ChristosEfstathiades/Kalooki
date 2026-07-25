@@ -13,8 +13,19 @@ import TextField from '#/components/TextField'
 import FormErrors from '#/components/FormErrors'
 import { Button } from '#/components/ui/button'
 import { Label } from '#/components/ui/label'
+import { seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/_app/signin')({
+  // Kept out of the index: a signin form is thin content that competes
+  // with the pages we actually want ranking for the brand
+  head: () =>
+    seo({
+      title: 'Sign in',
+      description:
+        'Sign in to KalookiOnline to play public matches, start a private game with friends, and pick up your match history.',
+      path: '/signin',
+      noindex: true,
+    }),
   beforeLoad: () => {
     if (getStoredToken()) {
       throw redirect({ to: '/play' })

@@ -1,7 +1,19 @@
 import { createFileRoute } from '@tanstack/react-router'
 import ContentPage, { ContentSection } from '#/components/ContentPage'
+import { breadcrumbStructuredData, seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/_app/contact')({
+  head: () =>
+    seo({
+      title: 'Contact and support',
+      description:
+        'Get help with your KalookiOnline account, report a bug, or send us feedback. We aim to reply within two working days.',
+      keywords: ['kalooki support', 'contact kalookionline', 'report a bug'],
+      path: '/contact',
+      structuredData: [
+        breadcrumbStructuredData([{ name: 'Contact', path: '/contact' }]),
+      ],
+    }),
   component: ContactPage,
 })
 

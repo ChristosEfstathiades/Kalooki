@@ -1,11 +1,29 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { MessageSquare, Shuffle, Trophy, Users } from 'lucide-react'
 import { getStoredToken } from '#/lib/auth-token'
+import { gameStructuredData, seo } from '#/lib/seo'
 import AnnouncementBanner from '#/components/AnnouncementBanner'
 import Footer from '#/components/Footer'
 import { Button } from '#/components/ui/button'
 
 export const Route = createFileRoute('/')({
+  head: () =>
+    seo({
+      title: 'Play Kalooki online free',
+      description:
+        'Play Kalooki online free and in real time. Join a public match against other players, or start a private game with friends under your own rules.',
+      keywords: [
+        'play kalooki online',
+        'kalooki online free',
+        'free kalooki game',
+        'kalooki card game',
+        'play kaluki online',
+        'jamaican kalooki',
+        'kalooki 40',
+      ],
+      path: '/',
+      structuredData: [gameStructuredData()],
+    }),
   beforeLoad: () => {
     // Signed-in players skip the marketing page and go straight to play
     if (getStoredToken()) {

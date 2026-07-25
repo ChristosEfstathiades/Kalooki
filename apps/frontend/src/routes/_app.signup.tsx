@@ -13,8 +13,24 @@ import { useSiteFlags } from '#/lib/site'
 import TextField from '#/components/TextField'
 import FormErrors from '#/components/FormErrors'
 import { Button } from '#/components/ui/button'
+import { breadcrumbStructuredData, seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/_app/signup')({
+  head: () =>
+    seo({
+      title: 'Create a free account',
+      description:
+        'Sign up free to play Kalooki online: public matches against other players, private games with friends, group chat, and your full match history.',
+      keywords: [
+        'kalooki sign up',
+        'free kalooki account',
+        'play kalooki with friends',
+      ],
+      path: '/signup',
+      structuredData: [
+        breadcrumbStructuredData([{ name: 'Sign up', path: '/signup' }]),
+      ],
+    }),
   beforeLoad: () => {
     if (getStoredToken()) {
       throw redirect({ to: '/play' })

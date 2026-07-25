@@ -1,7 +1,26 @@
 import { createFileRoute } from '@tanstack/react-router'
 import ContentPage, { ContentSection } from '#/components/ContentPage'
+import { breadcrumbStructuredData, seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/_app/tips')({
+  head: () =>
+    seo({
+      title: 'Kalooki tips and strategy',
+      description:
+        'Kalooki strategy that wins games: reading the discard pile, knowing when to come down, holding jokers back, and counting the cards your opponents need.',
+      keywords: [
+        'kalooki tips',
+        'kalooki strategy',
+        'how to win at kalooki',
+        'kaluki tips',
+        'rummy strategy',
+      ],
+      path: '/tips',
+      type: 'article',
+      structuredData: [
+        breadcrumbStructuredData([{ name: 'Tips and tricks', path: '/tips' }]),
+      ],
+    }),
   component: TipsPage,
 })
 

@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from '#/components/ui/dialog'
 import { cn } from '#/lib/utils'
+import { seo } from '#/lib/seo'
 import { getStoredTheme, setTheme } from '#/lib/theme'
 import {
   chatNameColor,
@@ -34,6 +35,14 @@ import type { Theme } from '#/lib/theme'
 import type { CurrentUser } from '#/lib/auth'
 
 export const Route = createFileRoute('/_app/_auth/settings')({
+  head: () =>
+    seo({
+      title: 'Settings',
+      description:
+        'Change your username, password, theme, and chat colour, or delete your KalookiOnline account.',
+      path: '/settings',
+      noindex: true,
+    }),
   component: SettingsPage,
 })
 

@@ -8,8 +8,17 @@ import { UNLIMITED_BUY_INS, formatChips } from '#/lib/game'
 import { Button } from '#/components/ui/button'
 import { Label } from '#/components/ui/label'
 import { cn } from '#/lib/utils'
+import { seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/_app/_auth/history')({
+  head: () =>
+    seo({
+      title: 'Match history',
+      description:
+        'Every Kalooki match you have played, with scores, placements, and the rules that were in effect.',
+      path: '/history',
+      noindex: true,
+    }),
   component: HistoryPage,
 })
 

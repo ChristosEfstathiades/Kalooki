@@ -5,8 +5,17 @@ import { api } from '#/lib/api'
 import { currentUserQueryOptions } from '#/lib/auth'
 import UserAvatar from '#/components/UserAvatar'
 import { cn } from '#/lib/utils'
+import { seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/_app/_auth/leaderboard')({
+  head: () =>
+    seo({
+      title: 'Leaderboard',
+      description:
+        'The top 100 Kalooki players by wins, win rate, and longest streak in public matches.',
+      path: '/leaderboard',
+      noindex: true,
+    }),
   component: LeaderboardPage,
 })
 

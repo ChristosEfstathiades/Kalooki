@@ -1,7 +1,21 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import ContentPage, { ContentSection } from '#/components/ContentPage'
+import { breadcrumbStructuredData, seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/_app/privacy')({
+  head: () =>
+    seo({
+      title: 'Privacy policy',
+      description:
+        'What KalookiOnline collects about you, why we store it, how long we keep it, and how to delete your account and its data.',
+      keywords: ['kalookionline privacy policy', 'data protection'],
+      path: '/privacy',
+      structuredData: [
+        breadcrumbStructuredData([
+          { name: 'Privacy policy', path: '/privacy' },
+        ]),
+      ],
+    }),
   component: PrivacyPage,
 })
 

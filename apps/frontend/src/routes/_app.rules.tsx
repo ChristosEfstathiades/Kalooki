@@ -1,7 +1,27 @@
 import { createFileRoute } from '@tanstack/react-router'
 import ContentPage, { ContentSection } from '#/components/ContentPage'
+import { breadcrumbStructuredData, seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/_app/rules')({
+  head: () =>
+    seo({
+      title: 'Kalooki rules and how to play',
+      description:
+        'The full rules of Kalooki: the deal, sets and runs, jokers, coming down on 40 points, calling up, go-ers, and how penalty points are scored each round.',
+      keywords: [
+        'kalooki rules',
+        'how to play kalooki',
+        'kaluki rules',
+        'kalooki scoring',
+        'kalooki 40 rules',
+        'rummy rules',
+      ],
+      path: '/rules',
+      type: 'article',
+      structuredData: [
+        breadcrumbStructuredData([{ name: 'How to play', path: '/rules' }]),
+      ],
+    }),
   component: RulesPage,
 })
 
