@@ -12,6 +12,12 @@ import {
   startPracticeMatch,
 } from '#/lib/game'
 import { getSocket } from '#/lib/socket'
+import {
+  storedNumber,
+  storedObject,
+  storedOption,
+  useStoredState,
+} from '#/lib/preferences'
 import { useSiteFlags } from '#/lib/site'
 import { seo } from '#/lib/seo'
 import FriendsDialog from '#/components/social/FriendsDialog'
@@ -233,17 +239,57 @@ const DIFFICULTY_OPTIONS: { value: BotDifficulty; label: string }[] = [
   { value: 'hard', label: 'Hard' },
 ]
 
+const DIFFICULTY_VALUES = DIFFICULTY_OPTIONS.map((option) => option.value)
+
 const OPPONENT_OPTIONS = [1, 2, 3, 4]
+
+const PRACTICE_SETUP_KEY = 'practice-setup'
+
+interface PracticeSetup {
+  difficulty: BotDifficulty
+  opponents: number
+}
+
+const DEFAULT_PRACTICE_SETUP: PracticeSetup = {
+  difficulty: 'medium',
+  opponents: 2,
+}
+
+/** Validates the remembered practice setup against the options on offer. */
+function parsePracticeSetup(stored: unknown): PracticeSetup | null {
+  const setup = storedObject(stored)
+  if (setup === null) {
+    return null
+  }
+  return {
+    difficulty: storedOption(
+      setup.difficulty,
+      DIFFICULTY_VALUES,
+      DEFAULT_PRACTICE_SETUP.difficulty,
+    ),
+    opponents: storedNumber(
+      setup.opponents,
+      OPPONENT_OPTIONS[0],
+      OPPONENT_OPTIONS[OPPONENT_OPTIONS.length - 1],
+      DEFAULT_PRACTICE_SETUP.opponents,
+    ),
+  }
+}
 
 /**
  * Practice mode: starts a solo match against bots on the classic
  * ruleset. Practice games appear in match history flagged as practice
- * and never count toward leaderboard stats.
+ * and never count toward leaderboard stats. The difficulty and opponent
+ * count carry over to the next visit.
  */
 function PracticeCard() {
   const navigate = useNavigate()
-  const [difficulty, setDifficulty] = useState<BotDifficulty>('medium')
-  const [opponents, setOpponents] = useState(2)
+  const [setup, setSetup] = useStoredState(
+    PRACTICE_SETUP_KEY,
+    DEFAULT_PRACTICE_SETUP,
+    parsePracticeSetup,
+  )
+  const { difficulty, opponents } = setup
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -278,7 +324,9 @@ function PracticeCard() {
           label="Difficulty"
           options={DIFFICULTY_OPTIONS}
           active={difficulty}
-          onSelect={setDifficulty}
+          onSelect={(value) =>
+            setSetup((current) => ({ ...current, difficulty: value }))
+          }
         />
         <SegmentedButtons
           label="Opponents"
@@ -287,7 +335,9 @@ function PracticeCard() {
             label: String(count),
           }))}
           active={String(opponents)}
-          onSelect={(value) => setOpponents(Number(value))}
+          onSelect={(value) =>
+            setSetup((current) => ({ ...current, opponents: Number(value) }))
+          }
         />
       </div>
 

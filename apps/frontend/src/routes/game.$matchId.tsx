@@ -552,7 +552,7 @@ function GamePage() {
             ))}
           </div>
 
-          <div className="relative flex flex-1 flex-col gap-4 rounded-xl bg-felt p-4 shadow-inner">
+          <div className="relative flex flex-1 flex-col justify-between gap-4 rounded-xl bg-felt p-4 shadow-inner">
             {view.paused && (
               <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl bg-black/60">
                 <p className="m-0 text-lg font-semibold text-white">
@@ -560,6 +560,25 @@ function GamePage() {
                 </p>
               </div>
             )}
+
+            <MeldsArea
+              view={view}
+              selectedCardIds={unstagedSelected}
+              cardById={cardById}
+              goerDropActive={goerDropActive}
+              jokerDropActive={jokerDropActive}
+              onGoer={(meldId, cardId, runEnd) =>
+                void act({ type: 'goer', meldId, cardId, runEnd })
+              }
+              onTakeJoker={(meldId, jokerCardId) =>
+                void act({
+                  type: 'takeJoker',
+                  meldId,
+                  jokerCardId,
+                  replacementCardIds: unstagedSelected,
+                })
+              }
+            />
 
             <div className="flex items-start justify-center gap-4 sm:gap-8">
               <PileSlot
@@ -621,25 +640,6 @@ function GamePage() {
                 </DropZone>
               </PileSlot>
             </div>
-
-            <MeldsArea
-              view={view}
-              selectedCardIds={unstagedSelected}
-              cardById={cardById}
-              goerDropActive={goerDropActive}
-              jokerDropActive={jokerDropActive}
-              onGoer={(meldId, cardId, runEnd) =>
-                void act({ type: 'goer', meldId, cardId, runEnd })
-              }
-              onTakeJoker={(meldId, jokerCardId) =>
-                void act({
-                  type: 'takeJoker',
-                  meldId,
-                  jokerCardId,
-                  replacementCardIds: unstagedSelected,
-                })
-              }
-            />
           </div>
 
           <OwnArea
@@ -679,7 +679,15 @@ function GamePage() {
             <CardBack />
           ) : (
             <span className="block rotate-6 drop-shadow-xl">
-              <PlayingCard card={activeDrag.card} />
+              <PlayingCard
+                card={activeDrag.card}
+                // A lifted hand card keeps the size it has in the hand;
+                // the discard top and staged cards are smaller, so they
+                // stay on the default
+                className={
+                  activeDrag.source === 'hand' ? 'h-36 w-[99px]' : undefined
+                }
+              />
             </span>
           )}
         </DragOverlay>
@@ -1218,14 +1226,14 @@ function OwnArea({
         {/* No wrapping: each card is a shrinkable flex cell, so a big
             hand compresses the cards instead of spilling onto a second
             row */}
-        <div className="flex min-h-24 items-center justify-center py-1 [&>*:not(:first-child)]:-ml-[33px]">
+        <div className="flex min-h-36 items-center justify-center py-1 [&>*:not(:first-child)]:-ml-[49.5px]">
           {visibleHand.map((card) => (
             <CardDrag
               key={card.id}
               id={`hand-card-${card.id}`}
               data={{ source: 'hand', card }}
               disabled={!acting}
-              className="min-w-8 basis-[66px]"
+              className="min-w-12 basis-[99px]"
             >
               <PlayingCard
                 card={card}

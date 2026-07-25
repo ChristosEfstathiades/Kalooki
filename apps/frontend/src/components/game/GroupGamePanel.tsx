@@ -9,6 +9,12 @@ import {
   startLobby,
 } from '#/lib/game'
 import { getSocket } from '#/lib/socket'
+import {
+  storedNumber,
+  storedObject,
+  storedOption,
+  useStoredState,
+} from '#/lib/preferences'
 import OpensIn from '#/components/game/OpensIn'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
@@ -47,6 +53,82 @@ const DEFAULT_STAKES: MatchStakesView = {
   call: 1,
 }
 
+const COME_DOWN_OPTIONS = [40, 50]
+const SCORE_LIMIT_OPTIONS = [101, 150]
+const BUY_IN_OPTIONS = [0, 1, 2, 3, UNLIMITED_BUY_INS]
+
+const PRIVATE_SETUP_KEY = 'private-game-setup'
+
+interface PrivateGameSetup {
+  rules: Omit<CustomRulesInput, 'stakes'>
+  playMoney: boolean
+  stakes: MatchStakesView
+}
+
+const DEFAULT_SETUP: PrivateGameSetup = {
+  rules: DEFAULT_RULES,
+  playMoney: false,
+  stakes: DEFAULT_STAKES,
+}
+
+/**
+ * Validates the remembered setup field by field against the ranges the
+ * form allows, so a stored value from an older release (or one the
+ * server would now reject) falls back to the default rather than
+ * pre-filling the form with something unusable.
+ */
+function parsePrivateGameSetup(stored: unknown): PrivateGameSetup | null {
+  const setup = storedObject(stored)
+  if (setup === null) {
+    return null
+  }
+  const rules = storedObject(setup.rules) ?? {}
+  const stakes = storedObject(setup.stakes) ?? {}
+  const stakeAmount = (value: unknown, fallback: number): number =>
+    storedNumber(value, 0, 1000, fallback)
+
+  return {
+    rules: {
+      decks: storedNumber(rules.decks, 2, 4, DEFAULT_RULES.decks),
+      jokers: storedNumber(rules.jokers, 0, 4, DEFAULT_RULES.jokers),
+      comeDownThreshold: storedOption(
+        rules.comeDownThreshold,
+        COME_DOWN_OPTIONS,
+        DEFAULT_RULES.comeDownThreshold,
+      ),
+      scoreLimit: storedOption(
+        rules.scoreLimit,
+        SCORE_LIMIT_OPTIONS,
+        DEFAULT_RULES.scoreLimit,
+      ),
+      moveTimeMinutes: storedNumber(
+        rules.moveTimeMinutes,
+        5,
+        120,
+        DEFAULT_RULES.moveTimeMinutes,
+      ),
+      rejoinMinutes: storedNumber(
+        rules.rejoinMinutes,
+        1,
+        15,
+        DEFAULT_RULES.rejoinMinutes,
+      ),
+      buyInsPerPlayer: storedOption(
+        rules.buyInsPerPlayer,
+        BUY_IN_OPTIONS,
+        DEFAULT_RULES.buyInsPerPlayer,
+      ),
+    },
+    playMoney: setup.playMoney === true,
+    stakes: {
+      stake: stakeAmount(stakes.stake, DEFAULT_STAKES.stake),
+      rebuy: stakeAmount(stakes.rebuy, DEFAULT_STAKES.rebuy),
+      kalooki: stakeAmount(stakes.kalooki, DEFAULT_STAKES.kalooki),
+      call: stakeAmount(stakes.call, DEFAULT_STAKES.call),
+    },
+  }
+}
+
 /**
  * The group's game corner: the owner sets up a private match with
  * custom rules (docs/Kalooki.md), members join the lobby, and the
@@ -60,12 +142,33 @@ export default function GroupGamePanel({
 }: GroupGamePanelProps) {
   const [lobby, setLobby] = useState<LobbyView | null>(null)
   const [showSetup, setShowSetup] = useState(false)
-  const [rules, setRules] =
-    useState<Omit<CustomRulesInput, 'stakes'>>(DEFAULT_RULES)
-  const [playMoney, setPlayMoney] = useState(false)
-  const [stakes, setStakes] = useState<MatchStakesView>(DEFAULT_STAKES)
+  // The rules and stakes the owner last set up carry over to the next
+  // game they create; when the game starts is deliberately not
+  // remembered, so a game is never scheduled by accident
+  const [setup, setSetup] = useStoredState(
+    PRIVATE_SETUP_KEY,
+    DEFAULT_SETUP,
+    parsePrivateGameSetup,
+  )
   const [scheduleHours, setScheduleHours] = useState(0)
   const [error, setError] = useState<string | null>(null)
+
+  const { rules, playMoney, stakes } = setup
+
+  const setRules = (
+    update: (
+      current: Omit<CustomRulesInput, 'stakes'>,
+    ) => Omit<CustomRulesInput, 'stakes'>,
+  ): void =>
+    setSetup((current) => ({ ...current, rules: update(current.rules) }))
+
+  const setStakes = (
+    update: (current: MatchStakesView) => MatchStakesView,
+  ): void =>
+    setSetup((current) => ({ ...current, stakes: update(current.stakes) }))
+
+  const setPlayMoney = (value: boolean): void =>
+    setSetup((current) => ({ ...current, playMoney: value }))
 
   useEffect(() => {
     let cancelled = false
@@ -269,8 +372,12 @@ export default function GroupGamePanel({
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {ruleField('Decks (2-4)', 'decks', 2, 4)}
               {ruleField('Jokers (0-4)', 'jokers', 0, 4)}
-              {ruleSelect('Come down at', 'comeDownThreshold', [40, 50])}
-              {ruleSelect('Score limit', 'scoreLimit', [101, 150])}
+              {ruleSelect(
+                'Come down at',
+                'comeDownThreshold',
+                COME_DOWN_OPTIONS,
+              )}
+              {ruleSelect('Score limit', 'scoreLimit', SCORE_LIMIT_OPTIONS)}
               {ruleField('Move bank (min)', 'moveTimeMinutes', 5, 120)}
               {ruleField('Rejoin (min)', 'rejoinMinutes', 1, 15)}
               <div className="space-y-1">
@@ -325,9 +432,8 @@ export default function GroupGamePanel({
 
             {scheduleHours > 0 && (
               <p className="m-0 text-xs text-muted-foreground">
-                Nobody can join until the game opens; it will be pinned in
-                the group&apos;s chat, and members join once the countdown
-                ends.
+                Nobody can join until the game opens; it will be pinned in the
+                group&apos;s chat, and members join once the countdown ends.
               </p>
             )}
 
@@ -354,8 +460,8 @@ export default function GroupGamePanel({
                     Chips are play money, tallied on the scoresheet. Each round
                     the caller collects the call amount from every other player,
                     or the kalooki amount instead when they lay all 13 cards in
-                    one turn. The winner collects everyone&apos;s stake plus
-                    the cost of their buy-ins.
+                    one turn. The winner collects everyone&apos;s stake plus the
+                    cost of their buy-ins.
                   </p>
                 </>
               )}
