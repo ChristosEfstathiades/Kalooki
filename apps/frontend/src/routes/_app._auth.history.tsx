@@ -56,7 +56,9 @@ const matchesQueryOptions = (filters: MatchFilters) =>
   })
 
 type MatchRecord = NonNullable<
-  Awaited<ReturnType<NonNullable<ReturnType<typeof matchesQueryOptions>['queryFn']>>>
+  Awaited<
+    ReturnType<NonNullable<ReturnType<typeof matchesQueryOptions>['queryFn']>>
+  >
 >[number]
 
 /**
@@ -337,7 +339,20 @@ function MatchDetail({ match }: MatchDetailProps) {
                       )}
                     </td>
                     {match.players.map((player) => (
-                      <td key={player.id} className="py-1">
+                      <td
+                        key={player.id}
+                        // The player who called the round gets a green score
+                        className={cn(
+                          'py-1',
+                          round.winnerUserId === player.id &&
+                            'font-semibold text-score-called',
+                        )}
+                        title={
+                          round.winnerUserId === player.id
+                            ? `${player.username} called this round`
+                            : undefined
+                        }
+                      >
                         {player.id in round.totals ? (
                           <>
                             {round.totals[player.id]}
