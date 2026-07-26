@@ -70,6 +70,24 @@ export function isMuted(user: User): boolean {
 }
 
 /**
+ * How long an account must have existed before it counts as trusted.
+ * A week is the same window Pokémon Showdown uses for "autoconfirmed"
+ * (Developer/Chat-Moderation.md).
+ */
+export const TRUSTED_ACCOUNT_AGE_DAYS = 7
+
+/**
+ * Whether an account has been around long enough to be trusted with the
+ * things a throwaway would abuse — currently posting external links in
+ * public chat. Age is the whole predicate: spam only pays while
+ * accounts are free and instant, and waiting a week is the cost that
+ * removes.
+ */
+export function isTrustedAccount(user: User): boolean {
+  return user.createdAt <= DateTime.now().minus({ days: TRUSTED_ACCOUNT_AGE_DAYS })
+}
+
+/**
  * User-facing explanation of an active mute, for the error returned
  * when a muted user tries to post.
  */

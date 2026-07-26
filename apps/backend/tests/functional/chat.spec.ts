@@ -20,6 +20,7 @@ import {
   startLobby,
 } from '#services/game/match_service'
 import { CLASSIC_RULES } from '#services/game/engine'
+import { TRUSTED_ACCOUNT_AGE_DAYS } from '#services/role_service'
 import testUtils from '@adonisjs/core/services/test_utils'
 import type { ActiveMatch, PlayerIdentity } from '#services/game/match_service'
 
@@ -118,6 +119,31 @@ test.group('Chat messages', (group) => {
     )
   })
 
+  test('group chat allows one message every second', async ({ assert }) => {
+    const alice = await makeUser('rate_limited_group_alice')
+    const sharks = await makeGroup(alice, 'Card Sharks')
+
+    await postChatMessage(alice, { type: 'group', groupId: sharks.id }, 'first')
+    await assert.rejects(
+      () => postChatMessage(alice, { type: 'group', groupId: sharks.id }, 'second'),
+      'You can only send one message every second'
+    )
+  })
+
+  test('the rate limit is per chat, so one group does not throttle another', async ({ assert }) => {
+    const alice = await makeUser('busy_alice')
+    const sharks = await makeGroup(alice, 'Card Sharks')
+    const rovers = await makeGroup(alice, 'Card Rovers')
+
+    await postChatMessage(alice, { type: 'group', groupId: sharks.id }, 'hello sharks')
+    const second = await postChatMessage(
+      alice,
+      { type: 'group', groupId: rovers.id },
+      'hello rovers'
+    )
+    assert.equal(second.body, 'hello rovers')
+  })
+
   test('players are capped at 500 characters, moderators and admins at 1000', async ({
     assert,
   }) => {
@@ -151,6 +177,69 @@ test.group('Chat messages', (group) => {
 
     await deleteExpiredChatMessages()
     assert.isNull(await ChatMessage.find(message.id))
+  })
+})
+
+/**
+ * Backdates an account so it passes the trusted-account age check.
+ */
+async function makeTrustedUser(username: string): Promise<User> {
+  const user = await makeUser(username)
+  user.createdAt = DateTime.now().minus({ days: TRUSTED_ACCOUNT_AGE_DAYS + 1 })
+  await user.save()
+  return user
+}
+
+test.group('Chat links', (group) => {
+  group.each.setup(() => testUtils.db().withGlobalTransaction())
+  group.each.setup(() => resetChatRateLimits())
+
+  test('a new account cannot post external links in the global chatroom', async ({ assert }) => {
+    const alice = await makeUser('fresh_alice')
+
+    await assert.rejects(
+      () => postChatMessage(alice, { type: 'global' }, 'free chips at bit.ly/scam'),
+      `You cannot post links to other sites (bit.ly) until your account is ${TRUSTED_ACCOUNT_AGE_DAYS} days old`
+    )
+  })
+
+  test('a new account can still link to our own site', async ({ assert }) => {
+    const alice = await makeUser('fresh_linker')
+    const message = await postChatMessage(
+      alice,
+      { type: 'global' },
+      'my last game: http://localhost:3000/matches/7'
+    )
+
+    assert.equal(message.body, 'my last game: http://localhost:3000/matches/7')
+  })
+
+  test('an account older than a week can post external links', async ({ assert }) => {
+    const alice = await makeTrustedUser('settled_alice')
+    const message = await postChatMessage(alice, { type: 'global' }, 'the rules: bit.ly/kalooki')
+
+    assert.equal(message.body, 'the rules: bit.ly/kalooki')
+  })
+
+  test('staff can post external links from a new account', async ({ assert }) => {
+    const mod = await makeUser('fresh_mod')
+    mod.role = 'moderator'
+    await mod.save()
+
+    const message = await postChatMessage(mod, { type: 'global' }, 'notice: bit.ly/kalooki')
+    assert.equal(message.body, 'notice: bit.ly/kalooki')
+  })
+
+  test('private group chats accept links from anyone', async ({ assert }) => {
+    const alice = await makeUser('fresh_group_alice')
+    const sharks = await makeGroup(alice, 'Card Sharks')
+
+    const message = await postChatMessage(
+      alice,
+      { type: 'group', groupId: sharks.id },
+      'deck reviews here: bit.ly/decks'
+    )
+    assert.equal(message.body, 'deck reviews here: bit.ly/decks')
   })
 })
 

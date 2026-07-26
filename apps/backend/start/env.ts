@@ -25,6 +25,10 @@ export default await Env.create(new URL('../', import.meta.url), {
   // Session
   SESSION_DRIVER: Env.schema.enum(['cookie', 'memory', 'database'] as const),
 
+  // Chat: comma-separated hosts a chat link may point at (our own site).
+  // Defaults to the APP_URL host when unset — see #services/link_filter
+  CHAT_LINK_ALLOWED_HOSTS: Env.schema.string.optional(),
+
   // Database: SQLite by default; set DB_CONNECTION=pg (plus the PG_*
   // variables) in production
   DB_CONNECTION: Env.schema.enum.optional(['sqlite', 'pg'] as const),

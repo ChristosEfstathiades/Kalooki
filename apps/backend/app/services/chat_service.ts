@@ -2,15 +2,23 @@ import { DateTime } from 'luxon'
 import ChatMessage from '#models/chat_message'
 import type User from '#models/user'
 import { censorMessage } from '#services/profanity_filter'
+import { findDisallowedLinks } from '#services/link_filter'
 import { isGroupMember } from '#services/group_service'
-import { hasAtLeastRole, isMuted, muteNotice } from '#services/role_service'
+import {
+  TRUSTED_ACCOUNT_AGE_DAYS,
+  hasAtLeastRole,
+  isMuted,
+  isTrustedAccount,
+  muteNotice,
+} from '#services/role_service'
 import { getMatch } from '#services/game/match_service'
 import { Exception } from '@adonisjs/core/exceptions'
 
 /**
- * Chat rules from docs/features.md: one message every second in the
- * global chatroom and in-game chats, messages kept for 30 days,
- * blocked words masked.
+ * Chat rules from docs/features.md: one message every second in every
+ * chat, messages kept for 30 days, blocked words masked. The limit is
+ * per scope, so a group chat and the global room do not share a
+ * budget.
  */
 export const CHAT_RATE_LIMIT_MS = 1000
 export const MESSAGE_RETENTION_DAYS = 30
@@ -103,6 +111,27 @@ export function resetChatRateLimits(): void {
 }
 
 /**
+ * How many entries `lastMessageAt` may hold before a write sweeps the
+ * expired ones. Keys are per user per scope (and every match id is its
+ * own scope), so without this the map would grow for the life of the
+ * process. Sweeping on a threshold rather than on every message keeps
+ * the common path O(1).
+ */
+const RATE_LIMIT_SWEEP_THRESHOLD = 1000
+
+/**
+ * Drops entries whose window has already passed. They can only ever
+ * allow the next message, so forgetting them changes no behaviour.
+ */
+function sweepExpiredRateLimits(now: number): void {
+  for (const [key, at] of lastMessageAt) {
+    if (now - at >= CHAT_RATE_LIMIT_MS) {
+      lastMessageAt.delete(key)
+    }
+  }
+}
+
+/**
  * Enforces one message per user every second within a scope.
  *
  * @throws Exception (429) when the user posted too recently.
@@ -117,7 +146,40 @@ function enforceRateLimit(scope: string, userId: number): void {
       code: 'E_CHAT_RATE_LIMITED',
     })
   }
+  if (lastMessageAt.size >= RATE_LIMIT_SWEEP_THRESHOLD) {
+    sweepExpiredRateLimits(now)
+  }
   lastMessageAt.set(key, now)
+}
+
+/**
+ * Enforces the link rules from Developer/Chat-Moderation.md.
+ *
+ * Public chat (the global room and a game's table chat) may carry links
+ * to our own site from anyone, so match history and replay links work,
+ * but external links only from staff and from accounts old enough to be
+ * trusted. That is the anti-throwaway measure: link spam is worth doing
+ * only while a fresh account is free and instant.
+ *
+ * Private group chats are exempt entirely — they are invite-only, and
+ * moderation deliberately never reaches into them (docs/features.md).
+ *
+ * @throws Exception (403) naming the hosts that are not allowed.
+ */
+function assertLinksAllowed(user: User, channel: ChatChannel, body: string): void {
+  if (channel.type === 'group' || hasAtLeastRole(user, 'moderator') || isTrustedAccount(user)) {
+    return
+  }
+
+  const disallowed = findDisallowedLinks(body)
+  if (disallowed.length === 0) {
+    return
+  }
+
+  throw new Exception(
+    `You cannot post links to other sites (${disallowed.join(', ')}) until your account is ${TRUSTED_ACCOUNT_AGE_DAYS} days old`,
+    { status: 403, code: 'E_LINKS_NOT_ALLOWED' }
+  )
 }
 
 /**
@@ -137,8 +199,9 @@ function retentionCutoffSql(): string {
  * the stored message with its author preloaded.
  *
  * @throws Exception with a user-facing message when the body is
- *   invalid, the user is not a member of the group, or the global
- *   rate limit is hit.
+ *   invalid, the user is muted, the user is not a member of the group,
+ *   the message links somewhere they may not link to, or the rate
+ *   limit is hit.
  */
 export async function postChatMessage(
   user: User,
@@ -162,10 +225,13 @@ export async function postChatMessage(
     throw new Exception(muteNotice(user), { status: 403, code: 'E_USER_MUTED' })
   }
 
+  assertLinksAllowed(user, channel, body)
+
   if (channel.type === 'group') {
     if (!(await isGroupMember(channel.groupId, user.id))) {
       throw new Exception('Group not found', { status: 404, code: 'E_GROUP_NOT_FOUND' })
     }
+    enforceRateLimit(`group:${channel.groupId}`, user.id)
   } else if (channel.type === 'match') {
     assertMatchChatAccess(channel.matchId, user.id)
     enforceRateLimit(channel.matchId, user.id)
