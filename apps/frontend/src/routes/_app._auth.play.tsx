@@ -4,7 +4,9 @@ import { useQuery } from '@tanstack/react-query'
 import { Bot, Clock, Trophy, Users, UsersRound } from 'lucide-react'
 import {
   friendRequestsQueryOptions,
+  friendsQueryOptions,
   groupInvitesQueryOptions,
+  groupsQueryOptions,
 } from '#/lib/social'
 import {
   joinPublicQueue,
@@ -24,9 +26,24 @@ import FriendsDialog from '#/components/social/FriendsDialog'
 import GroupsDialog from '#/components/social/GroupsDialog'
 import ChatSidebar from '#/components/chat/ChatSidebar'
 import NewsCard from '#/components/NewsCard'
+import RecordCard from '#/components/RecordCard'
 import { Button } from '#/components/ui/button'
 import { cn } from '#/lib/utils'
 import type { BotDifficulty, QueueStatus } from '#/lib/game'
+
+interface PlaySearch {
+  /**
+   * Set when arriving straight from a finished public match, so the
+   * player rejoins the queue without a second click.
+   */
+  queue?: boolean
+  /**
+   * Set when arriving from a finished private match, to reopen the
+   * group that hosted it. Groups live in a dialog rather than on a
+   * route of their own, so the link carries the id here.
+   */
+  group?: number
+}
 
 export const Route = createFileRoute('/_app/_auth/play')({
   head: () =>
@@ -37,6 +54,19 @@ export const Route = createFileRoute('/_app/_auth/play')({
       path: '/play',
       noindex: true,
     }),
+  // Each key is omitted rather than given a falsy value when absent, so
+  // every other link to the lobby stays a plain /play
+  validateSearch: (search: Record<string, unknown>): PlaySearch => {
+    const parsed: PlaySearch = {}
+    if (search.queue === true || search.queue === 'true') {
+      parsed.queue = true
+    }
+    const group = Number(search.group)
+    if (Number.isInteger(group) && group > 0) {
+      parsed.group = group
+    }
+    return parsed
+  },
   component: PlayPage,
 })
 
@@ -60,6 +90,14 @@ function CountBadge({ count }: CountBadgeProps) {
 }
 
 /**
+ * Appends the count to a social button's label, e.g. "Friends (5)". An
+ * empty list reads as a plain label rather than "(0)".
+ */
+function labelWithCount(label: string, count: number): string {
+  return count > 0 ? `${label} (${count})` : label
+}
+
+/**
  * Logged-in home: match actions and social shortcuts on the left, chat
  * sidebar with the news box below it on the right
  * (docs/Frontend-design.md).
@@ -70,10 +108,29 @@ function PlayPage() {
   )
   const requests = useQuery(friendRequestsQueryOptions)
   const invites = useQuery(groupInvitesQueryOptions)
+  const friends = useQuery(friendsQueryOptions)
+  const groups = useQuery(groupsQueryOptions)
   const flags = useSiteFlags()
+  const navigate = useNavigate()
+  const { group: groupToOpen } = Route.useSearch()
+  const [initialGroupId, setInitialGroupId] = useState<number | null>(null)
 
   const incomingRequestCount = requests.data?.incoming.length ?? 0
   const inviteCount = invites.data?.length ?? 0
+  const friendCount = friends.data?.length ?? 0
+  const groupCount = groups.data?.length ?? 0
+
+  // Returning from a private match: open that group straight away. The
+  // id is dropped from the URL so closing and reopening the dialog
+  // lands on the group list as usual.
+  useEffect(() => {
+    if (groupToOpen === undefined) {
+      return
+    }
+    setInitialGroupId(groupToOpen)
+    setOpenDialog('groups')
+    void navigate({ to: '/play', search: {}, replace: true })
+  }, [groupToOpen, navigate])
 
   return (
     <div className="page-wrap grid gap-6 py-8 lg:grid-cols-[1fr_320px]">
@@ -88,7 +145,7 @@ function PlayPage() {
             onClick={() => setOpenDialog('friends')}
           >
             <Users aria-hidden="true" />
-            Friends
+            {labelWithCount('Friends', friendCount)}
             <CountBadge count={incomingRequestCount} />
           </Button>
           <Button
@@ -97,7 +154,7 @@ function PlayPage() {
             onClick={() => setOpenDialog('groups')}
           >
             <UsersRound aria-hidden="true" />
-            Groups
+            {labelWithCount('Groups', groupCount)}
             <CountBadge count={inviteCount} />
           </Button>
           <Button asChild variant="secondary" className="justify-start">
@@ -113,6 +170,8 @@ function PlayPage() {
             </Link>
           </Button>
         </div>
+
+        <RecordCard />
       </section>
 
       <div className="space-y-6">
@@ -126,7 +185,13 @@ function PlayPage() {
       />
       <GroupsDialog
         open={openDialog === 'groups'}
-        onOpenChange={(open) => setOpenDialog(open ? 'groups' : null)}
+        initialGroupId={initialGroupId}
+        onOpenChange={(open) => {
+          setOpenDialog(open ? 'groups' : null)
+          if (!open) {
+            setInitialGroupId(null)
+          }
+        }}
       />
     </div>
   )
@@ -141,6 +206,8 @@ function MatchmakingCard() {
   const [status, setStatus] = useState<QueueStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { publicMatchmakingEnabled } = useSiteFlags()
+  const navigate = useNavigate()
+  const { queue: requeueOnArrival } = Route.useSearch()
   // Epoch ms the match starts at, so the countdown ticks between updates
   const [startsAt, setStartsAt] = useState<number | null>(null)
   const [nowMs, setNowMs] = useState<number>(Date.now())
@@ -178,10 +245,14 @@ function MatchmakingCard() {
   const secondsLeft =
     startsAt !== null ? Math.max(0, Math.ceil((startsAt - nowMs) / 1000)) : null
 
-  const toggleQueue = async () => {
+  /**
+   * Joins or leaves the queue, surfacing the server's message when the
+   * call is refused.
+   */
+  const runQueueAction = async (action: () => Promise<QueueStatus>) => {
     setError(null)
     try {
-      applyStatus(inQueue ? await leavePublicQueue() : await joinPublicQueue())
+      applyStatus(await action())
     } catch (queueError) {
       setError(
         queueError instanceof Error
@@ -190,6 +261,16 @@ function MatchmakingCard() {
       )
     }
   }
+
+  // Arriving straight from a finished public match. The flag is dropped
+  // from the URL first, so refreshing the lobby does not queue again.
+  useEffect(() => {
+    if (requeueOnArrival !== true || !publicMatchmakingEnabled) {
+      return
+    }
+    void navigate({ to: '/play', search: {}, replace: true })
+    void runQueueAction(joinPublicQueue)
+  }, [requeueOnArrival, publicMatchmakingEnabled, navigate])
 
   return (
     <div className="rounded-lg border border-border bg-card p-6">
@@ -207,7 +288,9 @@ function MatchmakingCard() {
         }
         variant={inQueue ? 'secondary' : 'default'}
         disabled={!publicMatchmakingEnabled && !inQueue}
-        onClick={() => void toggleQueue()}
+        onClick={() =>
+          void runQueueAction(inQueue ? leavePublicQueue : joinPublicQueue)
+        }
       >
         {inQueue ? 'Leave queue' : 'Find public match'}
       </Button>

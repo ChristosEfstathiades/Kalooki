@@ -192,6 +192,12 @@ const routes = {
     tokens: [{"old":"/api/v1/leaderboard","type":0,"val":"api","end":""},{"old":"/api/v1/leaderboard","type":0,"val":"v1","end":""},{"old":"/api/v1/leaderboard","type":0,"val":"leaderboard","end":""}],
     types: placeholder as Registry['social.leaderboard.index']['types'],
   },
+  'social.player_record.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/record',
+    tokens: [{"old":"/api/v1/record","type":0,"val":"api","end":""},{"old":"/api/v1/record","type":0,"val":"v1","end":""},{"old":"/api/v1/record","type":0,"val":"record","end":""}],
+    types: placeholder as Registry['social.player_record.show']['types'],
+  },
   'moderation.moderation.show_user': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/moderation/users/:userId',

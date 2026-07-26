@@ -41,7 +41,8 @@ export type LeaderboardEntry = ReturnType<typeof publicUserShape> & {
   avgPlayersPerMatch: number
 }
 
-interface EligiblePlayer {
+/** A player with enough completed public matches to be ranked. */
+export interface EligiblePlayer {
   userId: number
   gamesPlayed: number
   wins: number
@@ -61,8 +62,10 @@ interface PlayerTotals {
 
 /**
  * Rounds to a fixed number of decimals so serialized stats stay tidy.
+ * Exported so a single player's record rounds identically to the board,
+ * and the same win rate can never render two different ways.
  */
-function roundTo(value: number, decimals: number): number {
+export function roundTo(value: number, decimals: number): number {
   const factor = 10 ** decimals
   return Math.round(value * factor) / factor
 }
@@ -102,6 +105,32 @@ async function eligiblePlayers(): Promise<EligiblePlayer[]> {
         b.wins - a.wins ||
         a.userId - b.userId
     )
+}
+
+let cachedEligible: { players: EligiblePlayer[]; computedAt: number } | null = null
+let eligibleInFlight: Promise<EligiblePlayer[]> | null = null
+
+/**
+ * Every ranked player in board order, served from cache while it is
+ * fresh. The board is built from this list and a single player's record
+ * reads their position out of it, so the two share one scan of the
+ * match table rather than each running their own.
+ */
+export async function getEligiblePlayers(): Promise<EligiblePlayer[]> {
+  if (cachedEligible && Date.now() - cachedEligible.computedAt < LEADERBOARD_CACHE_MS) {
+    return cachedEligible.players
+  }
+  if (!eligibleInFlight) {
+    eligibleInFlight = eligiblePlayers()
+      .then((players) => {
+        cachedEligible = { players, computedAt: Date.now() }
+        return players
+      })
+      .finally(() => {
+        eligibleInFlight = null
+      })
+  }
+  return eligibleInFlight
 }
 
 /**
@@ -212,7 +241,7 @@ async function totalsForRankedPlayers(userIds: number[]): Promise<Map<number, Pl
  * Prefer getLeaderboard, which caches this.
  */
 export async function computeLeaderboard(): Promise<LeaderboardEntry[]> {
-  const eligible = await eligiblePlayers()
+  const eligible = await getEligiblePlayers()
   const ranked = eligible.slice(0, LEADERBOARD_SIZE)
   if (ranked.length === 0) {
     return []
@@ -281,4 +310,5 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
  */
 export function invalidateLeaderboard(): void {
   cached = null
+  cachedEligible = null
 }

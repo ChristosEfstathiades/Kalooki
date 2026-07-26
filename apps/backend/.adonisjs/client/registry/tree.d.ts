@@ -70,6 +70,9 @@ export interface ApiDefinition {
     leaderboard: {
       index: typeof routes['social.leaderboard.index']
     }
+    playerRecord: {
+      show: typeof routes['social.player_record.show']
+    }
   }
   moderation: {
     moderation: {

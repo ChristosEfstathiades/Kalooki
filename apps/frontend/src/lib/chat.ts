@@ -17,6 +17,15 @@ export type ChatChannel =
   | { type: 'group'; groupId: number }
   | { type: 'match'; matchId: string }
 
+/**
+ * Longest message a player may post, and the longer cap moderators and
+ * admins get. Both mirror `#services/chat_service` on the backend,
+ * which enforces them; see `maxChatMessageLength` in `#/lib/moderation`
+ * for the limit that applies to a given user.
+ */
+export const MAX_MESSAGE_LENGTH = 500
+export const MAX_STAFF_MESSAGE_LENGTH = 1000
+
 export interface ChatMessageItem {
   id: number
   body: string

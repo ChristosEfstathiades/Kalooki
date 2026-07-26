@@ -379,6 +379,18 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/leaderboard_controller').default['index']>>>
     }
   }
+  'social.player_record.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/record'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/player_record_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/player_record_controller').default['show']>>>
+    }
+  }
   'moderation.moderation.show_user': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/moderation/users/:userId'

@@ -2,7 +2,11 @@ import { useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '#/lib/api'
 import { getSocket } from '#/lib/socket'
-import { chatQueryKey } from '#/lib/chat'
+import {
+  MAX_MESSAGE_LENGTH,
+  MAX_STAFF_MESSAGE_LENGTH,
+  chatQueryKey,
+} from '#/lib/chat'
 import type { ChatChannel, ChatMessageItem } from '#/lib/chat'
 import type { CurrentUser } from '#/lib/auth'
 
@@ -26,7 +30,9 @@ const ROLE_RANK: Record<UserRole, number> = {
  * since the roles are hierarchical.
  */
 export function isModerator(user: CurrentUser | null | undefined): boolean {
-  return user ? ROLE_RANK[normalizeRole(user.role)] >= ROLE_RANK.moderator : false
+  return user
+    ? ROLE_RANK[normalizeRole(user.role)] >= ROLE_RANK.moderator
+    : false
 }
 
 /**
@@ -35,6 +41,18 @@ export function isModerator(user: CurrentUser | null | undefined): boolean {
  */
 function normalizeRole(role: string): UserRole {
   return role in ROLE_RANK ? (role as UserRole) : 'player'
+}
+
+/**
+ * The longest chat message the signed-in user may post. Moderators and
+ * admins get the longer staff cap; the server enforces the same rule,
+ * so this only keeps the input from letting them type a message that
+ * would be rejected.
+ */
+export function maxChatMessageLength(
+  user: CurrentUser | null | undefined,
+): number {
+  return isModerator(user) ? MAX_STAFF_MESSAGE_LENGTH : MAX_MESSAGE_LENGTH
 }
 
 /**
@@ -50,16 +68,19 @@ export function canModerate(
   if (!actor || actor.id === targetId) {
     return false
   }
-  return ROLE_RANK[normalizeRole(actor.role)] > ROLE_RANK[normalizeRole(targetRole)]
+  return (
+    ROLE_RANK[normalizeRole(actor.role)] > ROLE_RANK[normalizeRole(targetRole)]
+  )
 }
 
 /** Mute lengths offered in the UI. Null is a permanent mute. */
-export const MUTE_DURATIONS: Array<{ label: string; minutes: number | null }> = [
-  { label: '1 hour', minutes: 60 },
-  { label: '24 hours', minutes: 60 * 24 },
-  { label: '7 days', minutes: 60 * 24 * 7 },
-  { label: 'Permanent', minutes: null },
-]
+export const MUTE_DURATIONS: Array<{ label: string; minutes: number | null }> =
+  [
+    { label: '1 hour', minutes: 60 },
+    { label: '24 hours', minutes: 60 * 24 },
+    { label: '7 days', minutes: 60 * 24 * 7 },
+    { label: 'Permanent', minutes: null },
+  ]
 
 /**
  * Deletes a chat message. The server broadcasts the removal, so the

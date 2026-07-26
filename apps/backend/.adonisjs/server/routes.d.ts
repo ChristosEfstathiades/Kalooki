@@ -35,6 +35,7 @@ export type ScannedRoutes = {
     'social.chat_messages.report': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'social.matches.index': { paramsTuple?: []; params?: {} }
     'social.leaderboard.index': { paramsTuple?: []; params?: {} }
+    'social.player_record.show': { paramsTuple?: []; params?: {} }
     'moderation.moderation.show_user': { paramsTuple: [ParamValue]; params: {'userId': ParamValue} }
     'moderation.moderation.destroy_message': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'moderation.moderation.ban': { paramsTuple: [ParamValue]; params: {'userId': ParamValue} }
@@ -80,6 +81,7 @@ export type ScannedRoutes = {
     'social.chat_messages.match': { paramsTuple: [ParamValue]; params: {'matchId': ParamValue} }
     'social.matches.index': { paramsTuple?: []; params?: {} }
     'social.leaderboard.index': { paramsTuple?: []; params?: {} }
+    'social.player_record.show': { paramsTuple?: []; params?: {} }
     'moderation.moderation.show_user': { paramsTuple: [ParamValue]; params: {'userId': ParamValue} }
     'admin.admin.list_users': { paramsTuple?: []; params?: {} }
     'admin.admin.show_user': { paramsTuple: [ParamValue]; params: {'userId': ParamValue} }
@@ -107,6 +109,7 @@ export type ScannedRoutes = {
     'social.chat_messages.match': { paramsTuple: [ParamValue]; params: {'matchId': ParamValue} }
     'social.matches.index': { paramsTuple?: []; params?: {} }
     'social.leaderboard.index': { paramsTuple?: []; params?: {} }
+    'social.player_record.show': { paramsTuple?: []; params?: {} }
     'moderation.moderation.show_user': { paramsTuple: [ParamValue]; params: {'userId': ParamValue} }
     'admin.admin.list_users': { paramsTuple?: []; params?: {} }
     'admin.admin.show_user': { paramsTuple: [ParamValue]; params: {'userId': ParamValue} }

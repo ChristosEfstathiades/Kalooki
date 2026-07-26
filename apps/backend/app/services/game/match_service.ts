@@ -125,6 +125,10 @@ export interface MatchEmitter {
 export interface ClientGameView {
   matchId: string
   kind: MatchKind
+  /** The group a private match belongs to; null for other kinds. */
+  groupId: number | null
+  /** Difficulty of every bot in a practice match; null without bots. */
+  botDifficulty: BotDifficulty | null
   rules: GameRules
   phase: GameState['phase']
   roundNumber: number
@@ -1420,6 +1424,8 @@ export function redactedView(match: ActiveMatch, viewerUserId: number): ClientGa
   return {
     matchId: match.id,
     kind: match.kind,
+    groupId: match.groupId,
+    botDifficulty: match.botDifficulty,
     rules: match.rules,
     phase: state.phase,
     roundNumber: state.roundNumber,

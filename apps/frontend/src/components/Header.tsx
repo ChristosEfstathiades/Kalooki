@@ -7,10 +7,10 @@ import OnlineCount from '#/components/OnlineCount'
 import { Button } from '#/components/ui/button'
 
 /**
- * Site header: wordmark and the live online-player count on the left,
- * the signed-in user's identity and a link to settings on the right.
- * Shown on every page except the welcome and gameplay pages
- * (docs/Frontend-design.md).
+ * Site header: wordmark, the live online-player count and the two
+ * learn-the-game pages on the left, the signed-in user's identity and a
+ * link to settings on the right. Shown on every page except the welcome
+ * and gameplay pages (docs/Frontend-design.md).
  */
 export default function Header() {
   const { data: user } = useQuery(currentUserQueryOptions)
@@ -23,6 +23,24 @@ export default function Header() {
             Kalooki<span className="text-button-red">Online</span>
           </Link>
           <OnlineCount className="hidden sm:flex" />
+          {/* The online count hides on the narrowest screens; these stay,
+              since they are the way in for someone still learning */}
+          <nav className="flex items-center gap-4 text-sm">
+            <Link
+              to="/rules"
+              className="text-muted-foreground hover:text-foreground"
+              activeProps={{ className: 'text-foreground' }}
+            >
+              How to play
+            </Link>
+            <Link
+              to="/tips"
+              className="text-muted-foreground hover:text-foreground"
+              activeProps={{ className: 'text-foreground' }}
+            >
+              Tips
+            </Link>
+          </nav>
         </div>
 
         {user ? (

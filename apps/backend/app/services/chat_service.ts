@@ -3,7 +3,7 @@ import ChatMessage from '#models/chat_message'
 import type User from '#models/user'
 import { censorMessage } from '#services/profanity_filter'
 import { isGroupMember } from '#services/group_service'
-import { isMuted, muteNotice } from '#services/role_service'
+import { hasAtLeastRole, isMuted, muteNotice } from '#services/role_service'
 import { getMatch } from '#services/game/match_service'
 import { Exception } from '@adonisjs/core/exceptions'
 
@@ -15,6 +15,20 @@ import { Exception } from '@adonisjs/core/exceptions'
 export const CHAT_RATE_LIMIT_MS = 1000
 export const MESSAGE_RETENTION_DAYS = 30
 export const MAX_MESSAGE_LENGTH = 500
+
+/**
+ * Moderators and admins get a longer cap than players so they can post
+ * announcements and explain a moderation decision in one message.
+ * The `chat_messages.body` column is sized for this longer limit.
+ */
+export const MAX_STAFF_MESSAGE_LENGTH = 1000
+
+/**
+ * The longest message the given user may post.
+ */
+export function maxMessageLengthFor(user: User): number {
+  return hasAtLeastRole(user, 'moderator') ? MAX_STAFF_MESSAGE_LENGTH : MAX_MESSAGE_LENGTH
+}
 
 /**
  * Fixed palette a user can pick their chat name colour from (settings
@@ -135,8 +149,9 @@ export async function postChatMessage(
   if (body === '') {
     throw new Exception('Message cannot be empty', { status: 422, code: 'E_EMPTY_MESSAGE' })
   }
-  if (body.length > MAX_MESSAGE_LENGTH) {
-    throw new Exception(`Messages are limited to ${MAX_MESSAGE_LENGTH} characters`, {
+  const lengthLimit = maxMessageLengthFor(user)
+  if (body.length > lengthLimit) {
+    throw new Exception(`Messages are limited to ${lengthLimit} characters`, {
       status: 422,
       code: 'E_MESSAGE_TOO_LONG',
     })

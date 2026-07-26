@@ -3,6 +3,7 @@ import { queryOptions, useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { api } from '#/lib/api'
 import { currentUserQueryOptions } from '#/lib/auth'
+import { formatPercent } from '#/lib/stats'
 import UserAvatar from '#/components/UserAvatar'
 import { cn } from '#/lib/utils'
 import { seo } from '#/lib/seo'
@@ -79,9 +80,7 @@ function LeaderboardPage() {
                 <th className="px-4 py-3 text-right font-medium">
                   Avg pts / round
                 </th>
-                <th className="px-4 py-3 text-right font-medium">
-                  Rounds won
-                </th>
+                <th className="px-4 py-3 text-right font-medium">Rounds won</th>
                 <th className="px-4 py-3 text-right font-medium">
                   Avg players
                 </th>
@@ -134,9 +133,7 @@ function LeaderboardRow({ entry, isCurrentUser }: LeaderboardRowProps) {
       <td className="px-4 py-2 text-right tabular-nums">
         {formatPercent(entry.winRate)}
       </td>
-      <td className="px-4 py-2 text-right tabular-nums">
-        {entry.gamesPlayed}
-      </td>
+      <td className="px-4 py-2 text-right tabular-nums">{entry.gamesPlayed}</td>
       <td className="px-4 py-2 text-right tabular-nums">{entry.wins}</td>
       <td className="px-4 py-2 text-right tabular-nums">
         {entry.longestWinStreak}
@@ -152,12 +149,4 @@ function LeaderboardRow({ entry, isCurrentUser }: LeaderboardRowProps) {
       </td>
     </tr>
   )
-}
-
-/**
- * 0.6 → "60%", 0.3333 → "33.3%".
- */
-function formatPercent(rate: number): string {
-  const percent = rate * 100
-  return `${Number.isInteger(percent) ? percent : percent.toFixed(1)}%`
 }

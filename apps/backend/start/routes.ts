@@ -81,6 +81,7 @@ router
 
         router.get('matches', [controllers.Matches, 'index'])
         router.get('leaderboard', [controllers.Leaderboard, 'index'])
+        router.get('record', [controllers.PlayerRecord, 'show'])
       })
       .as('social')
       .use([middleware.auth(), apiThrottle])

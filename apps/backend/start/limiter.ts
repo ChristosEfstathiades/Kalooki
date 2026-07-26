@@ -22,6 +22,7 @@ export const FAILED_LOGIN_RATE_LIMIT = {
   duration: '15 mins',
   blockDuration: '15 mins',
 } as const
+export const GROUP_CREATION_RATE_LIMIT = { requests: 4, duration: '1 hour' } as const
 
 /**
  * Strict per-IP throttle shared by the unauthenticated auth endpoints
@@ -62,4 +63,15 @@ export const apiThrottle = limiter.define('api', (ctx) => {
  */
 export function failedLoginAttemptsLimiter(): Limiter {
   return limiter.use(FAILED_LOGIN_RATE_LIMIT)
+}
+
+/**
+ * Per-account cap on how many private groups can be created in an hour
+ * (docs/features.md), tighter than the global API ceiling because each
+ * group is a lasting row with a chat of its own. Consumed in
+ * GroupsController rather than as route middleware, so only a request
+ * that gets as far as creating a group spends a slot.
+ */
+export function groupCreationLimiter(): Limiter {
+  return limiter.use(GROUP_CREATION_RATE_LIMIT)
 }

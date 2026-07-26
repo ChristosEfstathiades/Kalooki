@@ -1,11 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, createFileRoute, redirect } from '@tanstack/react-router'
+import {
+  Link,
+  createFileRoute,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { DndContext, DragOverlay } from '@dnd-kit/core'
+import { UserPlus } from 'lucide-react'
 import { currentUserQueryOptions } from '#/lib/auth'
 import { getStoredToken } from '#/lib/auth-token'
 import { getSocket } from '#/lib/socket'
-import { fetchGameView, formatChips, sendGameAction } from '#/lib/game'
+import {
+  fetchGameView,
+  formatChips,
+  sendGameAction,
+  startPracticeMatch,
+} from '#/lib/game'
+import {
+  friendRequestsQueryOptions,
+  friendsQueryOptions,
+  useSendFriendRequest,
+} from '#/lib/social'
 import { useTurnTitleAlert } from '#/lib/use-turn-title'
 import PlayingCard, { CardBack } from '#/components/game/PlayingCard'
 import StagingArea from '#/components/game/StagingArea'
@@ -1357,6 +1373,10 @@ function RoundEndOverlay({
   onBuyIn,
   onDismiss,
 }: RoundEndOverlayProps) {
+  const { data: friends } = useQuery(friendsQueryOptions)
+  const { data: friendRequests } = useQuery(friendRequestsQueryOptions)
+  const [feedback, setFeedback] = useState<string | null>(null)
+
   // A match can finish before any round completes (e.g. a quit in
   // round 1), so there may be no result rows yet
   const latest: RoundResultView | undefined = view.roundResults.at(-1)
@@ -1365,6 +1385,20 @@ function RoundEndOverlay({
   const winnerName = view.players.find(
     (player) => player.userId === view.winnerUserId,
   )?.username
+
+  // No point offering a friend request to yourself, to a bot, or to
+  // anyone already connected or mid-request in either direction
+  const noRequestNeededIds = new Set<number>([
+    currentUserId,
+    ...(friends ?? []).map((friend) => friend.id),
+    ...(friendRequests?.outgoing ?? []).map((request) => request.recipient.id),
+    ...(friendRequests?.incoming ?? []).map((request) => request.sender.id),
+  ])
+  const canAddFriend = (player: GamePlayerView | undefined): boolean =>
+    finished &&
+    player !== undefined &&
+    !player.isBot &&
+    !noRequestNeededIds.has(player.userId)
 
   const stakes = view.rules.stakes
   const winnerChips = view.players.find(
@@ -1394,6 +1428,13 @@ function RoundEndOverlay({
     )
   }
 
+  // A round popup lists the players that round scored. The final
+  // scoresheet lists everyone who played, so someone knocked out before
+  // the last round is still there to be added as a friend.
+  const rowUserIds = finished
+    ? view.players.map((player) => player.userId)
+    : Object.keys(latest?.totals ?? {}).map(Number)
+
   const roundTitle =
     latest && latest.winnerUserId !== null
       ? `${usernameOf(latest.winnerUserId)} won round ${latest.roundNumber}${
@@ -1421,7 +1462,7 @@ function RoundEndOverlay({
               : 'Game over'
             : roundTitle}
         </h2>
-        {latest && (
+        {rowUserIds.length > 0 && (
           <table className="mt-4 w-full text-sm">
             <thead>
               <tr className="text-left text-muted-foreground">
@@ -1432,23 +1473,42 @@ function RoundEndOverlay({
               </tr>
             </thead>
             <tbody>
-              {Object.keys(latest.totals).map((userIdKey) => {
-                const userId = Number(userIdKey)
+              {rowUserIds.map((userId) => {
+                const player = view.players.find(
+                  (seat) => seat.userId === userId,
+                )
+                // Undefined for a player eliminated before this round:
+                // they scored nothing in it, but still hold a total
+                const penalty = latest?.penalties[userId]
+                const total = latest?.totals[userId] ?? player?.score ?? 0
+
                 return (
                   <tr key={userId} className="border-t border-border">
                     <td className="py-1">
                       {coloredName(userId)}
-                      {latest.winnerUserId === userId && (
+                      {latest?.winnerUserId === userId && (
                         <span className="ml-1 text-xs text-muted-foreground">
                           {latest.calledKalooki ? '(kalooki!)' : '(called up)'}
                         </span>
                       )}
+                      {canAddFriend(player) && player && (
+                        <AddOpponentButton
+                          username={player.username}
+                          onDone={setFeedback}
+                        />
+                      )}
                     </td>
-                    <td className="py-1">+{latest.penalties[userId] ?? 0}</td>
-                    <td className="py-1">{latest.totals[userId]}</td>
+                    <td className="py-1">
+                      {penalty === undefined ? (
+                        <span className="text-muted-foreground">out</span>
+                      ) : (
+                        `+${penalty}`
+                      )}
+                    </td>
+                    <td className="py-1">{total}</td>
                     {stakes && (
                       <td className="py-1">
-                        {formatChips(latest.chips[userId] ?? 0)}
+                        {formatChips(latest?.chips[userId] ?? 0)}
                       </td>
                     )}
                   </tr>
@@ -1456,6 +1516,10 @@ function RoundEndOverlay({
               })}
             </tbody>
           </table>
+        )}
+
+        {feedback && (
+          <p className="mt-3 mb-0 text-xs text-muted-foreground">{feedback}</p>
         )}
 
         {finished && stakes && (
@@ -1515,14 +1579,118 @@ function RoundEndOverlay({
           </p>
         )}
 
-        {finished && (
-          <div className="mt-4">
-            <Button asChild>
-              <Link to="/play">Back to the lobby</Link>
-            </Button>
-          </div>
-        )}
+        {finished && <FinishedActions view={view} />}
       </div>
+    </div>
+  )
+}
+
+interface AddOpponentButtonProps {
+  username: string
+  onDone: (message: string) => void
+}
+
+/**
+ * Sends a friend request to someone you have just played, from the
+ * final scoresheet. The outcome is reported back to the dialog rather
+ * than shown inline, so the table keeps its shape either way. The
+ * button disappears once the request lands, because the pending request
+ * puts the player out of scope for another.
+ */
+function AddOpponentButton({ username, onDone }: AddOpponentButtonProps) {
+  const sendFriendRequest = useSendFriendRequest()
+
+  const send = async () => {
+    try {
+      await sendFriendRequest.mutateAsync(username)
+      onDone(`Friend request sent to ${username}`)
+    } catch (error) {
+      onDone(error instanceof Error ? error.message : 'Something went wrong')
+    }
+  }
+
+  return (
+    <Button
+      size="xs"
+      variant="ghost"
+      className="ml-1 align-middle"
+      title={`Send ${username} a friend request`}
+      aria-label={`Send ${username} a friend request`}
+      disabled={sendFriendRequest.isPending}
+      onClick={() => void send()}
+    >
+      <UserPlus aria-hidden="true" className="size-3.5" />
+    </Button>
+  )
+}
+
+interface FinishedActionsProps {
+  view: GameView
+}
+
+/**
+ * What to do next once the game is over, matched to the kind of match
+ * just played: back into the public queue, another hand against the
+ * same bots, or back to the group that hosted the private game. Without
+ * these the highest point of interest in a session is spent on a link
+ * to an empty lobby.
+ */
+function FinishedActions({ view }: FinishedActionsProps) {
+  const navigate = useNavigate()
+  const [starting, setStarting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const botOpponents = view.players.filter((player) => player.isBot).length
+
+  /** Deals a fresh practice match on the setup just played. */
+  const playAgain = async () => {
+    setError(null)
+    setStarting(true)
+    try {
+      const { matchId } = await startPracticeMatch(
+        view.botDifficulty ?? 'medium',
+        botOpponents,
+      )
+      void navigate({ to: '/game/$matchId', params: { matchId } })
+    } catch (startError) {
+      setError(
+        startError instanceof Error
+          ? startError.message
+          : 'Something went wrong',
+      )
+      setStarting(false)
+    }
+  }
+
+  return (
+    <div className="mt-4">
+      <div className="flex flex-wrap gap-2">
+        {view.kind === 'public' && (
+          <Button asChild>
+            <Link to="/play" search={{ queue: true }}>
+              Find another match
+            </Link>
+          </Button>
+        )}
+        {view.kind === 'practice' && botOpponents > 0 && (
+          <Button disabled={starting} onClick={() => void playAgain()}>
+            {starting ? 'Dealing…' : 'Play again'}
+          </Button>
+        )}
+        {view.kind === 'private' && view.groupId !== null && (
+          <Button asChild>
+            <Link to="/play" search={{ group: view.groupId }}>
+              Back to the group
+            </Link>
+          </Button>
+        )}
+        <Button asChild variant="secondary">
+          <Link to="/play">Back to the lobby</Link>
+        </Button>
+      </div>
+      {error && (
+        <p className="mt-2 mb-0 text-xs text-destructive-foreground">{error}</p>
+      )}
     </div>
   )
 }

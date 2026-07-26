@@ -88,6 +88,10 @@ export type BotDifficulty = 'easy' | 'medium' | 'hard'
 export interface GameView {
   matchId: string
   kind: MatchKind
+  /** The group a private match belongs to; null for other kinds. */
+  groupId: number | null
+  /** Difficulty of every bot in a practice match; null without bots. */
+  botDifficulty: BotDifficulty | null
   rules: GameRulesView
   phase: 'awaitingDraw' | 'acting' | 'roundEnd' | 'finished'
   roundNumber: number
@@ -192,9 +196,7 @@ function call<T>(event: string, payload: unknown): Promise<T> {
       .timeout(10000)
       .emit(event, payload, (timeoutError: Error | null, ack: Ack<T>) => {
         if (timeoutError) {
-          reject(
-            new Error('The server did not respond, check your connection'),
-          )
+          reject(new Error('The server did not respond, check your connection'))
         } else if (!ack.ok) {
           reject(new Error(ack.error ?? 'Something went wrong'))
         } else {

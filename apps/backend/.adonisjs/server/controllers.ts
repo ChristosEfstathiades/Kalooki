@@ -23,6 +23,7 @@ export const controllers = {
   Matches: () => import('#controllers/matches_controller'),
   Moderation: () => import('#controllers/moderation_controller'),
   NewAccount: () => import('#controllers/new_account_controller'),
+  PlayerRecord: () => import('#controllers/player_record_controller'),
   Presence: () => import('#controllers/presence_controller'),
   Profile: () => import('#controllers/profile_controller'),
   Site: () => import('#controllers/site_controller'),

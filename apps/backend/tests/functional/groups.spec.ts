@@ -4,6 +4,8 @@ import Group from '#models/group'
 import GroupMember from '#models/group_member'
 import { createFriendship } from '#services/friendship_service'
 import { MAX_GROUP_MEMBERS } from '#services/group_service'
+import { GROUP_CREATION_RATE_LIMIT } from '#start/limiter'
+import limiter from '@adonisjs/limiter/services/main'
 import testUtils from '@adonisjs/core/services/test_utils'
 
 /**
@@ -39,6 +41,10 @@ function dataOf<T>(response: { body: () => unknown }): T {
 test.group('Groups', (group) => {
   group.each.setup(() => testUtils.db().withGlobalTransaction())
 
+  // Rolled-back transactions reuse user ids while the limiter's memory
+  // store lives on, so hourly quotas would leak between tests.
+  group.each.setup(() => limiter.use(GROUP_CREATION_RATE_LIMIT).clear())
+
   test('creating a group makes the creator owner and first member', async ({ client, assert }) => {
     const alice = await makeUser('alice')
 
@@ -56,6 +62,40 @@ test.group('Groups', (group) => {
 
     const list = await client.get('/api/v1/groups').loginAs(alice)
     assert.equal(dataOf<{ groups: { memberCount: number }[] }>(list).groups[0].memberCount, 1)
+  })
+
+  test('creating groups is capped at four an hour per account', async ({ client }) => {
+    const alice = await makeUser('alice')
+
+    for (let attempt = 0; attempt < GROUP_CREATION_RATE_LIMIT.requests; attempt++) {
+      const allowed = await client
+        .post('/api/v1/groups')
+        .json({ name: `Group ${attempt}` })
+        .loginAs(alice)
+      allowed.assertStatus(200)
+    }
+
+    const blocked = await client
+      .post('/api/v1/groups')
+      .json({ name: 'One too many' })
+      .loginAs(alice)
+    blocked.assertStatus(429)
+  })
+
+  test('a rejected group name does not spend an hourly slot', async ({ client }) => {
+    const alice = await makeUser('alice')
+    await makeGroup(alice, 'Taken Name')
+
+    for (let attempt = 0; attempt <= GROUP_CREATION_RATE_LIMIT.requests; attempt++) {
+      const rejected = await client
+        .post('/api/v1/groups')
+        .json({ name: 'Taken Name' })
+        .loginAs(alice)
+      rejected.assertStatus(422)
+    }
+
+    const allowed = await client.post('/api/v1/groups').json({ name: 'A free name' }).loginAs(alice)
+    allowed.assertStatus(200)
   })
 
   test('only members can view a group', async ({ client }) => {

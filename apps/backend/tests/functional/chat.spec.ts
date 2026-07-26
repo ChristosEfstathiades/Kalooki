@@ -118,6 +118,28 @@ test.group('Chat messages', (group) => {
     )
   })
 
+  test('players are capped at 500 characters, moderators and admins at 1000', async ({
+    assert,
+  }) => {
+    const alice = await makeUser('long_winded_alice')
+    const mod = await makeUser('long_winded_mod')
+    mod.role = 'moderator'
+    await mod.save()
+
+    await assert.rejects(
+      () => postChatMessage(alice, { type: 'global' }, 'a'.repeat(501)),
+      'Messages are limited to 500 characters'
+    )
+
+    const staffMessage = await postChatMessage(mod, { type: 'global' }, 'b'.repeat(1000))
+    assert.lengthOf(staffMessage.body, 1000)
+
+    await assert.rejects(
+      () => postChatMessage(mod, { type: 'global' }, 'b'.repeat(1001)),
+      'Messages are limited to 1000 characters'
+    )
+  })
+
   test('messages expire after 30 days', async ({ assert }) => {
     const alice = await makeUser('alice')
     const message = await postChatMessage(alice, { type: 'global' }, 'ancient history')

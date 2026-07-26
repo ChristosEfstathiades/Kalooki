@@ -2,10 +2,12 @@ import Group from '#models/group'
 import GroupMember from '#models/group_member'
 import { createGroupValidator, transferOwnershipValidator } from '#validators/group'
 import { groupIdsOf, isGroupMember } from '#services/group_service'
+import { GROUP_CREATION_RATE_LIMIT, groupCreationLimiter } from '#start/limiter'
 import GroupTransformer from '#transformers/group_transformer'
 import GroupDetailTransformer from '#transformers/group_detail_transformer'
 import db from '@adonisjs/lucid/services/db'
 import { Exception } from '@adonisjs/core/exceptions'
+import { errors as limiterErrors } from '@adonisjs/limiter'
 import type { HttpContext } from '@adonisjs/core/http'
 
 export default class GroupsController {
@@ -30,12 +32,26 @@ export default class GroupsController {
 
   /**
    * Creates a private group with the user as owner and first member.
+   * Capped at GROUP_CREATION_RATE_LIMIT groups an hour per account.
    */
   async store({ auth, request, serialize }: HttpContext) {
     const user = auth.getUserOrFail()
     const { name } = await request.validateUsing(createGroupValidator, {
       meta: { ownerId: user.id },
     })
+
+    // Consumed after validation, so a name that was rejected (taken,
+    // too short) never costs the user one of their hourly slots.
+    try {
+      await groupCreationLimiter().consume(`group_create_${user.id}`)
+    } catch (error) {
+      if (error instanceof limiterErrors.E_TOO_MANY_REQUESTS) {
+        throw error.setMessage(
+          `You can only create ${GROUP_CREATION_RATE_LIMIT.requests} groups an hour. Please try again later.`
+        )
+      }
+      throw error
+    }
 
     const group = await db.transaction(async (trx) => {
       const created = await Group.create({ name, ownerId: user.id }, { client: trx })

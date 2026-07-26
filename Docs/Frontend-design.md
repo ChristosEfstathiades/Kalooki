@@ -40,6 +40,8 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 
 - Users should be redirected to this page if they are logged in
 - Left hand side of the page contains button to find public match and below that is buttons to send friend requests and to view friends list and to see match history and the leaderboard. friends list should be a popup modal.
+- below those buttons sits the user's own record card: games played, wins and win rate across completed public matches, then either a progress bar toward leaderboard eligibility or their rank once they have it (see features.md, Your Record). It sits under the leaderboard button rather than above the fold, so the ways to start a game keep the top of the page.
+- arriving with `?queue` joins the public queue on load, and `?group=<id>` opens that group's dialog; both are cleared from the URL once applied, so a refresh does not repeat them. They back the end-of-game actions on the gameplay page.
 - right hand side contains a sidebar where users can select to show global public chat or one of their private group chats
 - below the chat sidebar is a news box for site announcements; its messages come from the static `public/news.json` file in the frontend (edit or swap that file to change what's shown — no code change needed)
 
@@ -59,6 +61,7 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 - a chat button in the table header toggles a side panel with the table chat, which only the game's players can read and type in; the panel shows "chat closed" once the game ends (see features.md, In-Game Chat)
 - two sort buttons under the hand order it by rank (highest to lowest) or by suit. a card drawn or picked up mid-turn stays unsorted at the right of the hand until the turn ends with it still in hand, or until a sort button is pressed again
 - when a round ends, a popup titled with the round winner shows the scoresheet (each player's points gained and running total) for 5 seconds, then closes on its own; it stays open while buy-in decisions are pending or when the game is over
+- the final scoresheet lists everyone who played rather than only the players the last round scored, marking anyone knocked out earlier as "out" in the round column, and carries an add-friend icon button beside each opponent still worth adding. Under the table it offers the next game (requeue, play the bots again, or back to the group) beside "back to the lobby" (see features.md, Game Modes)
 
 ## Rules page
 
@@ -82,7 +85,7 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 ## header
 
 - on all pages except the gameplay and welcome.
-- left hand side contains logo of the website which is yet to be made, "KalookiOnline" for now, followed by a small live "N players online" count with a green dot (hidden on the narrowest screens)
+- left hand side contains logo of the website which is yet to be made, "KalookiOnline" for now, followed by a small live "N players online" count with a green dot (hidden on the narrowest screens), then links to the how to play (rules) and tips pages. They are also in the footer, but a player still learning the game should not have to reach the bottom of the page to find them, so they are repeated here and stay on the narrowest screens even though the online count does not. The current page's link is shown in the full foreground colour.
 - right hand side Contains the username and a cog icon that takes user to settings page
 
 ## footer

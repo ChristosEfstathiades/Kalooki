@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, MoreVertical } from 'lucide-react'
 import { currentUserQueryOptions, extractApiErrors } from '#/lib/auth'
@@ -37,6 +37,8 @@ import type { PublicUser } from '#/lib/social'
 
 interface GroupsDialogProps {
   open: boolean
+  /** Group to open on rather than the list, e.g. after a private match. */
+  initialGroupId?: number | null
   onOpenChange: (open: boolean) => void
 }
 
@@ -46,9 +48,20 @@ interface GroupsDialogProps {
  */
 export default function GroupsDialog({
   open,
+  initialGroupId = null,
   onOpenChange,
 }: GroupsDialogProps) {
-  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null)
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(
+    initialGroupId,
+  )
+
+  // A caller can name the group to open while the dialog is already
+  // mounted, so the initial state alone is not enough to honour it.
+  useEffect(() => {
+    if (initialGroupId !== null) {
+      setSelectedGroupId(initialGroupId)
+    }
+  }, [initialGroupId])
 
   return (
     <Dialog

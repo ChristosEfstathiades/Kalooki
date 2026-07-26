@@ -18,6 +18,7 @@ import {
 import {
   canModerate,
   isModerator,
+  maxChatMessageLength,
   useChatModerationUpdates,
 } from '#/lib/moderation'
 import LobbyPinnedBanner from '#/components/game/LobbyPinnedBanner'
@@ -321,7 +322,7 @@ export function ChatConversation({ channel }: ChatConversationProps) {
             }}
             placeholder="Send a message"
             aria-label="Send a message"
-            maxLength={500}
+            maxLength={maxChatMessageLength(currentUser)}
           />
           <Button type="submit" disabled={draft.trim() === ''}>
             Send
@@ -363,7 +364,10 @@ function StaffBadge({ role }: StaffBadgeProps) {
  * Explains an active mute in the chat box, including when it lifts and
  * the reason a moderator recorded.
  */
-function muteNotice(mutedUntil: string | null, muteReason: string | null): string {
+function muteNotice(
+  mutedUntil: string | null,
+  muteReason: string | null,
+): string {
   const until =
     mutedUntil === null
       ? 'You are muted and cannot post in chat.'
