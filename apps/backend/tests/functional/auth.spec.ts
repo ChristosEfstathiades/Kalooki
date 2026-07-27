@@ -95,6 +95,28 @@ test.group('Auth signup', (group) => {
       response.assertStatus(422)
     })
 
+  test('rejects usernames containing profanity')
+    .with([{ username: 'xXfuckXx' }, { username: 'n1gg3r' }, { username: 'BigCock69' }])
+    .run(async ({ client }, row) => {
+      const response = await client.post('/api/v1/auth/signup').json({
+        ...validSignupPayload(),
+        username: row.username,
+      })
+
+      response.assertStatus(422)
+    })
+
+  test('rejects reserved usernames')
+    .with([{ username: 'admin' }, { username: 'M0der4t0r' }, { username: 'KalookiAdmin' }])
+    .run(async ({ client }, row) => {
+      const response = await client.post('/api/v1/auth/signup').json({
+        ...validSignupPayload(),
+        username: row.username,
+      })
+
+      response.assertStatus(422)
+    })
+
   test('stores the email trimmed and lowercased', async ({ client, assert }) => {
     const response = await client.post('/api/v1/auth/signup').json({
       ...validSignupPayload(),
@@ -266,6 +288,18 @@ test.group('Profile update', (group) => {
       .patch('/api/v1/account/profile')
       .bearerToken(token)
       .json({ username: 'SOMEONE_ELSE' })
+
+    response.assertStatus(422)
+  })
+
+  test('rejects a rename to a username containing profanity', async ({ client }) => {
+    const signup = await client.post('/api/v1/auth/signup').json(validSignupPayload())
+    const token = tokenFrom(signup.body())
+
+    const response = await client
+      .patch('/api/v1/account/profile')
+      .bearerToken(token)
+      .json({ username: 'xXfuckXx' })
 
     response.assertStatus(422)
   })

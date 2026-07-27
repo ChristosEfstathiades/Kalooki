@@ -3,8 +3,11 @@
  * the message is still posted, with particular emphasis on preventing
  * racial abuse. This is a starter wordlist — extend it (or replace it
  * with a maintained list/service) as moderation needs grow.
+ *
+ * Exported because `#services/username_filter` matches the same list
+ * with different rules, so a word added here is caught in both places.
  */
-const BLOCKED_WORDS = [
+export const BLOCKED_WORDS = [
   // General profanity
   'fuck',
   'fucking',

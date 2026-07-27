@@ -1,5 +1,7 @@
 import vine from '@vinejs/vine'
+import type { FieldContext } from '@vinejs/vine/types'
 import { CHAT_USERNAME_COLORS } from '#services/chat_service'
+import { findBlockedWordInUsername, isReservedUsername } from '#services/username_filter'
 
 /**
  * Shared rule for email fields. Trims surrounding whitespace (mobile
@@ -20,7 +22,38 @@ const password = () =>
     .regex(/^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).*$/)
 
 /**
- * Shared rule for usernames: 3-20 characters, letters/digits/underscores.
+ * Rejects names that impersonate the site or its staff, then names
+ * carrying profanity or a slur (see `#services/username_filter`). The
+ * two are reported separately because they are different mistakes:
+ * someone typing "admin" should be told the name is taken by the site,
+ * not that it is offensive.
+ *
+ * Neither message names what matched. For profanity that is deliberate:
+ * describing the rule to whoever tripped it is how you get a name that
+ * evades it on the next attempt.
+ */
+const allowedUsername = vine.createRule(
+  (value: unknown, _options: undefined, field: FieldContext) => {
+    if (!field.isValid || typeof value !== 'string') {
+      return
+    }
+
+    if (isReservedUsername(value)) {
+      field.report('This username is reserved. Please choose another', 'reservedUsername', field)
+      return
+    }
+
+    if (findBlockedWordInUsername(value) !== null) {
+      field.report('This username is not allowed. Please choose another', 'blockedUsername', field)
+    }
+  }
+)
+
+/**
+ * Shared rule for usernames: 3-20 characters, letters/digits/underscores,
+ * no profanity, and not reserved. Applying the filter here covers renames
+ * through the profile as well as signup, so it cannot be sidestepped by
+ * signing up clean and changing the name afterwards.
  */
 const username = () =>
   vine
@@ -28,6 +61,7 @@ const username = () =>
     .minLength(3)
     .maxLength(20)
     .regex(/^[A-Za-z0-9_]+$/)
+    .use(allowedUsername())
 
 /**
  * Validator to use when performing self-signup
