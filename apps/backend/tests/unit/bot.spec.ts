@@ -9,6 +9,7 @@ import {
   drawFromDeck,
   layMelds,
   returnDiscard,
+  startNextRound,
   takeDiscard,
   takeJoker,
 } from '#services/game/engine'
@@ -96,10 +97,10 @@ function applySimAction(state: GameState, userId: number, action: GameAction, rn
       takeJoker(state, userId, action)
       return
     case 'discard':
-      discard(state, userId, action.cardId, rng)
+      discard(state, userId, action.cardId)
       return
     case 'buyIn':
-      decideBuyIn(state, userId, action.accept, rng)
+      decideBuyIn(state, userId, action.accept)
       return
     default:
       throw new Error(`Bots should never choose action "${action.type}"`)
@@ -119,6 +120,12 @@ function playFullGame(difficulty: BotDifficulty, seed: number): GameState {
   for (let step = 0; step < 30_000; step++) {
     if (state.phase === 'finished') {
       return state
+    }
+    // Rounds no longer deal themselves: the sim stands in for the
+    // match service's between-rounds intermission
+    if (state.phase === 'roundEnd' && state.pendingBuyIns.length === 0) {
+      startNextRound(state, rng)
+      continue
     }
     const actor =
       state.phase === 'roundEnd'

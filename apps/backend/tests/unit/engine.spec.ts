@@ -14,6 +14,7 @@ import {
   removePlayer,
   returnDiscard,
   returnJoker,
+  startNextRound,
   takeDiscard,
   takeJoker,
 } from '#services/game/engine'
@@ -100,7 +101,7 @@ test.group('Engine — setup and turns', () => {
     const state = makeGame(3)
     const current = state.players[state.currentPlayerIndex].userId
     const drawn = drawFromDeck(state, current, rng)
-    discard(state, current, drawn.id, rng)
+    discard(state, current, drawn.id)
 
     assert.equal(state.phase, 'awaitingDraw')
     assert.notEqual(state.players[state.currentPlayerIndex].userId, current)
@@ -213,15 +214,17 @@ test.group('Engine — the discard pile', () => {
     assert.equal(playerState(state, userId).pendingDiscardCardId, kingOnPile.id)
 
     // Discarding before tabling the taken card is blocked
-    assert.throws(() => discard(state, userId, hand[5].id, rng), /must be tabled/)
+    assert.throws(() => discard(state, userId, hand[5].id), /must be tabled/)
 
     // Using it in the come-down clears the obligation
     layMelds(state, userId, [
       [hand[0].id, hand[1].id, kingOnPile.id],
       [hand[2].id, hand[3].id, hand[4].id],
     ])
-    discard(state, userId, hand[5].id, rng)
-    assert.equal(state.phase, 'awaitingDraw')
+    discard(state, userId, hand[5].id)
+    // That discard emptied the hand, so the round is scored and waiting
+    // on the intermission rather than back in play
+    assert.equal(state.phase, 'roundEnd')
   })
 
   test('a taken discard cannot be used as a go-er', ({ assert }) => {
@@ -234,7 +237,7 @@ test.group('Engine — the discard pile', () => {
       [hand[3].id, hand[4].id, hand[5].id],
     ])
     // Keeps a card in hand so the discard does not end the round
-    discard(state, userId, hand[6].id, rng)
+    discard(state, userId, hand[6].id)
 
     // Other player takes that discard; it may not be placed as a go-er
     const otherId = state.players[state.currentPlayerIndex].userId
@@ -314,12 +317,13 @@ test.group('Engine — jokers', () => {
     assert.lengthOf(state.melds[0].cards, 4)
 
     // Discarding with the joker still in hand is blocked
-    assert.throws(() => discard(state, userId, two.id, rng), /joker you took must be tabled/)
+    assert.throws(() => discard(state, userId, two.id), /joker you took must be tabled/)
 
     // Table it in a new set (9-9-joker group), then discard
     layMelds(state, userId, [[nineH.id, nineC.id, tabledJoker.id]])
-    discard(state, userId, two.id, rng)
-    assert.equal(state.phase, 'awaitingDraw')
+    discard(state, userId, two.id)
+    // The discard was the last card, so this ends the round
+    assert.equal(state.phase, 'roundEnd')
   })
 
   test('a taken joker can be returned to its set so the turn is not stuck', ({ assert }) => {
@@ -359,7 +363,7 @@ test.group('Engine — jokers', () => {
     assert.equal(player.pendingJokerCardId, tabledJoker.id)
     // With the joker still in hand and no set to table it in, discarding
     // is blocked — the player would be stuck without a way back
-    assert.throws(() => discard(state, userId, two.id, rng), /joker you took must be tabled/)
+    assert.throws(() => discard(state, userId, two.id), /joker you took must be tabled/)
 
     returnJoker(state, userId)
 
@@ -375,7 +379,7 @@ test.group('Engine — jokers', () => {
     )
     assert.equal(state.phase, 'acting')
 
-    discard(state, userId, two.id, rng)
+    discard(state, userId, two.id)
     assert.equal(state.phase, 'awaitingDraw')
   })
 
@@ -513,7 +517,7 @@ test.group('Engine — scoring, buy-ins, and winning', () => {
     others[0].hand = [card('A', 'hearts'), joker()] // 11 + 15
     others[1].hand = [card(9, 'clubs'), card('J', 'spades')] // 9 + 10
 
-    discard(state, userId, playerState(state, userId).hand[0].id, rng)
+    discard(state, userId, playerState(state, userId).hand[0].id)
 
     assert.lengthOf(state.roundResults, 1)
     const result = state.roundResults[0]
@@ -522,10 +526,36 @@ test.group('Engine — scoring, buy-ins, and winning', () => {
     assert.equal(result.penalties[others[0].userId], 26)
     assert.equal(result.penalties[others[1].userId], 19)
 
-    // Next round dealt automatically
+    // The round is scored but not dealt: the next one waits on the
+    // caller (the match service runs the scoresheet intermission)
+    assert.equal(state.phase, 'roundEnd')
+    assert.equal(state.roundNumber, 1)
+
+    startNextRound(state, rng)
     assert.equal(state.roundNumber, 2)
     assert.equal(state.phase, 'awaitingDraw')
     assert.lengthOf(playerState(state, userId).hand, 13)
+  })
+
+  test('the next round refuses to deal while a buy-in is outstanding', ({ assert }) => {
+    const state = makeGame(3)
+    const userId = state.players[state.currentPlayerIndex].userId
+    const others = state.players.filter((player) => player.userId !== userId)
+
+    others[0].score = 140
+    others[0].hand = [card('A', 'hearts')] // 151 → bust
+    others[1].score = 100
+    others[1].hand = [card(5, 'hearts')]
+    setTurn(state, userId, [card(2, 'hearts')])
+    discard(state, userId, playerState(state, userId).hand[0].id)
+
+    assert.throws(() => startNextRound(state, rng), 'Buy-in decisions are still outstanding')
+    assert.equal(state.roundNumber, 1)
+  })
+
+  test('the next round refuses to deal mid-round', ({ assert }) => {
+    const state = makeGame(3)
+    assert.throws(() => startNextRound(state, rng), 'No round is waiting to be dealt')
   })
 
   test('busting the limit with 3+ players offers a buy-in at the highest surviving score', ({
@@ -541,15 +571,20 @@ test.group('Engine — scoring, buy-ins, and winning', () => {
     others[1].hand = [card(5, 'hearts')] // 105
     setTurn(state, userId, [card(2, 'hearts')])
 
-    discard(state, userId, playerState(state, userId).hand[0].id, rng)
+    discard(state, userId, playerState(state, userId).hand[0].id)
 
     assert.equal(state.phase, 'roundEnd')
     assert.deepEqual(state.pendingBuyIns, [others[0].userId])
 
-    decideBuyIn(state, others[0].userId, true, rng)
+    decideBuyIn(state, others[0].userId, true)
     assert.equal(others[0].score, 105)
     assert.equal(others[0].buyInsUsed, 1)
     assert.isFalse(others[0].eliminated)
+
+    // The decision clears the way for the deal without triggering it
+    assert.equal(state.phase, 'roundEnd')
+    assert.lengthOf(state.pendingBuyIns, 0)
+    startNextRound(state, rng)
     assert.equal(state.phase, 'awaitingDraw')
   })
 
@@ -565,7 +600,7 @@ test.group('Engine — scoring, buy-ins, and winning', () => {
     others[1].hand = [card(5, 'hearts')]
     setTurn(state, userId, [card(2, 'hearts')])
 
-    discard(state, userId, playerState(state, userId).hand[0].id, rng)
+    discard(state, userId, playerState(state, userId).hand[0].id)
 
     assert.isTrue(others[0].eliminated)
     assert.lengthOf(activePlayers(state), 2)
@@ -583,7 +618,7 @@ test.group('Engine — scoring, buy-ins, and winning', () => {
     other.hand = [card('K', 'hearts')] // 145 + 10 = 155 → bust, no buy-in
     setTurn(state, userId, [card(2, 'hearts')])
 
-    discard(state, userId, playerState(state, userId).hand[0].id, rng)
+    discard(state, userId, playerState(state, userId).hand[0].id)
 
     assert.isTrue(other.eliminated)
     assert.equal(state.phase, 'finished')
@@ -631,7 +666,7 @@ test.group('Engine — play money', () => {
     others[1].hand = [card(9, 'clubs')]
     setTurn(state, userId, [card(2, 'hearts')])
 
-    discard(state, userId, playerState(state, userId).hand[0].id, rng)
+    discard(state, userId, playerState(state, userId).hand[0].id)
 
     const result = state.roundResults[0]
     assert.isFalse(result.calledKalooki)
@@ -654,7 +689,7 @@ test.group('Engine — play money', () => {
       userId,
       melds.map((meld) => meld.map((meldCard) => meldCard.id))
     )
-    discard(state, userId, drawn.id, rng)
+    discard(state, userId, drawn.id)
 
     const result = state.roundResults[0]
     assert.isTrue(result.calledKalooki)
@@ -674,13 +709,13 @@ test.group('Engine — play money', () => {
     state.phase = 'awaitingDraw'
 
     const drawn = drawFromDeck(state, userId, rng)
-    discard(state, userId, drawn.id, rng)
+    discard(state, userId, drawn.id)
     // Next turn: come-down happened before, so calling is a plain call
     state.currentPlayerIndex = state.players.findIndex((candidate) => candidate.userId === userId)
     state.phase = 'awaitingDraw'
     const drawnAgain = drawFromDeck(state, userId, rng)
     playerState(state, userId).hand = [drawnAgain]
-    discard(state, userId, drawnAgain.id, rng)
+    discard(state, userId, drawnAgain.id)
 
     const result = state.roundResults[0]
     assert.isFalse(result.calledKalooki)
@@ -696,7 +731,7 @@ test.group('Engine — play money', () => {
     others[1].hand = [card(9, 'clubs')]
     setTurn(state, userId, [card(2, 'hearts')])
 
-    discard(state, userId, playerState(state, userId).hand[0].id, rng)
+    discard(state, userId, playerState(state, userId).hand[0].id)
 
     const result = state.roundResults[0]
     assert.equal(result.chips[userId], 1)
@@ -749,7 +784,7 @@ test.group('Engine — play money', () => {
     other.hand = [card(5, 'hearts')]
     setTurn(state, userId, [card(2, 'hearts')])
 
-    discard(state, userId, playerState(state, userId).hand[0].id, rng)
+    discard(state, userId, playerState(state, userId).hand[0].id)
 
     assert.deepEqual(state.roundResults[0].chips, {})
     assert.equal(playerState(state, userId).chips, 0)
@@ -766,7 +801,7 @@ test.group('Engine — configurable buy-ins', () => {
     others[1].hand = [card(5, 'hearts')]
     setTurn(state, userId, [card(2, 'hearts')])
 
-    discard(state, userId, playerState(state, userId).hand[0].id, rng)
+    discard(state, userId, playerState(state, userId).hand[0].id)
 
     assert.isTrue(others[0].eliminated)
     assert.lengthOf(state.pendingBuyIns, 0)
@@ -782,10 +817,10 @@ test.group('Engine — configurable buy-ins', () => {
     others[1].hand = [card(5, 'hearts')]
     setTurn(state, userId, [card(2, 'hearts')])
 
-    discard(state, userId, playerState(state, userId).hand[0].id, rng)
+    discard(state, userId, playerState(state, userId).hand[0].id)
 
     assert.deepEqual(state.pendingBuyIns, [others[0].userId])
-    decideBuyIn(state, others[0].userId, true, rng)
+    decideBuyIn(state, others[0].userId, true)
     assert.equal(others[0].buyInsUsed, 6)
     assert.isFalse(others[0].eliminated)
   })

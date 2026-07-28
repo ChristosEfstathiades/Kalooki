@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import {
   Link,
   createFileRoute,
@@ -7,7 +7,7 @@ import {
 } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { DndContext, DragOverlay } from '@dnd-kit/core'
-import { UserPlus } from 'lucide-react'
+import { Menu, UserPlus, X } from 'lucide-react'
 import { currentUserQueryOptions } from '#/lib/auth'
 import { getStoredToken } from '#/lib/auth-token'
 import { getSocket } from '#/lib/socket'
@@ -25,6 +25,7 @@ import {
 import { useTurnTitleAlert } from '#/lib/use-turn-title'
 import PlayingCard, { CardBack } from '#/components/game/PlayingCard'
 import StagingArea from '#/components/game/StagingArea'
+import { RoundIntro } from '#/components/game/RoundIntro'
 import {
   CardDrag,
   DropZone,
@@ -67,8 +68,43 @@ export const Route = createFileRoute('/game/$matchId')({
   component: GamePage,
 })
 
-/** How long the round-end scoresheet popup stays up between rounds. */
-const ROUND_POPUP_MS = 5000
+/**
+ * How long the shuffle-and-deal animation runs at the end of the
+ * between-rounds intermission. The server bakes the same allowance into
+ * the `nextRoundAt` it sends, so the cards land exactly as the animation
+ * finishes — keep this in step with `roundDealAnimationMs` in
+ * `match_service.ts`.
+ */
+const ROUND_INTRO_MS = 2500
+
+/** The shuffle runs first, then the deal fills the rest of the intro. */
+const SHUFFLE_MS = 1000
+
+/**
+ * Rounds whose intro this tab has already played, so refreshing part
+ * way through a round does not deal the cards a second time. Kept in
+ * sessionStorage rather than a ref, which a reload would reset, and
+ * per-tab so it dies with the match rather than piling up.
+ */
+function roundIntroKey(matchId: string, roundNumber: number): string {
+  return `kalooki.roundIntro.${matchId}.${roundNumber}`
+}
+
+function hasSeenRoundIntro(matchId: string, roundNumber: number): boolean {
+  if (typeof window === 'undefined') {
+    return false
+  }
+  return (
+    window.sessionStorage.getItem(roundIntroKey(matchId, roundNumber)) !== null
+  )
+}
+
+function markRoundIntroSeen(matchId: string, roundNumber: number): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+  window.sessionStorage.setItem(roundIntroKey(matchId, roundNumber), 'seen')
+}
 
 /** How long the turn-start cue runs before the table settles to static styling. */
 const TURN_FLASH_MS = 1600
@@ -212,6 +248,42 @@ function useIsCompactViewport(): boolean {
 }
 
 /**
+ * Splits the server's between-rounds intermission into the two things
+ * the table shows: the scoresheet counting down, then the
+ * shuffle-and-deal that runs right up to the moment the cards land.
+ * `secondsToDeal` is null whenever nothing is scheduled — between
+ * rounds that is a match paused for a reconnect or held on a buy-in.
+ */
+function useRoundIntermission(view: GameView | null): {
+  dealing: boolean
+  secondsToDeal: number | null
+} {
+  const nextRoundAt = view?.phase === 'roundEnd' ? view.nextRoundAt : null
+  // The interval only drives re-renders; the time itself is read below
+  // at render, so a deadline arriving after minutes of play can never
+  // be measured against a stale clock
+  const [, retick] = useReducer((count: number) => count + 1, 0)
+
+  useEffect(() => {
+    if (nextRoundAt === null) {
+      return
+    }
+    const tick = setInterval(retick, 250)
+    return () => clearInterval(tick)
+  }, [nextRoundAt])
+
+  if (nextRoundAt === null) {
+    return { dealing: false, secondsToDeal: null }
+  }
+  const introStartsAt = nextRoundAt - ROUND_INTRO_MS
+  const now = Date.now()
+  return {
+    dealing: now >= introStartsAt,
+    secondsToDeal: Math.max(0, Math.ceil((introStartsAt - now) / 1000)),
+  }
+}
+
+/**
  * The live Kalooki table: opponents around the top of the felt, sets
  * and piles in the middle, your hand and actions at the bottom
  * (docs/Frontend-design.md). No header or footer on this page.
@@ -226,10 +298,10 @@ function GamePage() {
   const [chatOpen, setChatOpen] = useState(false)
   const [sortMode, setSortMode] = useState<SortMode | null>(null)
   const [handOrder, setHandOrder] = useState<HandOrder>({ base: [], fresh: [] })
-  const [roundPopupOpen, setRoundPopupOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [turnFlash, setTurnFlash] = useState(false)
   const [activeDrag, setActiveDrag] = useState<DragData | null>(null)
-  const seenResultsRef = useRef<number | null>(null)
+  const [localIntroUntil, setLocalIntroUntil] = useState<number | null>(null)
   const wasMyTurnRef = useRef(false)
   const sensors = useGameDragSensors()
 
@@ -265,24 +337,48 @@ function GamePage() {
     }
   }, [matchId])
 
-  // Pop the round-end scoresheet for a few seconds whenever a new
-  // round result arrives (skipping whatever history loads with the page)
-  const resultsCount = view?.roundResults.length ?? null
+  // The between-rounds scoresheet and the deal that follows it are both
+  // paced by the server, which sends the moment the cards land
+  const { dealing, secondsToDeal } = useRoundIntermission(view)
+
+  // Round one is already dealt by the time the table loads, so its
+  // shuffle-and-deal runs locally; every later round is covered by the
+  // intermission above. It only runs on a round nothing has happened in
+  // yet, and only once — so a refresh (or a rejoin, which lands on a
+  // fresh tab) drops you straight onto the table rather than replaying
+  // a deal you already watched.
+  const phase = view?.phase
+  const roundNumber = view?.roundNumber
+  const untouched = view?.discardCount === 0 && view.melds.length === 0
   useEffect(() => {
-    if (resultsCount === null) {
+    if (
+      roundNumber === undefined ||
+      phase === undefined ||
+      phase === 'roundEnd' ||
+      phase === 'finished'
+    ) {
       return
     }
-    if (seenResultsRef.current === null) {
-      seenResultsRef.current = resultsCount
+    if (roundNumber !== 1 || !untouched) {
       return
     }
-    if (resultsCount > seenResultsRef.current) {
-      seenResultsRef.current = resultsCount
-      setRoundPopupOpen(true)
-      const timer = setTimeout(() => setRoundPopupOpen(false), ROUND_POPUP_MS)
-      return () => clearTimeout(timer)
+    if (hasSeenRoundIntro(matchId, roundNumber)) {
+      return
     }
-  }, [resultsCount])
+    markRoundIntroSeen(matchId, roundNumber)
+    setLocalIntroUntil(Date.now() + ROUND_INTRO_MS)
+  }, [matchId, phase, roundNumber, untouched])
+
+  useEffect(() => {
+    if (localIntroUntil === null) {
+      return
+    }
+    const timer = setTimeout(
+      () => setLocalIntroUntil(null),
+      Math.max(0, localIntroUntil - Date.now()),
+    )
+    return () => clearTimeout(timer)
+  }, [localIntroUntil])
 
   // Keep the displayed hand order in step with the server's hand
   const hand = view?.you.hand
@@ -383,6 +479,19 @@ function GamePage() {
     .filter((player) => player.userId !== currentUser.id)
     .sort((a, b) => turnsAway(a) - turnsAway(b))
   const nextPlayerUserId = nextUpUserId(view)
+  // Cards are dealt round the table starting on the dealer's left, so
+  // the animation follows the same rotation the engine does
+  const dealerSeat =
+    view.players.find((player) => player.userId === view.dealerUserId)?.seat ??
+    0
+  const dealOrder = view.players
+    .filter((player) => !player.eliminated)
+    .sort(
+      (a, b) =>
+        ((a.seat - dealerSeat - 1 + seatCount) % seatCount) -
+        ((b.seat - dealerSeat - 1 + seatCount) % seatCount),
+    )
+    .map((player) => player.userId)
   const isMyTurn = myTurnActive
   const canDraw = myTurnActive && view.phase === 'awaitingDraw'
   const stagedIds = stagedMelds.flat()
@@ -530,9 +639,20 @@ function GamePage() {
     <main className="flex min-h-screen flex-col bg-background">
       <TableHeader
         view={view}
-        onQuit={() => void act({ type: 'quit' })}
+        onOpenMenu={() => setMenuOpen(true)}
         onToggleChat={() => setChatOpen((open) => !open)}
       />
+
+      {menuOpen && (
+        <GameMenu
+          view={view}
+          onQuit={() => {
+            setMenuOpen(false)
+            void act({ type: 'quit' })
+          }}
+          onClose={() => setMenuOpen(false)}
+        />
+      )}
 
       {chatOpen && view.kind !== 'practice' && (
         <MatchChatPanel
@@ -609,6 +729,8 @@ function GamePage() {
                 >
                   <button
                     type="button"
+                    // The shuffle sits here and the deal flies out from it
+                    data-deal-origin=""
                     className="block appearance-none border-0 bg-transparent p-0"
                     onClick={() => void act({ type: 'draw' })}
                     disabled={!canDraw}
@@ -709,18 +831,22 @@ function GamePage() {
         </DragOverlay>
       </DndContext>
 
-      {(view.phase === 'roundEnd' ||
-        view.phase === 'finished' ||
-        roundPopupOpen) && (
+      {(view.phase === 'finished' ||
+        (view.phase === 'roundEnd' && !dealing)) && (
         <RoundEndOverlay
           view={view}
           currentUserId={currentUser.id}
           onBuyIn={act}
-          onDismiss={
-            view.phase !== 'roundEnd' && view.phase !== 'finished'
-              ? () => setRoundPopupOpen(false)
-              : undefined
-          }
+          secondsToDeal={secondsToDeal}
+        />
+      )}
+
+      {(dealing || localIntroUntil !== null) && (
+        <RoundIntro
+          key={view.roundNumber}
+          seatUserIds={dealOrder}
+          durationMs={ROUND_INTRO_MS}
+          shuffleMs={SHUFFLE_MS}
         />
       )}
     </main>
@@ -764,11 +890,11 @@ function PileSlot({ label, live, flash, children }: PileSlotProps) {
 
 interface TableHeaderProps {
   view: GameView
-  onQuit: () => void
+  onOpenMenu: () => void
   onToggleChat: () => void
 }
 
-function TableHeader({ view, onQuit, onToggleChat }: TableHeaderProps) {
+function TableHeader({ view, onOpenMenu, onToggleChat }: TableHeaderProps) {
   return (
     <header className="flex items-center justify-between border-b border-border bg-panel px-4 py-2">
       <p className="m-0 text-sm font-semibold">
@@ -788,17 +914,11 @@ function TableHeader({ view, onQuit, onToggleChat }: TableHeaderProps) {
         <Button
           size="sm"
           variant="secondary"
-          onClick={() => {
-            if (
-              window.confirm(
-                'Leave the game? You cannot rejoin after quitting.',
-              )
-            ) {
-              onQuit()
-            }
-          }}
+          onClick={onOpenMenu}
+          aria-label="Open the game menu"
         >
-          Quit
+          <Menu aria-hidden="true" className="size-4" />
+          Menu
         </Button>
       </div>
     </header>
@@ -842,6 +962,41 @@ function TurnClock({ deadline, paused }: TurnClockProps) {
   )
 }
 
+interface BuyInClockProps {
+  deadline: number | null
+}
+
+/**
+ * Time left to answer a buy-in. Only public matches set a deadline, so
+ * this renders nothing in private and practice games, where the table
+ * waits as long as the decision takes.
+ */
+function BuyInClock({ deadline }: BuyInClockProps) {
+  const [, retick] = useReducer((count: number) => count + 1, 0)
+  useEffect(() => {
+    if (deadline === null) {
+      return
+    }
+    const interval = setInterval(retick, 250)
+    return () => clearInterval(interval)
+  }, [deadline])
+
+  if (deadline === null) {
+    return null
+  }
+  const seconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+  return (
+    <p
+      className={cn(
+        'm-0 mt-2 text-sm font-medium tabular-nums',
+        seconds <= 5 ? 'text-destructive-foreground' : 'text-muted-foreground',
+      )}
+    >
+      {seconds}s to decide, or you are out
+    </p>
+  )
+}
+
 interface PlayerSeatProps {
   player: GamePlayerView
   view: GameView
@@ -868,6 +1023,9 @@ function PlayerSeat({
 }: PlayerSeatProps) {
   return (
     <div
+      // Where the deal animation flies this player's cards to. Your own
+      // seat opts out: your cards fly to your hand row instead
+      data-deal-target={isSelf ? undefined : player.userId}
       className={cn(
         // Tighter padding/gap on mobile so two opponent seats fit a row
         'flex items-center gap-1.5 rounded-lg border bg-card px-2 py-1.5 transition-all sm:gap-2 sm:px-3 sm:py-2',
@@ -1242,7 +1400,12 @@ function OwnArea({
         {/* No wrapping: each card is a shrinkable flex cell, so a big
             hand compresses the cards instead of spilling onto a second
             row */}
-        <div className="flex min-h-36 items-center justify-center py-1 [&>*:not(:first-child)]:-ml-[49.5px]">
+        <div
+          // Your dealt cards fly here, not to your seat chip, which is
+          // hidden on mobile
+          data-deal-target={me?.userId}
+          className="flex min-h-36 items-center justify-center py-1 [&>*:not(:first-child)]:-ml-[49.5px]"
+        >
           {visibleHand.map((card) => (
             <CardDrag
               key={card.id}
@@ -1359,19 +1522,211 @@ function OwnArea({
   )
 }
 
+/** A seat's username, or a stand-in for a player no longer listed. */
+function playerNameOf(view: GameView, userId: number): string {
+  return (
+    view.players.find((player) => player.userId === userId)?.username ??
+    `Player ${userId}`
+  )
+}
+
+interface PlayerNameProps {
+  view: GameView
+  userId: number
+}
+
+/**
+ * A player's name in their chosen chat colour, matching how it reads at
+ * the seats, and falling back to the deterministic hashed colour.
+ */
+function PlayerName({ view, userId }: PlayerNameProps) {
+  const player = view.players.find((seat) => seat.userId === userId)
+  const username = playerNameOf(view, userId)
+  return (
+    <span
+      style={{
+        color: chatNameColor(player?.chatColor ?? usernameColor(username)),
+      }}
+    >
+      {username}
+    </span>
+  )
+}
+
+interface GameMenuProps {
+  view: GameView
+  onQuit: () => void
+  onClose: () => void
+}
+
+/**
+ * The in-game menu: the scoresheet for the match so far, and the way
+ * out. Quitting is irreversible, so it sits at the bottom behind a
+ * confirmation rather than one tap from the table.
+ */
+function GameMenu({ view, onQuit, onClose }: GameMenuProps) {
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="m-0 text-xl font-bold">Scoresheet</h2>
+            <p className="m-0 mt-1 text-sm text-muted-foreground">
+              Round {view.roundNumber} · out over {view.rules.scoreLimit} points
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onClose}
+            aria-label="Close the menu"
+          >
+            <X aria-hidden="true" className="size-4" />
+          </Button>
+        </div>
+
+        <GameScoresheet view={view} />
+
+        <Button
+          variant="destructive"
+          className="mt-6 w-full"
+          onClick={() => {
+            if (
+              window.confirm(
+                'Leave the game? You cannot rejoin after quitting.',
+              )
+            ) {
+              onQuit()
+            }
+          }}
+        >
+          Quit the game
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+interface GameScoresheetProps {
+  view: GameView
+}
+
+/**
+ * The match so far, laid out like a paper Kalooki sheet: a row per
+ * player, a column per round scored, and the running total on the end.
+ * Scrolls sideways on its own rather than widening the dialog, because
+ * a long game runs to a lot of columns.
+ */
+function GameScoresheet({ view }: GameScoresheetProps) {
+  const rounds = view.roundResults
+  const stakes = view.rules.stakes
+
+  if (rounds.length === 0) {
+    return (
+      <p className="mt-4 mb-0 text-sm text-muted-foreground">
+        No rounds have been scored yet.
+      </p>
+    )
+  }
+
+  return (
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-muted-foreground">
+            <th className="py-1 pr-3 font-medium">Player</th>
+            {rounds.map((round) => (
+              <th
+                key={round.roundNumber}
+                className="px-2 py-1 text-right font-medium"
+              >
+                R{round.roundNumber}
+              </th>
+            ))}
+            <th className="pl-3 py-1 text-right font-medium">Total</th>
+            {stakes && (
+              <th className="pl-3 py-1 text-right font-medium">Chips</th>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {view.players.map((player) => (
+            <tr key={player.userId} className="border-t border-border">
+              <td className="py-1 pr-3 whitespace-nowrap">
+                <PlayerName view={view} userId={player.userId} />
+                {player.eliminated && (
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    (out)
+                  </span>
+                )}
+              </td>
+              {rounds.map((round) => {
+                // Anyone already out when the round was scored has no
+                // entry at all, rather than a zero
+                const scored = player.userId in round.penalties
+                return (
+                  <td
+                    key={round.roundNumber}
+                    className={cn(
+                      'px-2 py-1 text-right tabular-nums',
+                      round.winnerUserId === player.userId && 'font-semibold',
+                    )}
+                  >
+                    {scored ? (
+                      round.penalties[player.userId]
+                    ) : (
+                      <span className="text-muted-foreground">–</span>
+                    )}
+                  </td>
+                )
+              })}
+              <td className="pl-3 py-1 text-right font-semibold tabular-nums">
+                {player.score}
+              </td>
+              {stakes && (
+                <td className="pl-3 py-1 text-right tabular-nums">
+                  {formatChips(player.chips)}
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {/* Buy-ins reset a player onto the leader's score, so the columns
+          deliberately do not add up to the total for those players */}
+      {view.players.some((player) => player.buyInsUsed > 0) && (
+        <p className="mt-2 mb-0 text-xs text-muted-foreground">
+          Totals restart at the highest surviving score after a buy-in, so a
+          bought-in row will not add up.
+        </p>
+      )}
+    </div>
+  )
+}
+
 interface RoundEndOverlayProps {
   view: GameView
   currentUserId: number
   onBuyIn: (action: GameAction) => Promise<void>
-  /** Set for the transient between-rounds popup: clicking the backdrop closes it early. */
-  onDismiss?: () => void
+  /**
+   * Seconds until the next round is dealt, or null when nothing is
+   * scheduled (the game is over, the match is paused, or a buy-in is
+   * still holding things up).
+   */
+  secondsToDeal: number | null
 }
 
 function RoundEndOverlay({
   view,
   currentUserId,
   onBuyIn,
-  onDismiss,
+  secondsToDeal,
 }: RoundEndOverlayProps) {
   const { data: friends } = useQuery(friendsQueryOptions)
   const { data: friendRequests } = useQuery(friendRequestsQueryOptions)
@@ -1405,28 +1760,10 @@ function RoundEndOverlay({
     (player) => player.userId === view.winnerUserId,
   )?.chips
 
-  const usernameOf = (userId: number) =>
-    view.players.find((player) => player.userId === userId)?.username ??
-    `Player ${userId}`
-
-  /**
-   * A player's name in their chosen chat colour, matching how it reads
-   * at the seats, and falling back to the deterministic hashed colour.
-   */
-  const coloredName = (userId: number) => {
-    const player = view.players.find((seat) => seat.userId === userId)
-    return (
-      <span
-        style={{
-          color: chatNameColor(
-            player?.chatColor ?? usernameColor(usernameOf(userId)),
-          ),
-        }}
-      >
-        {usernameOf(userId)}
-      </span>
-    )
-  }
+  const usernameOf = (userId: number) => playerNameOf(view, userId)
+  const coloredName = (userId: number) => (
+    <PlayerName view={view} userId={userId} />
+  )
 
   // A round popup lists the players that round scored. The final
   // scoresheet lists everyone who played, so someone knocked out before
@@ -1443,14 +1780,8 @@ function RoundEndOverlay({
       : `Round ${latest?.roundNumber ?? view.roundNumber} finished`
 
   return (
-    <div
-      className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-4"
-      onClick={onDismiss}
-    >
-      <div
-        className="w-full max-w-md rounded-lg border border-border bg-card p-6"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-4">
+      <div className="w-full max-w-md rounded-lg border border-border bg-card p-6">
         <h2 className="m-0 text-xl font-bold">
           {finished
             ? winnerName
@@ -1462,6 +1793,20 @@ function RoundEndOverlay({
               : 'Game over'
             : roundTitle}
         </h2>
+
+        {/* Nothing to count down while a buy-in is outstanding: the
+            prompt (or the note under it) explains the hold instead */}
+        {!finished && view.pendingBuyIns.length === 0 && (
+          <p className="m-0 mt-1 text-sm text-muted-foreground">
+            {view.paused
+              ? 'Paused while a player reconnects'
+              : secondsToDeal === null
+                ? 'Waiting on the table'
+                : secondsToDeal > 0
+                  ? `Next round deals in ${secondsToDeal}s`
+                  : 'Shuffling…'}
+          </p>
+        )}
         {rowUserIds.length > 0 && (
           <table className="mt-4 w-full text-sm">
             <thead>
@@ -1555,6 +1900,9 @@ function RoundEndOverlay({
               {stakes &&
                 ` Buying in costs ${stakes.rebuy} chips, paid to the eventual winner.`}
             </p>
+            {/* Only public matches put a clock on the decision, so
+                strangers cannot stall everyone else's game */}
+            <BuyInClock deadline={view.buyInDeadlineAt} />
             <div className="mt-2 flex gap-2">
               <Button
                 size="sm"

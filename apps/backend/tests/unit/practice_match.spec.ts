@@ -52,7 +52,14 @@ function setup(): void {
       },
       toGroup: () => {},
     },
-    { rng: lcg(11), queueCountdownMs: 5, botDelayMs: 0 }
+    {
+      rng: lcg(11),
+      queueCountdownMs: 5,
+      botDelayMs: 0,
+      roundScoresheetMs: 1,
+      roundDealAnimationMs: 1,
+      buyInDecisionMs: 5,
+    }
   )
 }
 

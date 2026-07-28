@@ -13,6 +13,7 @@ import {
   removePlayer,
   returnDiscard,
   returnJoker,
+  startNextRound,
   takeDiscard,
   takeJoker,
 } from '#services/game/engine'
@@ -102,6 +103,16 @@ export interface ActiveMatch {
   turnTimer: NodeJS.Timeout | null
   /** Absolute deadline of the running turn timer. */
   turnDeadlineAt: number | null
+  /** Epoch ms the last round was scored; null outside the intermission. */
+  roundEndedAt: number | null
+  /** Epoch ms the next round's cards land, once nothing is blocking it. */
+  nextRoundAt: number | null
+  /** Fires the deal that ends the between-rounds intermission. */
+  nextRoundTimer: NodeJS.Timeout | null
+  /** Deadline for outstanding buy-in decisions (public matches only). */
+  buyInDeadlineAt: number | null
+  /** Auto-declines buy-ins nobody answered by the deadline. */
+  buyInTimer: NodeJS.Timeout | null
   /** Set while any participant is disconnected. */
   pausedAt: number | null
   /** Whether the current turn already used its overtime grant. */
@@ -134,6 +145,14 @@ export interface ClientGameView {
   roundNumber: number
   paused: boolean
   turnDeadlineAt: number | null
+  /**
+   * Epoch ms the next round's cards land. Null outside the
+   * between-rounds intermission, and while it is held up by an
+   * outstanding buy-in or a paused match.
+   */
+  nextRoundAt: number | null
+  /** Epoch ms outstanding buy-in decisions expire; null when untimed. */
+  buyInDeadlineAt: number | null
   currentPlayerUserId: number | null
   dealerUserId: number
   winnerUserId: number | null
@@ -223,6 +242,25 @@ const PUBLIC_MIN_PLAYERS = 3
 const PUBLIC_MAX_PLAYERS = 5
 const PRIVATE_MAX_PLAYERS = 6
 
+/**
+ * The between-rounds intermission: the scoresheet holds for
+ * `roundScoresheetMs`, then the client plays its shuffle-and-deal
+ * animation for `roundDealAnimationMs` before the cards actually land.
+ * Dealing only on the far side of the animation means the mover's clock
+ * does not start while they are still watching cards fly. The animation
+ * length is mirrored by `ROUND_INTRO_MS` in the game route, which is how
+ * the client knows where to split the countdown it gets in `nextRoundAt`.
+ */
+let roundScoresheetMs = 10 * 1000
+let roundDealAnimationMs = 2500
+/**
+ * How long a busted player in a public match has to answer their
+ * buy-in. Strangers cannot be trusted to hold up everyone else's game,
+ * so an unanswered decision times out to declining; private and
+ * practice matches wait as long as it takes.
+ */
+let buyInDecisionMs = 20 * 1000
+
 let emitter: MatchEmitter = {
   toUser: () => {},
   toGroup: () => {},
@@ -234,8 +272,8 @@ let botDelayMsOverride: number | null = null
 
 /**
  * Wires the outbound emitter (called by the socket provider at boot).
- * The rng, queue countdown, and bot thinking delay can be overridden
- * for deterministic tests.
+ * The rng, queue countdown, bot thinking delay, and between-rounds
+ * timings can be overridden for deterministic tests.
  */
 export function configureMatchService(
   nextEmitter: MatchEmitter,
@@ -244,6 +282,9 @@ export function configureMatchService(
     queueCountdownMs?: number
     queueGraceMs?: number
     botDelayMs?: number
+    roundScoresheetMs?: number
+    roundDealAnimationMs?: number
+    buyInDecisionMs?: number
   } = {}
 ): void {
   emitter = nextEmitter
@@ -258,6 +299,15 @@ export function configureMatchService(
   }
   if (options.botDelayMs !== undefined) {
     botDelayMsOverride = options.botDelayMs
+  }
+  if (options.roundScoresheetMs !== undefined) {
+    roundScoresheetMs = options.roundScoresheetMs
+  }
+  if (options.roundDealAnimationMs !== undefined) {
+    roundDealAnimationMs = options.roundDealAnimationMs
+  }
+  if (options.buyInDecisionMs !== undefined) {
+    buyInDecisionMs = options.buyInDecisionMs
   }
   armIdleSweep()
 }
@@ -798,6 +848,11 @@ function createMatch(
     turnStartedAt: Date.now(),
     turnTimer: null,
     turnDeadlineAt: null,
+    roundEndedAt: null,
+    nextRoundAt: null,
+    nextRoundTimer: null,
+    buyInDeadlineAt: null,
+    buyInTimer: null,
     pausedAt: null,
     overtimeGranted: false,
     startedAt: Date.now(),
@@ -907,10 +962,10 @@ function performAction(match: ActiveMatch, userId: number, action: GameAction): 
       takeJoker(match.state, userId, action)
       return `${username} took a joker`
     case 'discard':
-      discard(match.state, userId, action.cardId, rng)
+      discard(match.state, userId, action.cardId)
       return `${username} discarded`
     case 'buyIn':
-      decideBuyIn(match.state, userId, action.accept, rng)
+      decideBuyIn(match.state, userId, action.accept)
       return action.accept ? `${username} bought back in` : `${username} is out`
     case 'quit':
       removeFromMatch(match, userId)
@@ -949,11 +1004,164 @@ function afterStateChange(match: ActiveMatch, turnUserBefore: number | null): vo
   settlePracticeIfHumanOut(match)
 
   if (match.state.phase === 'finished') {
+    clearIntermission(match)
     finishMatch(match)
     return
   }
+  syncIntermission(match)
   scheduleTurnTimer(match)
   maybeScheduleBotTurn(match)
+}
+
+/* -------------------------------------------------------------------
+ * The between-rounds intermission
+ * ---------------------------------------------------------------- */
+
+/** Drops every intermission timer and the deadlines clients read off. */
+function clearIntermission(match: ActiveMatch): void {
+  if (match.nextRoundTimer) {
+    clearTimeout(match.nextRoundTimer)
+    match.nextRoundTimer = null
+  }
+  if (match.buyInTimer) {
+    clearTimeout(match.buyInTimer)
+    match.buyInTimer = null
+  }
+  match.roundEndedAt = null
+  match.nextRoundAt = null
+  match.buyInDeadlineAt = null
+}
+
+/**
+ * Keeps the between-rounds state in step with the game after any change:
+ * starts the intermission clock when a round is scored, arms the buy-in
+ * deadline in public matches, and (re)arms the deal once nothing is
+ * waiting on a decision. Safe to call on every state change — it is a
+ * no-op mid-round and while the match is paused.
+ */
+function syncIntermission(match: ActiveMatch): void {
+  if (match.state.phase !== 'roundEnd') {
+    clearIntermission(match)
+    return
+  }
+
+  match.roundEndedAt ??= Date.now()
+
+  // A paused match freezes the whole intermission: the deadlines are
+  // pushed out by the pause on resume, so no clock runs down while a
+  // player is reconnecting
+  if (match.pausedAt !== null) {
+    if (match.nextRoundTimer) {
+      clearTimeout(match.nextRoundTimer)
+      match.nextRoundTimer = null
+    }
+    if (match.buyInTimer) {
+      clearTimeout(match.buyInTimer)
+      match.buyInTimer = null
+    }
+    match.nextRoundAt = null
+    return
+  }
+
+  if (match.state.pendingBuyIns.length > 0) {
+    armBuyInDeadline(match)
+    // The deal waits on the decisions, so clients get no countdown yet
+    if (match.nextRoundTimer) {
+      clearTimeout(match.nextRoundTimer)
+      match.nextRoundTimer = null
+    }
+    match.nextRoundAt = null
+    return
+  }
+
+  if (match.buyInTimer) {
+    clearTimeout(match.buyInTimer)
+    match.buyInTimer = null
+  }
+  match.buyInDeadlineAt = null
+  armNextRound(match)
+}
+
+/**
+ * Arms the auto-decline for buy-ins nobody answered. Public matches
+ * only, and left alone once running so a second busted player deciding
+ * early does not restart the clock on the ones still thinking.
+ */
+function armBuyInDeadline(match: ActiveMatch): void {
+  if (match.kind !== 'public' || match.buyInTimer) {
+    return
+  }
+  const deadline = match.buyInDeadlineAt ?? Date.now() + buyInDecisionMs
+  match.buyInDeadlineAt = deadline
+  match.buyInTimer = setTimeout(
+    () => {
+      match.buyInTimer = null
+      expireBuyInDecisions(match)
+    },
+    Math.max(0, deadline - Date.now())
+  )
+}
+
+/**
+ * Treats every unanswered buy-in as a decline, which eliminates those
+ * players and lets the game move on.
+ */
+function expireBuyInDecisions(match: ActiveMatch): void {
+  const undecided = [...match.state.pendingBuyIns]
+  if (undecided.length === 0) {
+    return
+  }
+  for (const userId of undecided) {
+    decideBuyIn(match.state, userId, false)
+  }
+  const names = undecided.map((userId) => match.identities.get(userId)?.username ?? 'A player')
+  afterStateChange(match, null)
+  broadcastState(
+    match,
+    `${names.join(' and ')} did not answer the buy-in and ${names.length > 1 ? 'are' : 'is'} out`
+  )
+}
+
+/**
+ * Schedules the deal that ends the intermission. The scoresheet gets
+ * its full hold from the moment the round was scored (any buy-in wait
+ * counts towards it), then the client's shuffle-and-deal animation
+ * plays over the table before the cards actually land.
+ */
+function armNextRound(match: ActiveMatch): void {
+  if (match.nextRoundTimer) {
+    return
+  }
+  const scoresheetUntil = (match.roundEndedAt ?? Date.now()) + roundScoresheetMs
+  const dealAt = Math.max(scoresheetUntil, Date.now()) + roundDealAnimationMs
+  match.nextRoundAt = dealAt
+  match.nextRoundTimer = setTimeout(
+    () => {
+      match.nextRoundTimer = null
+      dealNextRound(match)
+    },
+    Math.max(0, dealAt - Date.now())
+  )
+}
+
+/** Deals the next round and puts the table back in play. */
+function dealNextRound(match: ActiveMatch): void {
+  if (match.state.phase !== 'roundEnd' || match.pausedAt !== null || match.finishedAt !== null) {
+    return
+  }
+  try {
+    startNextRound(match.state, rng)
+  } catch (error) {
+    if (!(error instanceof GameError)) {
+      throw error
+    }
+    // Something settled the round from under us (a quit, a late buy-in):
+    // re-sync and let the intermission arm itself again
+    syncIntermission(match)
+    return
+  }
+  afterStateChange(match, null)
+  broadcastState(match, `Round ${match.state.roundNumber} dealt`)
 }
 
 /* -------------------------------------------------------------------
@@ -1049,7 +1257,7 @@ function recoverBotStep(match: ActiveMatch, botId: number): string {
         returnJoker(match.state, botId)
         return `${username} returned the joker`
       }
-      discard(match.state, botId, bot.hand[0].id, rng)
+      discard(match.state, botId, bot.hand[0].id)
       return `${username} discarded`
     }
     if (match.state.phase === 'awaitingDraw') {
@@ -1338,6 +1546,8 @@ function pauseMatch(match: ActiveMatch): void {
     clearTimeout(match.botTimer)
     match.botTimer = null
   }
+  // Freezes the scoresheet hold and any buy-in deadline
+  syncIntermission(match)
 }
 
 function resumeIfNobodyDisconnected(match: ActiveMatch): void {
@@ -1348,9 +1558,18 @@ function resumeIfNobodyDisconnected(match: ActiveMatch): void {
     return
   }
 
-  // Paused time never counts against the mover's bank
-  match.turnStartedAt += Date.now() - match.pausedAt
+  // Paused time never counts against the mover's bank, the scoresheet
+  // hold, or a buy-in decision
+  const pausedFor = Date.now() - match.pausedAt
+  match.turnStartedAt += pausedFor
+  if (match.roundEndedAt !== null) {
+    match.roundEndedAt += pausedFor
+  }
+  if (match.buyInDeadlineAt !== null) {
+    match.buyInDeadlineAt += pausedFor
+  }
   match.pausedAt = null
+  syncIntermission(match)
   scheduleTurnTimer(match)
   maybeScheduleBotTurn(match)
 }
@@ -1431,6 +1650,8 @@ export function redactedView(match: ActiveMatch, viewerUserId: number): ClientGa
     roundNumber: state.roundNumber,
     paused: match.pausedAt !== null,
     turnDeadlineAt: match.turnDeadlineAt,
+    nextRoundAt: match.nextRoundAt,
+    buyInDeadlineAt: match.buyInDeadlineAt,
     currentPlayerUserId: currentTurnUserId(state),
     dealerUserId: state.players[state.dealerIndex].userId,
     winnerUserId: state.winnerUserId,
@@ -1491,6 +1712,7 @@ function clearMatchTimers(match: ActiveMatch): void {
     clearTimeout(match.botTimer)
     match.botTimer = null
   }
+  clearIntermission(match)
   for (const runtime of match.runtime.values()) {
     if (runtime.rejoinTimer) {
       clearTimeout(runtime.rejoinTimer)

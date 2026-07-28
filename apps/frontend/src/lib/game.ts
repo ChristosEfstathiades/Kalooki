@@ -97,6 +97,14 @@ export interface GameView {
   roundNumber: number
   paused: boolean
   turnDeadlineAt: number | null
+  /**
+   * Epoch ms the next round's cards land. Null outside the
+   * between-rounds intermission, and while it is held up by an
+   * outstanding buy-in or a paused match.
+   */
+  nextRoundAt: number | null
+  /** Epoch ms outstanding buy-in decisions expire; null when untimed. */
+  buyInDeadlineAt: number | null
   currentPlayerUserId: number | null
   dealerUserId: number
   winnerUserId: number | null

@@ -266,7 +266,7 @@ test.group('Match chat', (group) => {
     resetMatchService()
     configureMatchService(
       { toUser: () => {}, toGroup: () => {} },
-      { rng: () => 0.42, queueCountdownMs: 5 }
+      { rng: () => 0.42, queueCountdownMs: 5, roundScoresheetMs: 1, roundDealAnimationMs: 1 }
     )
     return () => resetMatchService()
   })

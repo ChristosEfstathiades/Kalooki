@@ -51,7 +51,10 @@ async function playMatchToEnd(alice: User, bobby: User): Promise<ActiveMatch> {
     { groupId: group.id, userId: bobby.id },
   ])
 
-  configureMatchService({ toUser: () => {}, toGroup: () => {} }, { rng: () => 0.37 })
+  configureMatchService(
+    { toUser: () => {}, toGroup: () => {} },
+    { rng: () => 0.37, roundScoresheetMs: 1, roundDealAnimationMs: 1, buyInDecisionMs: 5 }
+  )
   createLobby(group.id, identityOf(alice), CLASSIC_RULES)
   joinLobby(group.id, identityOf(bobby))
   const match = startLobby(group.id, alice.id)

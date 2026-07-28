@@ -103,6 +103,16 @@ Kalooki is usually played with 1 or 2 buy-ins... however it is possible to play 
 
 in my website there will be only 1 buy in per player in classic ruleset and casual matches will have no stakes so ignore that part
 
+In a **public** match a busted player has **20 seconds** to answer their buy-in, counted down on the scoresheet. Letting it lapse counts as declining, so a stranger cannot stall everyone else's game. Private and practice matches are untimed: the table waits as long as the decision takes.
+
+## Between rounds
+
+A round does not roll straight into the next one. When the last card is discarded the round is scored and the table holds on the scoresheet for **10 seconds**, counting down, so everyone can read what they were caught with. The cards are then dealt with a **shuffle-and-deal animation** — the deck riffles, then card backs fly out to each seat in turn — which runs for a further 2.5 seconds.
+
+The new hand is dealt on the *far* side of the animation, not before it: nobody's move timer starts while they are still watching cards fly, and no hand reaches a client early. The countdown cannot be skipped.
+
+The hold pauses with the match: if someone disconnects between rounds, the countdown freezes and picks up where it left off once they are back. An outstanding buy-in holds the deal until it is answered (or times out, above); the 10 seconds run in parallel, so answering quickly does not shorten the scoresheet.
+
 ## Timer and disconnects / rejoins
 
 ### Move timer

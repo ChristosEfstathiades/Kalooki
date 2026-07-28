@@ -658,7 +658,7 @@ function rankOrder(rank: NonNullable<Card['rank']>): number {
  * obligations (a taken discard or reclaimed joker not yet tabled)
  * block the discard.
  */
-export function discard(state: GameState, userId: number, cardId: number, rng: Rng): void {
+export function discard(state: GameState, userId: number, cardId: number): void {
   const player = assertTurn(state, userId, 'acting')
   if (player.pendingDiscardCardId !== null) {
     throw new GameError(
@@ -678,7 +678,7 @@ export function discard(state: GameState, userId: number, cardId: number, rng: R
   state.discardPile.push(card)
 
   if (player.hand.length === 0) {
-    endRound(state, player.userId, rng)
+    endRound(state, player.userId)
     return
   }
 
@@ -694,7 +694,7 @@ export function discard(state: GameState, userId: number, cardId: number, rng: R
  * all thirteen cards in one turn. Players over the limit may buy back
  * in (never when fewer than 3 players would remain in the game).
  */
-function endRound(state: GameState, winnerUserId: number | null, rng: Rng): void {
+function endRound(state: GameState, winnerUserId: number | null): void {
   const penalties: Record<number, number> = {}
   const totals: Record<number, number> = {}
 
@@ -749,17 +749,15 @@ function endRound(state: GameState, winnerUserId: number | null, rng: Rng): void
   }
 
   state.phase = 'roundEnd'
-  if (state.pendingBuyIns.length === 0) {
-    concludeRound(state, rng)
-  }
+  concludeRound(state)
 }
 
 /**
  * A busted player's buy-in decision. Buying in re-enters them on the
- * highest remaining score; declining eliminates them. The next round
- * deals once every decision is in.
+ * highest remaining score; declining eliminates them. The round stays
+ * in `roundEnd` until the caller deals the next one.
  */
-export function decideBuyIn(state: GameState, userId: number, accept: boolean, rng: Rng): void {
+export function decideBuyIn(state: GameState, userId: number, accept: boolean): void {
   if (state.phase !== 'roundEnd' || !state.pendingBuyIns.includes(userId)) {
     throw new GameError('You have no buy-in decision to make', 'E_NO_BUY_IN')
   }
@@ -780,16 +778,33 @@ export function decideBuyIn(state: GameState, userId: number, accept: boolean, r
     player.eliminated = true
   }
 
-  if (state.pendingBuyIns.length === 0) {
-    concludeRound(state, rng)
+  concludeRound(state)
+}
+
+/**
+ * After scoring and buy-ins: end the game once only one player stands.
+ * Otherwise the game sits in `roundEnd` until someone calls
+ * `startNextRound` — the between-rounds intermission that shows the
+ * scoresheet is owned by the match service, not the engine.
+ */
+function concludeRound(state: GameState): void {
+  if (state.pendingBuyIns.length === 0 && activePlayers(state).length <= 1) {
+    finishGame(state)
   }
 }
 
 /**
- * After scoring and buy-ins: end the game when one player stands, or
- * deal the next round.
+ * Deals the next round once the intermission is over. Refuses to run
+ * while buy-in decisions are outstanding, since a player who buys back
+ * in must be dealt into the round they rejoined.
  */
-function concludeRound(state: GameState, rng: Rng): void {
+export function startNextRound(state: GameState, rng: Rng): void {
+  if (state.phase !== 'roundEnd') {
+    throw new GameError('No round is waiting to be dealt', 'E_NOT_BETWEEN_ROUNDS')
+  }
+  if (state.pendingBuyIns.length > 0) {
+    throw new GameError('Buy-in decisions are still outstanding', 'E_BUY_INS_PENDING')
+  }
   if (activePlayers(state).length <= 1) {
     finishGame(state)
     return
@@ -878,10 +893,9 @@ export function removePlayer(
     return
   }
 
+  // Leaving between rounds never starts the next one: that waits on the
+  // intermission, which re-checks the buy-ins this quit may have settled
   if (state.phase === 'roundEnd') {
-    if (state.pendingBuyIns.length === 0) {
-      concludeRound(state, rng)
-    }
     return
   }
 

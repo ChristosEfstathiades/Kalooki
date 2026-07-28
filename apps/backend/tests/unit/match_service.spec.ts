@@ -51,7 +51,14 @@ function setup(): void {
       },
       toGroup: () => {},
     },
-    { rng: () => 0.42, queueCountdownMs: 5, queueGraceMs: 5 }
+    {
+      rng: () => 0.42,
+      queueCountdownMs: 5,
+      queueGraceMs: 5,
+      roundScoresheetMs: 1,
+      roundDealAnimationMs: 1,
+      buyInDecisionMs: 5,
+    }
   )
 }
 
@@ -62,6 +69,39 @@ function startTwoPlayerMatch(): ActiveMatch {
   createLobby(7, identity(1), CLASSIC_RULES)
   joinLobby(7, identity(2))
   return startLobby(7, 1)
+}
+
+/**
+ * Starts a 3-player match through the public queue (the only kind that
+ * puts a clock on buy-in decisions).
+ */
+async function startThreePlayerPublicMatch(): Promise<ActiveMatch> {
+  joinPublicQueue(identity(1))
+  joinPublicQueue(identity(2))
+  joinPublicQueue(identity(3))
+  await sleep(30)
+  const match = matchForUser(1)
+  if (!match) {
+    throw new Error('The public queue did not start a match')
+  }
+  return match
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Ends the round the honest way: the player on turn is cut down to a
+ * single card and discards it, emptying their hand.
+ */
+function callRound(match: ActiveMatch): number {
+  const state = match.state
+  state.phase = 'acting'
+  const caller = state.players[state.currentPlayerIndex]
+  caller.hand = caller.hand.slice(0, 1)
+  applyGameAction(match.id, caller.userId, { type: 'discard', cardId: caller.hand[0].id })
+  return caller.userId
 }
 
 test.group('Match service', (group) => {
@@ -433,5 +473,129 @@ test.group('Match service — scheduled lobbies', (group) => {
     })
     assert.isNull(lobbyViewForGroup(8))
     assert.deepEqual(removed, [8])
+  })
+})
+
+test.group('Match service — between-rounds intermission', (group) => {
+  group.each.setup(() => {
+    setup()
+    return () => resetMatchService()
+  })
+
+  test('the round is scored first and the next one deals after the intermission', async ({
+    assert,
+  }) => {
+    const match = startTwoPlayerMatch()
+    callRound(match)
+
+    // Scored, but the table is still showing the scoresheet
+    assert.equal(match.state.phase, 'roundEnd')
+    assert.equal(match.state.roundNumber, 1)
+    assert.lengthOf(match.state.roundResults, 1)
+    assert.isNotNull(match.nextRoundAt)
+    // No hand is dealt early, so nothing leaks before the deal
+    assert.lengthOf(match.state.players[0].hand, 0)
+
+    await sleep(30)
+
+    assert.equal(match.state.phase, 'awaitingDraw')
+    assert.equal(match.state.roundNumber, 2)
+    assert.lengthOf(match.state.players[0].hand, 13)
+    assert.isNull(match.nextRoundAt)
+  })
+
+  test('the deal is announced to every player', async ({ assert }) => {
+    const match = startTwoPlayerMatch()
+    callRound(match)
+    await sleep(30)
+
+    const dealt = emissions.filter(
+      (emission) =>
+        emission.event === 'game:state' &&
+        (emission.payload as { event: string }).event === 'Round 2 dealt'
+    )
+    assert.lengthOf(dealt, 2)
+  })
+
+  test('a public match auto-declines a buy-in nobody answers', async ({ assert }) => {
+    const match = await startThreePlayerPublicMatch()
+    const caller = match.state.players[match.state.currentPlayerIndex]
+    const buster = match.state.players.find((player) => player.userId !== caller.userId)
+    if (!buster) {
+      throw new Error('The match is missing an opponent')
+    }
+    // One point under the limit with a king in hand: certain to bust
+    buster.score = match.rules.scoreLimit
+    buster.hand = buster.hand.slice(0, 1)
+
+    callRound(match)
+    assert.deepEqual(match.state.pendingBuyIns, [buster.userId])
+    assert.isNotNull(match.buyInDeadlineAt)
+    // Nothing deals while a decision is outstanding
+    assert.isNull(match.nextRoundAt)
+
+    await sleep(40)
+
+    assert.isTrue(buster.eliminated)
+    assert.lengthOf(match.state.pendingBuyIns, 0)
+  })
+
+  test('a private match leaves buy-in decisions untimed', ({ assert }) => {
+    createLobby(9, identity(1), CLASSIC_RULES)
+    joinLobby(9, identity(2))
+    joinLobby(9, identity(3))
+    const match = startLobby(9, 1)
+
+    const caller = match.state.players[match.state.currentPlayerIndex]
+    const buster = match.state.players.find((player) => player.userId !== caller.userId)
+    if (!buster) {
+      throw new Error('The match is missing an opponent')
+    }
+    buster.score = match.rules.scoreLimit
+    buster.hand = buster.hand.slice(0, 1)
+
+    callRound(match)
+    assert.deepEqual(match.state.pendingBuyIns, [buster.userId])
+    assert.isNull(match.buyInDeadlineAt)
+  })
+
+  test('answering the buy-in lets the next round deal', async ({ assert }) => {
+    createLobby(9, identity(1), CLASSIC_RULES)
+    joinLobby(9, identity(2))
+    joinLobby(9, identity(3))
+    const match = startLobby(9, 1)
+
+    const caller = match.state.players[match.state.currentPlayerIndex]
+    const buster = match.state.players.find((player) => player.userId !== caller.userId)
+    if (!buster) {
+      throw new Error('The match is missing an opponent')
+    }
+    buster.score = match.rules.scoreLimit
+    buster.hand = buster.hand.slice(0, 1)
+    callRound(match)
+
+    applyGameAction(match.id, buster.userId, { type: 'buyIn', accept: true })
+    assert.isNotNull(match.nextRoundAt)
+
+    await sleep(30)
+    assert.equal(match.state.roundNumber, 2)
+    assert.isFalse(buster.eliminated)
+  })
+
+  test('a disconnect freezes the intermission until everyone is back', async ({ assert }) => {
+    const match = startTwoPlayerMatch()
+    callRound(match)
+    playerDisconnected(2)
+
+    assert.isNull(match.nextRoundAt)
+    await sleep(30)
+    // Still between rounds: no cards deal into a paused table
+    assert.equal(match.state.phase, 'roundEnd')
+    assert.equal(match.state.roundNumber, 1)
+
+    playerReconnected(2)
+    assert.isNotNull(match.nextRoundAt)
+    await sleep(30)
+    assert.equal(match.state.roundNumber, 2)
   })
 })
