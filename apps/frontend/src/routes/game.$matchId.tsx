@@ -1571,7 +1571,7 @@ function GameMenu({ view, onQuit, onClose }: GameMenuProps) {
       onClick={onClose}
     >
       <div
-        className="max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6"
+        className="max-h-full flex flex-col w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
@@ -1595,7 +1595,7 @@ function GameMenu({ view, onQuit, onClose }: GameMenuProps) {
 
         <Button
           variant="destructive"
-          className="mt-6 w-full"
+          className="mt-6 self-center"
           onClick={() => {
             if (
               window.confirm(

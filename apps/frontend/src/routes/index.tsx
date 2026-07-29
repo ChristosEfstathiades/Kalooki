@@ -84,29 +84,38 @@ function WelcomePage() {
     <div className="flex min-h-screen flex-col">
       <AnnouncementBanner />
       <main className="flex-1">
-        <section className="page-wrap py-16 sm:py-24">
-          <p className="m-0 text-sm font-semibold tracking-widest text-muted-foreground uppercase">
-            KalookiOnline
-          </p>
-          <h1 className="mt-3 mb-0 max-w-2xl text-4xl font-bold sm:text-5xl">
-            Play Kalooki online
-          </h1>
-          <p className="mt-4 mb-8 max-w-xl text-lg text-muted-foreground">
-            The classic Rummy card game loved in the UK, Jamaica, and Cyprus.
-            Public matches against other players, or private games with friends
-            under your own rules.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              asChild
-              size="lg"
-              className="bg-button-red hover:bg-button-red-hover"
-            >
-              <Link to="/signup">Play now, it&apos;s free</Link>
-            </Button>
-            <Button asChild size="lg" variant="secondary">
-              <Link to="/signin">I already have an account</Link>
-            </Button>
+        <section className="page-wrap py-16 sm:py-24 flex md:flex-row flex-col space-around gap-y-5">
+          <div>
+            <p className="m-0 text-sm font-semibold tracking-widest text-muted-foreground uppercase">
+              KalookiOnline
+            </p>
+            <h1 className="mt-3 mb-0 max-w-2xl text-4xl font-bold sm:text-5xl">
+              Play Kalooki online
+            </h1>
+            <p className="mt-4 mb-8 max-w-xl text-lg text-muted-foreground">
+              The classic Rummy card game loved in the UK, Jamaica, and Cyprus.
+              Public matches against other players, or private games with
+              friends under your own rules.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                asChild
+                size="lg"
+                className="bg-button-red hover:bg-button-red-hover"
+              >
+                <Link to="/signup">Play now, it&apos;s free</Link>
+              </Button>
+              <Button asChild size="lg" variant="secondary">
+                <Link to="/signin">I already have an account</Link>
+              </Button>
+            </div>
+          </div>
+          <div className="flex justify-center">
+            <img
+              className="w-md"
+              src="/src/assets/screenshots/practiceotherturn.png"
+              alt=""
+            />
           </div>
         </section>
 
