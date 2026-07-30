@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Bot, Clock, Trophy, Users, UsersRound } from 'lucide-react'
+import {
+  Bot,
+  Clock,
+  LoaderCircle,
+  Trophy,
+  Users,
+  UsersRound,
+} from 'lucide-react'
 import {
   friendRequestsQueryOptions,
   friendsQueryOptions,
@@ -279,34 +286,42 @@ function MatchmakingCard() {
         Public matches use the classic ruleset. Private matches with custom
         rules start from your groups.
       </p>
-      <Button
-        size="lg"
-        className={
-          inQueue
-            ? undefined
-            : 'w-full bg-button-red hover:bg-button-red-hover sm:w-auto'
-        }
-        variant={inQueue ? 'secondary' : 'default'}
-        disabled={!publicMatchmakingEnabled && !inQueue}
-        onClick={() =>
-          void runQueueAction(inQueue ? leavePublicQueue : joinPublicQueue)
-        }
-      >
-        {inQueue ? 'Leave queue' : 'Find public match'}
-      </Button>
+      {inQueue ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <span
+            role="status"
+            className="inline-flex h-10 items-center gap-2 rounded-md bg-secondary px-6 text-sm font-medium text-secondary-foreground"
+          >
+            Searching
+            <LoaderCircle aria-hidden="true" className="animate-spin" />
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void runQueueAction(leavePublicQueue)}
+          >
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <Button
+          size="lg"
+          className="w-full bg-button-red hover:bg-button-red-hover sm:w-auto"
+          disabled={!publicMatchmakingEnabled}
+          onClick={() => void runQueueAction(joinPublicQueue)}
+        >
+          Find public match
+        </Button>
+      )}
       {!publicMatchmakingEnabled && (
         <p className="mt-2 mb-0 text-xs text-muted-foreground">
           Public matchmaking is paused right now. Private games with your groups
           are unaffected.
         </p>
       )}
-      {inQueue && status && (
+      {inQueue && secondsLeft !== null && (
         <p className="mt-2 mb-0 text-xs text-muted-foreground">
-          {status.queueSize} {status.queueSize === 1 ? 'player' : 'players'}{' '}
-          waiting
-          {secondsLeft !== null
-            ? `, starting in ${secondsLeft}s, more can still join`
-            : ', the game starts once at least 3 players are here'}
+          Starting in {secondsLeft}s, more can still join
         </p>
       )}
       {error && (

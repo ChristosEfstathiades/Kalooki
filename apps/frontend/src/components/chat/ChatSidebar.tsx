@@ -142,6 +142,9 @@ export function ChatConversation({ channel }: ChatConversationProps) {
   const [menuMessageId, setMenuMessageId] = useState<number | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  // Held by whichever message currently owns the open menu, so a click
+  // anywhere else on the page can dismiss it
+  const openMenuRef = useRef<HTMLDivElement>(null)
 
   const messages = history.data ?? []
 
@@ -155,6 +158,33 @@ export function ChatConversation({ channel }: ChatConversationProps) {
       list.scrollTop = list.scrollHeight
     }
   }, [lastMessageId])
+
+  // Dismiss the player menu on a click elsewhere or on Escape. Clicks
+  // inside the message row are left alone so the username keeps its own
+  // toggle behaviour.
+  useEffect(() => {
+    if (menuMessageId === null) {
+      return
+    }
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      const target = event.target
+      if (target instanceof Node && openMenuRef.current?.contains(target)) {
+        return
+      }
+      setMenuMessageId(null)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuMessageId(null)
+      }
+    }
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [menuMessageId])
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -216,31 +246,45 @@ export function ChatConversation({ channel }: ChatConversationProps) {
           const moderatorToolsApply =
             canDeleteMessages ||
             canModerate(currentUser, author.role, author.id)
+          const menuOpen = menuMessageId === message.id
+          const nameColor = chatNameColor(
+            author.chatColor ?? usernameColor(author.username),
+          )
 
           return (
-            <div key={message.id} className="relative text-sm">
+            <div
+              key={message.id}
+              ref={menuOpen ? openMenuRef : undefined}
+              className="relative text-sm"
+            >
               <button
                 type="button"
-                className="font-semibold hover:underline"
-                style={{
-                  color: chatNameColor(
-                    author.chatColor ?? usernameColor(author.username),
-                  ),
-                }}
-                onClick={() =>
-                  setMenuMessageId(
-                    menuMessageId === message.id ? null : message.id,
-                  )
-                }
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                className={cn(
+                  'font-semibold hover:underline',
+                  menuOpen && 'underline',
+                )}
+                style={{ color: nameColor }}
+                onClick={() => setMenuMessageId(menuOpen ? null : message.id)}
               >
                 {author.username}
               </button>
               <StaffBadge role={author.role} />
               {': '}
               <span className="break-words">{message.body}</span>
-              {menuMessageId === message.id &&
-                (!isOwnMessage || moderatorToolsApply) && (
-                  <span className="absolute left-0 z-10 mt-5 flex flex-wrap gap-1 rounded-md border border-border bg-popover p-1 shadow-md">
+              {menuOpen && (!isOwnMessage || moderatorToolsApply) && (
+                <span className="absolute left-0 z-10 mt-5 flex w-max max-w-full flex-col rounded-md border border-border bg-popover shadow-md">
+                  <span className="border-b border-border px-2 py-1 text-xs">
+                    <span
+                      className="font-semibold"
+                      style={{ color: nameColor }}
+                    >
+                      {author.username}
+                    </span>
+                    <StaffBadge role={author.role} />
+                  </span>
+                  <span className="flex flex-wrap gap-1 p-1">
                     {!isOwnMessage && (
                       <>
                         {!noRequestNeededIds.has(author.id) && (
@@ -287,7 +331,8 @@ export function ChatConversation({ channel }: ChatConversationProps) {
                       />
                     )}
                   </span>
-                )}
+                </span>
+              )}
             </div>
           )
         })}
