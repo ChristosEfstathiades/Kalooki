@@ -109,7 +109,14 @@ export default defineConfig({
   | the production build.
   |
   */
-  metaFiles: [],
+  metaFiles: [
+    // The moderation wordlist is untracked data read at boot, so the
+    // build has to copy it next to the compiled services.
+    {
+      pattern: 'resources/wordlist.json',
+      reloadServer: false,
+    },
+  ],
 
   hooks: {
     init: [

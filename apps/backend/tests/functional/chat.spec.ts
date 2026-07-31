@@ -20,6 +20,7 @@ import {
   startLobby,
 } from '#services/game/match_service'
 import { CLASSIC_RULES } from '#services/game/engine'
+import { BLOCKED_WORD, maskOf } from '#tests/helpers/wordlist'
 import { TRUSTED_ACCOUNT_AGE_DAYS } from '#services/role_service'
 import testUtils from '@adonisjs/core/services/test_utils'
 import type { ActiveMatch, PlayerIdentity } from '#services/game/match_service'
@@ -103,9 +104,15 @@ test.group('Chat messages', (group) => {
 
   test('blocked words are masked but the message still posts', async ({ assert }) => {
     const alice = await makeUser('alice')
-    const message = await postChatMessage(alice, { type: 'global' }, 'that was shit luck')
+    // The word comes from the configured wordlist; see
+    // `#tests/helpers/wordlist`.
+    const message = await postChatMessage(
+      alice,
+      { type: 'global' },
+      `that was ${BLOCKED_WORD} luck`
+    )
 
-    assert.equal(message.body, 'that was **** luck')
+    assert.equal(message.body, `that was ${maskOf(BLOCKED_WORD)} luck`)
     assert.isTrue(message.wasCensored)
   })
 

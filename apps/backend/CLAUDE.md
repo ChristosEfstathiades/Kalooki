@@ -33,5 +33,14 @@ return serialize({ user: UserTransformer.transform(user), token: ... })
 ## Auth: two guards
 `config/auth.ts` defines `api` (opaque access tokens via `DbAccessTokensProvider`, the **default** guard, stateless) and `web` (session). Signup/login mint an access token (`User.accessTokens.create`). Protected routes use the named `auth()` middleware; `silent_auth_middleware` runs globally to populate the user when a token is present without forcing auth.
 
+## Moderation wordlist is untracked
+The words the chat censor and the username filter look for live in `resources/wordlist.json`, which is **gitignored**, so they are not kept in the repository. `resources/wordlist.example.json` is tracked, documents every list, and works as a drop-in copy for a fresh checkout:
+
+```
+cp resources/wordlist.example.json resources/wordlist.json
+```
+
+`#services/wordlist` reads and validates it at boot and **throws if it is missing**, the same way a missing `.env` stops the server: an unfiltered chat is a worse failure than one that will not start. `#services/profanity_filter` and `#services/username_filter` hold the matching rules and no words. Tests derive their fixtures from the loaded lists (`#tests/helpers/wordlist`), so specs never hardcode a word; keep it that way when adding cases. The file is in `metaFiles`, so `node ace build` copies it into `build/`; a deploy has to place it there like any other secret.
+
 ## Import aliases
 Subpath imports (`#controllers/*`, `#models/*`, `#validators/*`, `#transformers/*`, `#generated/*`, `#database/*`, etc.) are defined in `apps/backend/package.json` `imports`. Use these rather than relative paths.

@@ -1,79 +1,118 @@
 import { test } from '@japa/runner'
+import { WORDLIST } from '#services/wordlist'
 import { findBlockedWordInUsername, isReservedUsername } from '#services/username_filter'
+import {
+  EMBEDDABLE_BLOCKED_WORD,
+  PH_SPELLABLE_WORD,
+  USERNAME_ONLY_WORD,
+  withAlphanumericLookalikes,
+  withPhSpelling,
+  withRepeatedLetter,
+  withSeparators,
+} from '#tests/helpers/wordlist'
+
+/**
+ * The words are read from the configured wordlist rather than written
+ * into the spec, since they are not kept in the repository. See
+ * `#tests/helpers/wordlist`.
+ */
+const [firstBlockedWord] = WORDLIST.blocked
+const shortBlockedWord = WORDLIST.blocked.find((word) => word.length <= 3) ?? null
 
 test.group('Username filter', () => {
-  test('blocks a blocked word anywhere in the name', ({ assert }) => {
-    assert.equal(findBlockedWordInUsername('fuck'), 'fuck')
-    assert.equal(findBlockedWordInUsername('xXfuckXx'), 'fuck')
-    assert.equal(findBlockedWordInUsername('KalookiBitch99'), 'bitch')
+  test('blocks a listed word anywhere in the name', ({ assert }) => {
+    // The first entry is the first pattern tried, so it is the one case
+    // where the word that comes back is known.
+    assert.equal(findBlockedWordInUsername(firstBlockedWord), firstBlockedWord)
+    assert.isNotNull(findBlockedWordInUsername(`xX${EMBEDDABLE_BLOCKED_WORD}Xx`))
+    assert.isNotNull(findBlockedWordInUsername(`Kalooki${EMBEDDABLE_BLOCKED_WORD}99`))
+  })
+
+  test('blocks every word on the list', ({ assert }) => {
+    for (const word of [...WORDLIST.blocked, ...WORDLIST.usernameOnly]) {
+      assert.isNotNull(findBlockedWordInUsername(word), `${word} should be blocked`)
+    }
   })
 
   test('is case-insensitive', ({ assert }) => {
-    assert.equal(findBlockedWordInUsername('FuCkEr'), 'fuck')
+    assert.isNotNull(findBlockedWordInUsername(EMBEDDABLE_BLOCKED_WORD.toUpperCase()))
   })
 
   test('sees through lookalike characters', ({ assert }) => {
-    assert.equal(findBlockedWordInUsername('n1gg3r'), 'nigger')
-    assert.equal(findBlockedWordInUsername('ni99er'), 'nigger')
-    assert.equal(findBlockedWordInUsername('5h1t_head'), 'shit')
-    assert.equal(findBlockedWordInUsername('cvnt'), 'cunt')
+    const disguised = withAlphanumericLookalikes(EMBEDDABLE_BLOCKED_WORD)
+
+    assert.notEqual(disguised, EMBEDDABLE_BLOCKED_WORD, 'expected a disguise to test')
+    assert.isNotNull(findBlockedWordInUsername(disguised))
   })
 
-  test('sees through separators, repeats and ph', ({ assert }) => {
-    assert.equal(findBlockedWordInUsername('f_u_c_k'), 'fuck')
-    assert.equal(findBlockedWordInUsername('fuuuuck'), 'fuck')
-    assert.equal(findBlockedWordInUsername('phuck_you'), 'fuck')
+  test('sees through underscores and repeated letters', ({ assert }) => {
+    assert.isNotNull(findBlockedWordInUsername(withSeparators(EMBEDDABLE_BLOCKED_WORD, '_')))
+    assert.isNotNull(findBlockedWordInUsername(withRepeatedLetter(EMBEDDABLE_BLOCKED_WORD)))
+  })
+
+  test('sees through the ph spelling', ({ assert }) => {
+    // Only meaningful for a word starting with f.
+    if (PH_SPELLABLE_WORD === null) {
+      return
+    }
+
+    assert.isNotNull(findBlockedWordInUsername(`${withPhSpelling(PH_SPELLABLE_WORD)}_you`))
   })
 
   test('blocks words a username needs but chat only masks', ({ assert }) => {
-    assert.equal(findBlockedWordInUsername('BigCock69'), 'cock')
-    assert.equal(findBlockedWordInUsername('RapeMaster'), 'rape')
-    assert.equal(findBlockedWordInUsername('hitler1945'), 'hitler')
+    assert.isNotNull(findBlockedWordInUsername(USERNAME_ONLY_WORD))
+    assert.isNotNull(findBlockedWordInUsername(`Big${USERNAME_ONLY_WORD}69`))
   })
 
   test('leaves ordinary names alone', ({ assert }) => {
-    assert.isNull(findBlockedWordInUsername('player_one'))
-    assert.isNull(findBlockedWordInUsername('KalookiKing'))
-    assert.isNull(findBlockedWordInUsername('Nigeria_92'))
-    assert.isNull(findBlockedWordInUsername('Nasir'))
-    assert.isNull(findBlockedWordInUsername('Magnus'))
-  })
-
-  test('innocent words containing a blocked word are allowed', ({ assert }) => {
     for (const username of [
-      'Scunthorpe',
-      'raccoon99',
-      'Tycoon_Tom',
-      'Spicy_Pete',
-      'PakistanFan',
-      'Montenegro',
-      'Peacock',
-      'Cocktail_Joe',
-      'Hancock',
-      'Dickens',
-      'Prickett',
-      'Uranus',
-      'Grapevine',
-      'therapist',
-      'Torpedo',
+      'player_one',
+      'KalookiKing',
+      'Nigeria_92',
+      'Nasir',
+      'Magnus',
+      'Card_Shark',
     ]) {
       assert.isNull(findBlockedWordInUsername(username), `${username} should be allowed`)
     }
   })
 
-  test('three-letter slurs must stand alone', ({ assert }) => {
-    assert.equal(findBlockedWordInUsername('wog'), 'wog')
-    assert.equal(findBlockedWordInUsername('xX_wog_Xx'), 'wog')
-    assert.equal(findBlockedWordInUsername('fag69'), 'fag')
+  test('ordinary words containing a listed word are allowed', ({ assert }) => {
+    for (const word of WORDLIST.usernameClean) {
+      assert.isNull(findBlockedWordInUsername(word), `${word} should be allowed`)
+      assert.isNull(findBlockedWordInUsername(`${word}_99`), `${word}_99 should be allowed`)
+    }
+  })
 
-    // The same letters buried inside a longer word are left alone
-    assert.isNull(findBlockedWordInUsername('showgirl'))
-    assert.isNull(findBlockedWordInUsername('TwoGames'))
-    assert.isNull(findBlockedWordInUsername('Fagan'))
+  test('three-letter words must stand alone', ({ assert }) => {
+    // Three letters buried in a longer name are innocent far more often
+    // than not, so those only count when nothing but a letter fences them.
+    if (shortBlockedWord === null) {
+      return
+    }
+
+    assert.isNotNull(findBlockedWordInUsername(shortBlockedWord))
+    assert.isNotNull(findBlockedWordInUsername(`xX_${shortBlockedWord}_Xx`))
+    assert.isNotNull(findBlockedWordInUsername(`${shortBlockedWord}69`))
+
+    assert.isNull(findBlockedWordInUsername(`xx${shortBlockedWord}xx`))
   })
 
   test('cutting out an allowed word cannot join a blocked one', ({ assert }) => {
-    assert.equal(findBlockedWordInUsername('CocktailCock'), 'cock')
+    // An allowed word is replaced by a space rather than removed, so the
+    // letters either side of it can never be read as one word.
+    const pair = WORDLIST.usernameClean.flatMap((allowed) => {
+      const listed = [...WORDLIST.blocked, ...WORDLIST.usernameOnly].find(
+        (word) => word.length > 3 && allowed.includes(word)
+      )
+      return listed === undefined ? [] : [{ allowed, listed }]
+    })[0]
+
+    if (pair === undefined) {
+      return
+    }
+
+    assert.isNotNull(findBlockedWordInUsername(`${pair.allowed}${pair.listed}`))
   })
 })
 

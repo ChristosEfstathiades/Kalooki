@@ -1,7 +1,8 @@
-import { BLOCKED_WORDS } from '#services/profanity_filter'
+import { WORDLIST } from '#services/wordlist'
+import { letterCharacterClass } from '#services/profanity_filter'
 
 /**
- * Username filtering at signup, item 6 of Developer/Chat-Moderation.md.
+ * Username filtering at signup and on every later rename.
  *
  * Two separate refusals live here, and they are different problems:
  * `findBlockedWordInUsername` catches profanity and slurs, while
@@ -13,147 +14,49 @@ import { BLOCKED_WORDS } from '#services/profanity_filter'
  * and appears in lobbies and the leaderboard, so this rejects instead.
  *
  * Profanity is matched by substring rather than by word boundary,
- * because a username has no spaces to bound anything — "xXfuckXx" is the
- * whole reason this exists. Substring matching brings the Scunthorpe
- * problem with it, which ALLOWED_WORDS below buys back for the
- * collisions that actually happen. The trade favours catching the abuse:
- * a false positive costs someone one attempt at a name and the error
- * says so, while a miss is a slur on screen for the life of the account.
- */
-
-/**
- * Words rejected in usernames but not masked in chat. Chat censors what
- * people say in the moment; a name is a label worn permanently, so the
- * bar for it is lower. Kept separate from BLOCKED_WORDS so adding to it
- * cannot quietly change what chat masks.
- */
-const USERNAME_ONLY_BLOCKED_WORDS = [
-  'penis',
-  'vagina',
-  'cock',
-  'dick',
-  'anus',
-  'wank',
-  'jizz',
-  'bollocks',
-  'bastard',
-  'rape',
-  'rapist',
-  'pedo',
-  'paedo',
-  'nazi',
-  'hitler',
-]
-
-/**
- * Innocent words that contain a blocked word. These are cut out of the
- * name before the blocked list is scanned, so "raccoon" is clean while
- * "coon" on its own is not. Plurals and suffixes need no entry: cutting
- * "grape" out of "grapes" leaves an "s" behind, which matches nothing.
+ * because a username has no spaces to bound anything: a slur wrapped in
+ * decoration is the whole reason this exists. Substring matching brings
+ * false positives with it, which the `usernameClean` list buys back for
+ * the collisions that actually happen. The trade favours catching the
+ * abuse: a false positive costs someone one attempt at a name and the
+ * error says so, while a miss is a slur on screen for the life of the
+ * account.
  *
- * Add to this when a real player reports a false positive — guessing at
- * the whole of English here is not the job.
+ * The words come from `resources/wordlist.json` by way of
+ * `#services/wordlist`, and are not in this repository. `blocked` is
+ * shared with chat, so a word added for one is caught by both;
+ * `usernameOnly` is refused here and not masked in chat, since chat
+ * censors what people say in the moment while a name is worn
+ * permanently.
  */
-const ALLOWED_WORDS = [
-  'scunthorpe', // cunt
-  'shiitake', // shit
-  'prickle', // prick
-  'prickly',
-  'prickett',
-  'montenegro', // negro
-  'negroni',
-  'raccoon', // coon
-  'racoon',
-  'cocoon',
-  'tycoon',
-  'spice', // spic
-  'spicy',
-  'aspic',
-  'suspicious',
-  'auspicious',
-  'conspicuous',
-  'pakistan', // paki
-  'peacock', // cock
-  'cockpit',
-  'cocktail',
-  'cockney',
-  'cocker',
-  'cockatoo',
-  'cockroach',
-  'shuttlecock',
-  'woodcock',
-  'gamecock',
-  // Surnames ending in "-cock" are a large family; these are the common
-  // ones, and the rest is what the "add it when reported" note is for.
-  'cockburn',
-  'hitchcock',
-  'hancock',
-  'babcock',
-  'alcock',
-  'adcock',
-  'wilcock',
-  'dickens', // dick
-  'dickinson',
-  'dickerson',
-  'dickson',
-  'dickie',
-  'uranus', // anus
-  'janus',
-  'grape', // rape
-  'drape',
-  'scrape',
-  'trapeze',
-  'therapist', // rapist
-  'therapeutic',
-  'torpedo', // pedo
-  'speedo',
-  'pedometer',
-  'nazir', // nazi
-]
-
-/**
- * Characters that read as a letter without being one. Both directions
- * of the i/l pair are listed because either can stand in for the other
- * ("s1ut" wants an l, "n1gger" wants an i) and a character class costs
- * nothing to widen. Deliberately absent: z for s, which would make the
- * perfectly ordinary names "Nasir" and "Nasi" read as a slur.
- */
-const LOOKALIKE_CHARACTERS: Record<string, string> = {
-  a: 'a4',
-  b: 'b8',
-  e: 'e3',
-  g: 'g69',
-  i: 'i1l',
-  l: 'l1i',
-  o: 'o0',
-  s: 's5',
-  t: 't7',
-  u: 'uv',
-}
 
 /**
  * Words this short must stand alone or be fenced by something that is
- * not a letter. "wog" and "fag" are real slurs, but as substrings they
- * live inside "showgirl", "twogames" and "Fagan" — three letters buried
- * in a longer name are innocent far more often than not. So "fag69" is
- * rejected and "Fagan" is not, at the cost of missing "fagboy".
+ * not a letter. Some real slurs are only three letters long, but as
+ * substrings those letters sit inside perfectly ordinary words, and
+ * three letters buried in a longer name are innocent far more often
+ * than not. So a short slur with decoration around it is rejected while
+ * the ordinary name that contains the same letters is not, at the cost
+ * of missing a short slur that has a real word stuck to it.
  */
 const DELIMITED_WORD_MAX_LENGTH = 3
 
 /**
- * The regex source for one word: every letter widened to its lookalikes,
- * repeats allowed ("fuuuck"), and underscores allowed between letters
- * ("f_u_c_k"), since underscore is the only separator a username may
- * contain.
+ * The regex source for one word: every letter widened to its lookalikes
+ * (the same set the chat filter uses, so a substitution guarded against
+ * in one place is guarded against in both), repeated letters allowed,
+ * and underscores allowed between letters, since underscore is the only
+ * separator a username may contain.
  */
 function wordPatternSource(word: string): string {
-  return [...word].map((letter) => `[${LOOKALIKE_CHARACTERS[letter] ?? letter}]+`).join('_*')
+  return [...word].map((letter) => `${letterCharacterClass(letter)}+`).join('_*')
 }
 
 /**
  * Wraps a short word so it only matches when no letter sits against it.
- * Digits stay outside the fence on purpose: "fag69" is the name we are
- * here for, and its trailing digits are not a word.
+ * Digits stay outside the fence on purpose: a short slur with a couple
+ * of digits after it is the name we are here for, and those digits are
+ * not a word.
  */
 function delimit(source: string): string {
   return `(?<![a-z])(?:${source})(?![a-z])`
@@ -161,11 +64,11 @@ function delimit(source: string): string {
 
 /**
  * One pattern per word rather than a single alternation, so the caller
- * can be told which word matched. None of these carry the "g" flag —
+ * can be told which word matched. None of these carry the "g" flag:
  * they are used with `.test()`, and a global regex there is stateful
- * through `lastIndex` (see Developer/Chat-Moderation.md).
+ * through `lastIndex`.
  */
-const blockedPatterns = [...BLOCKED_WORDS, ...USERNAME_ONLY_BLOCKED_WORDS].map((word) => {
+const blockedPatterns = [...WORDLIST.blocked, ...WORDLIST.usernameOnly].map((word) => {
   const source = wordPatternSource(word)
   return {
     word,
@@ -175,23 +78,27 @@ const blockedPatterns = [...BLOCKED_WORDS, ...USERNAME_ONLY_BLOCKED_WORDS].map((
 
 /**
  * Longest first, because alternation takes whichever branch matches
- * first at a position. Where one allowed word is a prefix of another
- * ("cocker" inside a future "cockerel") the short branch would win and
- * leave the tail of the long one in the name — usually harmless, but
- * not something to leave to the order someone happened to type.
+ * first at a position. Where one allowed word is a prefix of another the
+ * short branch would win and leave the tail of the long one in the name,
+ * usually harmless, but not something to leave to the order someone
+ * happened to type.
  */
-const allowedPattern = new RegExp(
-  [...ALLOWED_WORDS]
-    .sort((first, second) => second.length - first.length)
-    .map(wordPatternSource)
-    .join('|'),
-  'g'
-)
+const allowedPattern =
+  WORDLIST.usernameClean.length === 0
+    ? /(?!)/g
+    : new RegExp(
+        [...WORDLIST.usernameClean]
+          .sort((first, second) => second.length - first.length)
+          .map(wordPatternSource)
+          .join('|'),
+        'g'
+      )
 
 /**
  * The form a username is matched in: lowercased, with "ph" read as "f"
- * so "phuck" does not walk past a list that only knows "fuck". No
- * blocked or allowed word contains "ph", so nothing else shifts.
+ * so a word spelled that way does not walk past a list that only knows
+ * the ordinary spelling. No listed word contains "ph", so nothing else
+ * shifts.
  */
 function normalizeForMatching(username: string): string {
   return username.toLowerCase().replace(/ph/g, 'f')

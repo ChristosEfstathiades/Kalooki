@@ -23,6 +23,8 @@ Product and design intent live in `docs/` — consult and keep these in sync whe
 ### Roles & moderation
 Accounts hold one of three hierarchical roles: `player`, `moderator`, `admin`. Moderators are regular players who can delete messages in the global and in-game chats (never private group chats) and ban or mute users, via controls shown inline on the player site. Admins get everything a moderator has plus `admin.{domain}`. Acting on another user requires strictly outranking them, enforced in `#services/moderation_service`; every action is written to a `moderation_actions` audit trail. Bootstrap the first admin with `node ace user:role <username> admin`. See `docs/features.md` (Roles & Moderation).
 
+Chat censorship and username filtering read their wordlists from `apps/backend/resources/wordlist.json`, which is **gitignored on purpose** so the words stay out of the repository. Copy `resources/wordlist.example.json` to `resources/wordlist.json` on a fresh checkout or the server refuses to boot; `apps/backend/CLAUDE.md` has the details.
+
 ### Auth & signup
 Accounts require an email, a unique username, and a password (min 8 chars, ≥1 symbol and ≥1 capital) plus confirmation. Avatars are DiceBear "bottts" robots generated from the username — there is no photo upload. Email verification is enforced **only in production**; in development accounts are active immediately. Signin offers a "remember me" option. Only authenticated users can play, and players must not be able to see other players' hidden state (e.g. opponents' cards).
 

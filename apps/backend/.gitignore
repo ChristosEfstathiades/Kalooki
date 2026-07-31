@@ -10,6 +10,9 @@ tmp/*
 .env.production.local
 .env.development.local
 
+# Moderation wordlists (kept out of the repo; see wordlist.example.json)
+resources/wordlist.json
+
 # Frontend assets compiled code
 public/assets
 

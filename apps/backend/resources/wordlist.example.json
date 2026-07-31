@@ -1,0 +1,24 @@
+{
+  "note": [
+    "Copy this file to resources/wordlist.json and replace the placeholders. That file is",
+    "gitignored on purpose, so the words themselves never reach the repository, and the",
+    "server refuses to boot without it rather than run an unfiltered chat.",
+    "",
+    "blocked:       masked in chat, and refused in usernames. Matched as whole words, seeing",
+    "               through lookalike characters, repeats, separators and words run together.",
+    "severe:        the subset of `blocked` matched anywhere in the text, letters either side",
+    "               or not, so padding a word out cannot hide it. Every entry must also be in",
+    "               `blocked`. Only put a word here if no ordinary word contains it.",
+    "clean:         innocent words that contain a `severe` word, spared in chat. Whole words",
+    "               only, so list the inflections you need.",
+    "usernameOnly:  refused in usernames but not masked in chat. A name is worn permanently,",
+    "               so the bar for it is lower.",
+    "usernameClean: innocent words that contain a `blocked` or `usernameOnly` word, allowed in",
+    "               usernames, which are matched by substring because a name has no spaces."
+  ],
+  "blocked": ["fnord", "badword", "slur"],
+  "severe": ["slur"],
+  "clean": ["slurry", "slurred"],
+  "usernameOnly": ["crude"],
+  "usernameClean": ["crudely"]
+}

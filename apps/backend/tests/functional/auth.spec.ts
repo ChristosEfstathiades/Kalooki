@@ -2,6 +2,11 @@ import { test } from '@japa/runner'
 import User from '#models/user'
 import { CHAT_USERNAME_COLORS } from '#services/chat_service'
 import testUtils from '@adonisjs/core/services/test_utils'
+import {
+  EMBEDDABLE_BLOCKED_WORD,
+  USERNAME_ONLY_WORD,
+  withAlphanumericLookalikes,
+} from '#tests/helpers/wordlist'
 
 /**
  * Narrows a signup response's token to a string. Signup only returns a
@@ -95,8 +100,14 @@ test.group('Auth signup', (group) => {
       response.assertStatus(422)
     })
 
+  // The words come from the configured wordlist, not from this file; see
+  // `#tests/helpers/wordlist`.
   test('rejects usernames containing profanity')
-    .with([{ username: 'xXfuckXx' }, { username: 'n1gg3r' }, { username: 'BigCock69' }])
+    .with([
+      { username: `xX${EMBEDDABLE_BLOCKED_WORD}Xx` },
+      { username: withAlphanumericLookalikes(EMBEDDABLE_BLOCKED_WORD) },
+      { username: `Big${USERNAME_ONLY_WORD}69` },
+    ])
     .run(async ({ client }, row) => {
       const response = await client.post('/api/v1/auth/signup').json({
         ...validSignupPayload(),
@@ -299,7 +310,7 @@ test.group('Profile update', (group) => {
     const response = await client
       .patch('/api/v1/account/profile')
       .bearerToken(token)
-      .json({ username: 'xXfuckXx' })
+      .json({ username: `xX${EMBEDDABLE_BLOCKED_WORD}Xx` })
 
     response.assertStatus(422)
   })

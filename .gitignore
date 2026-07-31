@@ -14,6 +14,9 @@ dist
 apps/admin
 Developer
 
+# Moderation wordlists (kept out of the repo; see wordlist.example.json)
+apps/backend/resources/wordlist.json
+
 # Temp files
 /tmp
 
