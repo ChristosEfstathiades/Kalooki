@@ -302,13 +302,44 @@ input[type='search']::-webkit-search-results-decoration {
   animation: round-intro-deal cubic-bezier(0.3, 0.8, 0.4, 1) both;
 }
 
+/*
+ * A card flying from a pile into your hand when you draw by clicking
+ * it, standing in for the movement a drag would have shown. The offsets
+ * come from the measured layout, so one set of keyframes serves both
+ * piles, and the card grows on the way in because it is leaving
+ * pile-sized art for the larger cards in hand.
+ */
+@keyframes card-flight {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+
+  12%,
+  80% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(var(--flight-dx), var(--flight-dy)) scale(1.35)
+      rotate(-5deg);
+  }
+}
+
+.card-flight {
+  opacity: 0;
+  animation: card-flight cubic-bezier(0.3, 0.8, 0.4, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .turn-pulse {
     animation: none;
   }
 
   .round-intro-shuffle,
-  .round-intro-card {
+  .round-intro-card,
+  .card-flight {
     animation: none;
     display: none;
   }

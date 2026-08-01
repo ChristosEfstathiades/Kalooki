@@ -39,6 +39,11 @@ export type DropData =
   | { target: 'stagedSet'; setIndex: number }
   | { target: 'meld'; meldId: number; runEnd: 'low' | 'high' }
   | { target: 'joker'; meldId: number; jokerCardId: number }
+  /**
+   * A position in your own hand: the dragged card lands in front of
+   * `beforeCardId`, or at the far right when it is null.
+   */
+  | { target: 'handSlot'; beforeCardId: number | null }
 
 /**
  * Mouse drags start after a few pixels of movement so plain clicks

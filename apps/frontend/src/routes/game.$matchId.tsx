@@ -26,6 +26,7 @@ import { useTurnTitleAlert } from '#/lib/use-turn-title'
 import PlayingCard, { CardBack } from '#/components/game/PlayingCard'
 import StagingArea from '#/components/game/StagingArea'
 import { RoundIntro } from '#/components/game/RoundIntro'
+import CardFlight, { planCardFlight } from '#/components/game/CardFlight'
 import {
   CardDrag,
   DropZone,
@@ -38,8 +39,9 @@ import { Button } from '#/components/ui/button'
 import { cn } from '#/lib/utils'
 import { seo } from '#/lib/seo'
 import { chatNameColor, usernameColor } from '#/lib/username-color'
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import type { DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core'
 import type { DragData, DropData } from '#/components/game/DragDrop'
+import type { CardFlightPath } from '#/components/game/CardFlight'
 import type {
   GameAction,
   GameCard,
@@ -119,6 +121,28 @@ type SortMode = 'rank' | 'suit'
 interface HandOrder {
   base: number[]
   fresh: number[]
+}
+
+/**
+ * The place in the hand a drag is currently hovering over, so the hand
+ * can open the gap the card would land in. `beforeCardId` is null for
+ * the far right of the hand, and the whole thing is null when the drag
+ * is not over the hand at all.
+ */
+interface HandDropTarget {
+  beforeCardId: number | null
+}
+
+/**
+ * A card animating from a pile into the hand after a click-to-draw.
+ * `id` climbs with every draw so the animation replays rather than
+ * leaving the previous card frozen mid-flight.
+ */
+interface DrawFlight {
+  id: number
+  /** The face to fly, or null for a face-down card off the deck. */
+  card: GameCard | null
+  path: CardFlightPath
 }
 
 const PICTURE_RANKS: Record<string, number> = { J: 11, Q: 12, K: 13, A: 14 }
@@ -301,9 +325,15 @@ function GamePage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [turnFlash, setTurnFlash] = useState(false)
   const [activeDrag, setActiveDrag] = useState<DragData | null>(null)
+  const [handDropTarget, setHandDropTarget] = useState<HandDropTarget | null>(
+    null,
+  )
   const [localIntroUntil, setLocalIntroUntil] = useState<number | null>(null)
+  const [flight, setFlight] = useState<DrawFlight | null>(null)
   const wasMyTurnRef = useRef(false)
+  const flightIdRef = useRef(0)
   const sensors = useGameDragSensors()
+  const clearFlight = useCallback(() => setFlight(null), [])
 
   // Initial view + live updates
   useEffect(() => {
@@ -556,6 +586,57 @@ function GamePage() {
     )
   }
 
+  /**
+   * Puts a card in front of another one in the hand (or at the far
+   * right when `beforeCardId` is null), so players can arrange their
+   * hand by dragging rather than living with the sort buttons. Any
+   * active sort is dropped: the order belongs to the player from here
+   * on, and cards picked up later join the right-hand end instead of
+   * re-sorting what they arranged.
+   */
+  const arrangeCard = (cardId: number, beforeCardId: number | null) => {
+    if (cardId === beforeCardId) {
+      return
+    }
+    setSortMode(null)
+    setHandOrder((current) => {
+      const order = [...current.base, ...current.fresh]
+      // Cards the order state has not caught up with yet sit at the end
+      // of the hand row, so give them that place before moving anything
+      for (const card of handCards) {
+        if (!order.includes(card.id)) {
+          order.push(card.id)
+        }
+      }
+      const from = order.indexOf(cardId)
+      if (from === -1) {
+        return current
+      }
+      order.splice(from, 1)
+      const before = beforeCardId === null ? -1 : order.indexOf(beforeCardId)
+      order.splice(before === -1 ? order.length : before, 0, cardId)
+      return { base: order, fresh: [] }
+    })
+  }
+
+  /**
+   * Draws by click, flying a card from the pile into the hand so the
+   * move is as readable as dragging it there. The flight is decorative;
+   * the real card arrives with the server's next view.
+   */
+  const drawByClick = (
+    action: GameAction,
+    pileSelector: string,
+    face: GameCard | null,
+  ) => {
+    const path = planCardFlight(document.querySelector(pileSelector))
+    if (path) {
+      flightIdRef.current += 1
+      setFlight({ id: flightIdRef.current, card: face, path })
+    }
+    void act(action)
+  }
+
   // What the in-flight drag may legally land on, so only sensible
   // targets light up (the server still has the final say)
   const acting = myTurnActive && view.phase === 'acting' && !view.paused
@@ -578,9 +659,18 @@ function GamePage() {
     setActiveDrag((event.active.data.current as DragData | undefined) ?? null)
   }
 
+  /** Tracks the hand position under the drag, so the hand can open a gap there. */
+  const handleDragOver = (event: DragOverEvent) => {
+    const drop = event.over?.data.current as DropData | undefined
+    setHandDropTarget(
+      drop?.target === 'handSlot' ? { beforeCardId: drop.beforeCardId } : null,
+    )
+  }
+
   /** Maps a completed drag onto a game action or a staging change. */
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveDrag(null)
+    setHandDropTarget(null)
     const drag = event.active.data.current as DragData | undefined
     const drop = event.over?.data.current as DropData | undefined
     if (!drag || !drop) {
@@ -610,6 +700,14 @@ function GamePage() {
         if (drag.source === 'staged') {
           unstageCard(cardId)
         }
+        break
+      case 'handSlot':
+        // A staged card dropped onto a slot comes back out of the tray
+        // and takes that place, rather than only returning to the hand
+        if (drag.source === 'staged') {
+          unstageCard(cardId)
+        }
+        arrangeCard(cardId, drop.beforeCardId)
         break
       case 'meld':
         void act({
@@ -666,8 +764,12 @@ function GamePage() {
         sensors={sensors}
         collisionDetection={preciseCollision}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
-        onDragCancel={() => setActiveDrag(null)}
+        onDragCancel={() => {
+          setActiveDrag(null)
+          setHandDropTarget(null)
+        }}
       >
         <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-3 px-0 pt-3 pb-0 sm:pb-3 sm:px-3">
           <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
@@ -732,7 +834,9 @@ function GamePage() {
                     // The shuffle sits here and the deal flies out from it
                     data-deal-origin=""
                     className="block appearance-none border-0 bg-transparent p-0"
-                    onClick={() => void act({ type: 'draw' })}
+                    onClick={() =>
+                      drawByClick({ type: 'draw' }, '[data-deal-origin]', null)
+                    }
                     disabled={!canDraw}
                     title="Drag the deck to your hand to draw, or tap it"
                   >
@@ -755,21 +859,30 @@ function GamePage() {
                   overClassName="bg-white/25 ring-2 ring-white"
                 >
                   {view.discardTop ? (
-                    <CardDrag
-                      id="discard-top"
-                      data={{ source: 'discard', card: view.discardTop }}
-                      disabled={!canDraw || view.paused}
-                    >
-                      <PlayingCard
-                        card={view.discardTop}
-                        className="h-[76px] w-[52px] sm:h-24 sm:w-[66px]"
-                        onClick={
-                          canDraw
-                            ? () => void act({ type: 'takeDiscard' })
-                            : undefined
-                        }
-                      />
-                    </CardDrag>
+                    // A tapped take flies out from here
+                    <span data-discard-origin="" className="block">
+                      <CardDrag
+                        id="discard-top"
+                        data={{ source: 'discard', card: view.discardTop }}
+                        disabled={!canDraw || view.paused}
+                        className="block"
+                      >
+                        <PlayingCard
+                          card={view.discardTop}
+                          className="h-[76px] w-[52px] sm:h-24 sm:w-[66px]"
+                          onClick={
+                            canDraw
+                              ? () =>
+                                  drawByClick(
+                                    { type: 'takeDiscard' },
+                                    '[data-discard-origin]',
+                                    view.discardTop,
+                                  )
+                              : undefined
+                          }
+                        />
+                      </CardDrag>
+                    </span>
                   ) : (
                     <span className="flex h-[76px] w-[52px] items-center justify-center rounded-md border border-dashed border-white/40 text-xs text-white/60 sm:h-24 sm:w-[66px]">
                       Empty
@@ -788,6 +901,7 @@ function GamePage() {
             stagedMelds={stagedMelds}
             cardById={cardById}
             activeDrag={activeDrag}
+            handDropTarget={handDropTarget}
             isMyTurn={isMyTurn}
             isNext={nextPlayerUserId === currentUser.id}
             turnFlash={turnFlash}
@@ -847,6 +961,15 @@ function GamePage() {
           seatUserIds={dealOrder}
           durationMs={ROUND_INTRO_MS}
           shuffleMs={SHUFFLE_MS}
+        />
+      )}
+
+      {flight && (
+        <CardFlight
+          key={flight.id}
+          card={flight.card}
+          path={flight.path}
+          onDone={clearFlight}
         />
       )}
     </main>
@@ -1314,6 +1437,8 @@ interface OwnAreaProps {
   stagedMelds: number[][]
   cardById: (cardId: number) => GameCard | undefined
   activeDrag: DragData | null
+  /** Where in the hand the drag would land, or null when it is elsewhere. */
+  handDropTarget: HandDropTarget | null
   isMyTurn: boolean
   isNext: boolean
   turnFlash: boolean
@@ -1337,6 +1462,7 @@ function OwnArea({
   stagedMelds,
   cardById,
   activeDrag,
+  handDropTarget,
   isMyTurn,
   isNext,
   turnFlash,
@@ -1365,6 +1491,18 @@ function OwnArea({
   const pileDragActive =
     activeDrag !== null &&
     (activeDrag.source === 'deck' || activeDrag.source === 'discard')
+
+  // Everything from the hovered slot rightwards slides over, so the gap
+  // the card would land in opens where it can be seen rather than under
+  // the card being dragged. -1 while the drag is away from the hand.
+  const dropIndex =
+    handDropTarget === null
+      ? -1
+      : handDropTarget.beforeCardId === null
+        ? visibleHand.length
+        : visibleHand.findIndex(
+            (card) => card.id === handDropTarget.beforeCardId,
+          )
 
   return (
     <div className="rounded-lg border border-border bg-card px-3 pb-3 pt-0 sm:pt-3">
@@ -1397,33 +1535,68 @@ function OwnArea({
         )}
         overClassName="bg-ring/10"
       >
-        {/* No wrapping: each card is a shrinkable flex cell, so a big
-            hand compresses the cards instead of spilling onto a second
-            row */}
         <div
           // Your dealt cards fly here, not to your seat chip, which is
           // hidden on mobile
           data-deal-target={me?.userId}
-          className="flex min-h-36 items-center justify-center py-1 [&>*:not(:first-child)]:-ml-[49.5px]"
+          className="flex min-h-36 items-center justify-center py-1"
         >
-          {visibleHand.map((card) => (
-            <CardDrag
-              key={card.id}
-              id={`hand-card-${card.id}`}
-              data={{ source: 'hand', card }}
-              disabled={!acting}
-              className="min-w-12 basis-[99px]"
-            >
-              <PlayingCard
-                card={card}
-                fluid
-                selected={selectedCardIds.includes(card.id)}
-                // Drag-only on mobile: dropping the tap handler keeps a
-                // quick touch from competing with the drag gesture
-                onClick={isCompact ? undefined : () => onToggleCard(card.id)}
-              />
-            </CardDrag>
-          ))}
+          {/* No wrapping: each card is a shrinkable flex cell, so a big
+              hand compresses the cards instead of spilling onto a
+              second row. min-w-0 lets the row squeeze past the cards'
+              own widths on narrow screens. */}
+          <div className="flex min-w-0 items-center [&>*:not(:first-child)]:-ml-[49.5px]">
+            {visibleHand.map((card, index) => (
+              // Each card is also a slot a dragged card can take, so a
+              // hand can be arranged by hand rather than only sorted
+              <DropZone
+                key={card.id}
+                id={`hand-slot-${card.id}`}
+                data={{ target: 'handSlot', beforeCardId: card.id }}
+                disabled={!cardDragActive}
+                className={cn(
+                  'block min-w-12 basis-[99px] transition-transform',
+                  dropIndex !== -1 && index >= dropIndex && 'translate-x-6',
+                )}
+              >
+                {/* Never disabled: arranging is allowed off-turn too,
+                    which is when there is time for it. Every other drop
+                    target stays shut until it is your go, so an off-turn
+                    drag can only land back in the hand. */}
+                <CardDrag
+                  id={`hand-card-${card.id}`}
+                  data={{ source: 'hand', card }}
+                  className="block w-full"
+                >
+                  <PlayingCard
+                    card={card}
+                    fluid
+                    selected={selectedCardIds.includes(card.id)}
+                    // Drag-only on mobile: dropping the tap handler keeps a
+                    // quick touch from competing with the drag gesture
+                    onClick={
+                      isCompact ? undefined : () => onToggleCard(card.id)
+                    }
+                  />
+                </CardDrag>
+              </DropZone>
+            ))}
+          </div>
+          {/* The end of the hand: where a dragged card goes to sit last,
+              and the point a clicked draw flies to. Always laid out so
+              the hand does not shift when a drag starts. */}
+          <span data-hand-landing="" className="shrink-0 pl-1">
+            <DropZone
+              id="hand-slot-end"
+              data={{ target: 'handSlot', beforeCardId: null }}
+              disabled={!cardDragActive}
+              className={cn(
+                'block h-24 w-5 rounded border-2 border-dashed border-ring/60 transition-opacity',
+                cardDragActive ? 'opacity-100' : 'opacity-0',
+              )}
+              overClassName="border-ring bg-ring/20"
+            />
+          </span>
         </div>
       </DropZone>
 
