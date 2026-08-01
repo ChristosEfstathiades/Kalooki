@@ -329,8 +329,8 @@ function GroupDetail({ groupId, onBack }: GroupDetailProps) {
                 ...group.data.members.map((member) => member.id),
                 ...group.data.pendingInvites.map((invite) => invite.user.id),
               ]}
-              placeholder="Invite a friend by username"
-              label="Invite a friend by username"
+              placeholder="Invite a friend by name"
+              label="Invite a friend by name"
             />
             <Button
               type="submit"

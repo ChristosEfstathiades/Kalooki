@@ -102,8 +102,13 @@ export default function FriendSuggestInput({
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         aria-label={label}
-        // Friend lookup, not a login field: block browser/password-
-        // manager username autofill and mobile auto-capitalisation
+        // Friend lookup, not a login field. Safari ignores
+        // autocomplete="off" for Password AutoFill and classifies a
+        // field as a login by its type, name and wording, so this is a
+        // search field named and worded to avoid "username"/"login".
+        type="search"
+        name="friend-lookup"
+        enterKeyHint="send"
         autoComplete="off"
         autoCapitalize="none"
         autoCorrect="off"

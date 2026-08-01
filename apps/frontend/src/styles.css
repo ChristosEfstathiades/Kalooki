@@ -179,6 +179,18 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Friend/player lookup fields are type="search" so Safari's Password
+   AutoFill never classifies them as sign-in username fields and offers
+   the player their own saved credentials. Strip WebKit's native search
+   chrome so they still look like every other input. */
+input[type='search']::-webkit-search-decoration,
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-results-button,
+input[type='search']::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 /* Slim themed scrollbar for chat and other in-panel scroll areas */
 .thin-scrollbar {
   scrollbar-width: thin;

@@ -168,11 +168,16 @@ export default function FriendsDialog({
               <Input
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                placeholder="Exact username"
-                aria-label="Username"
-                // This looks up a friend, it is not a login field, so
-                // block browser/password-manager username autofill and
-                // mobile auto-capitalisation of the entered name
+                placeholder="Exact player name"
+                aria-label="Player name"
+                // This looks up a friend, it is not a login field.
+                // Safari ignores autocomplete="off" for Password
+                // AutoFill and classifies a field as a login by its
+                // type, name and wording, so this is a search field
+                // named and worded to avoid "username"/"login".
+                type="search"
+                name="friend-lookup"
+                enterKeyHint="send"
                 autoComplete="off"
                 autoCapitalize="none"
                 autoCorrect="off"
