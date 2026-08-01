@@ -87,8 +87,10 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 ## header
 
 - on all pages except the gameplay and welcome.
-- left hand side contains logo of the website which is yet to be made, "KalookiOnline" for now, followed by a small live "N players online" count with a green dot (hidden on the narrowest screens), then links to the how to play (rules) and tips pages. They are also in the footer, but a player still learning the game should not have to reach the bottom of the page to find them, so they are repeated here and stay on the narrowest screens even though the online count does not. The current page's link is shown in the full foreground colour.
+- left hand side contains logo of the website which is yet to be made, "KalookiOnline" for now, followed by a small live "N players online" count with a green dot, then links to the how to play (rules) and tips pages. The current page's link is shown in the full foreground colour.
+- the online count only appears once more than five players are online. A handful of names reads as an empty room and undersells the site, so below that threshold the count says nothing at all rather than something discouraging. It shows at every width once past the threshold.
 - right hand side Contains the username and a cog icon that takes user to settings page
+- on screens narrower than the `sm` breakpoint the how to play and tips links and the settings cog collapse into a hamburger menu, which takes the cog's place on the right. It opens as a modal in the middle of the screen over a dimmed page, rather than a dropdown pinned to the corner, so the rows are large enough to hit with a thumb wherever the hand is holding the phone. The links are also in the footer, but a player still learning the game should not have to reach the bottom of the page to find them, so the menu keeps them one tap away. Signed-out visitors get the same hamburger with just the two learn-the-game links, alongside the sign in and create account buttons.
 
 ## footer
 

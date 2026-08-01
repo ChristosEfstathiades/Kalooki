@@ -1,10 +1,94 @@
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Settings } from 'lucide-react'
+import { Menu, Settings } from 'lucide-react'
 import { currentUserQueryOptions } from '#/lib/auth'
 import UserAvatar from '#/components/UserAvatar'
 import OnlineCount from '#/components/OnlineCount'
 import { Button } from '#/components/ui/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from '#/components/ui/dialog'
+
+interface HeaderMenuProps {
+  showSettings: boolean
+}
+
+/** Shared look for the rows inside the mobile menu */
+const menuLinkClassName =
+  'flex items-center justify-center gap-2 rounded-md px-4 py-3 text-base font-medium text-muted-foreground hover:bg-accent hover:text-foreground'
+
+/**
+ * The mobile-only hamburger menu, holding the links that the header hides
+ * on narrow screens. Takes the place of the settings cog below `sm` and
+ * opens as a modal in the middle of the screen.
+ */
+function HeaderMenu({ showSettings }: HeaderMenuProps) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-lg"
+          aria-label="Menu"
+          className="sm:hidden"
+        >
+          <Menu aria-hidden="true" className="size-6" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent
+        aria-describedby={undefined}
+        className="w-[calc(100%-3rem)] max-w-xs gap-0 p-4"
+      >
+        {/* The title gives the close button a row of its own, clear of
+            the links below it */}
+        <DialogTitle className="pb-3 text-sm font-semibold text-muted-foreground">
+          Menu
+        </DialogTitle>
+        {/* Each row closes the menu as well as navigating, since the
+            router keeps the page mounted underneath */}
+        <nav className="flex flex-col border-t border-border pt-2">
+          <DialogClose asChild>
+            <Link
+              to="/rules"
+              className={menuLinkClassName}
+              activeProps={{ className: 'text-foreground' }}
+            >
+              How to play
+            </Link>
+          </DialogClose>
+          <DialogClose asChild>
+            <Link
+              to="/tips"
+              className={menuLinkClassName}
+              activeProps={{ className: 'text-foreground' }}
+            >
+              Tips
+            </Link>
+          </DialogClose>
+          {showSettings ? (
+            <>
+              <div className="my-1 h-px bg-border" />
+              <DialogClose asChild>
+                <Link
+                  to="/settings"
+                  className={menuLinkClassName}
+                  activeProps={{ className: 'text-foreground' }}
+                >
+                  <Settings aria-hidden="true" className="size-5" />
+                  Settings
+                </Link>
+              </DialogClose>
+            </>
+          ) : null}
+        </nav>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 /**
  * Site header: wordmark, the live online-player count and the two
@@ -22,10 +106,9 @@ export default function Header() {
           <Link to="/" className="text-lg font-bold tracking-tight">
             Kalooki<span className="text-button-red">Online</span>
           </Link>
-          <OnlineCount className="hidden sm:flex" />
-          {/* The online count hides on the narrowest screens; these stay,
-              since they are the way in for someone still learning */}
-          <nav className="flex items-center gap-4 text-sm">
+          <OnlineCount />
+          {/* Below `sm` these move into the hamburger menu on the right */}
+          <nav className="hidden items-center gap-4 text-sm sm:flex">
             <Link
               to="/rules"
               className="text-muted-foreground hover:text-foreground"
@@ -51,25 +134,35 @@ export default function Header() {
                 {user.username}
               </span>
             </span>
-            <Button asChild variant="ghost" size="icon" aria-label="Settings">
+            <Button
+              asChild
+              variant="ghost"
+              size="icon"
+              aria-label="Settings"
+              className="hidden sm:inline-flex"
+            >
               <Link to="/settings">
                 <Settings aria-hidden="true" />
               </Link>
             </Button>
+            <HeaderMenu showSettings />
           </div>
         ) : (
-          <nav className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/signin">Sign in</Link>
-            </Button>
-            <Button
-              asChild
-              size="sm"
-              className="bg-button-red hover:bg-button-red-hover"
-            >
-              <Link to="/signup">Create account</Link>
-            </Button>
-          </nav>
+          <div className="flex items-center gap-2">
+            <nav className="flex items-center gap-2">
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/signin">Sign in</Link>
+              </Button>
+              <Button
+                asChild
+                size="sm"
+                className="bg-button-red hover:bg-button-red-hover"
+              >
+                <Link to="/signup">Create account</Link>
+              </Button>
+            </nav>
+            <HeaderMenu showSettings={false} />
+          </div>
         )}
       </div>
     </header>
