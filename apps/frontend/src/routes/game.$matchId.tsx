@@ -1303,6 +1303,23 @@ const SUIT_SYMBOL: Record<Suit, string> = {
   spades: '♠',
 }
 
+/** Ranks in run order: 2 low, ace high (docs/Kalooki.md). */
+const RUN_RANKS: Rank[] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 'J', 'Q', 'K', 'A']
+
+/**
+ * Which ends of a tabled meld can still take a go-er. A run stops at 2
+ * on the low end and at the ace on the high end; a group has no low end
+ * and is closed once all four suits are on the table.
+ */
+function openGoerEnds(meld: MeldView): { low: boolean; high: boolean } {
+  if (meld.type === 'group') {
+    return { low: false, high: meld.cards.length < 4 }
+  }
+  const lowIndex = RUN_RANKS.indexOf(meld.cards[0].rank)
+  const highIndex = RUN_RANKS.indexOf(meld.cards[meld.cards.length - 1].rank)
+  return { low: lowIndex > 0, high: highIndex < RUN_RANKS.length - 1 }
+}
+
 /** Red suits print red, black suits near-black, on the light meld chip. */
 function suitColorClass(suit: Suit | null): string {
   return suit === 'hearts' || suit === 'diamonds'
@@ -1319,10 +1336,11 @@ function MeldGroup({
   onGoer,
   onTakeJoker,
 }: MeldGroupProps) {
+  const openEnds = openGoerEnds(meld)
   return (
     <div className="rounded-md bg-white/90 px-2 py-1 shadow-sm">
       <div className="flex items-center gap-2">
-        {goerDropActive && meld.type === 'run' && (
+        {goerDropActive && openEnds.low && (
           <GoerDropZone meldId={meld.id} runEnd="low" />
         )}
         {meld.cards.map((meldCard) =>
@@ -1354,7 +1372,7 @@ function MeldGroup({
             />
           ),
         )}
-        {goerDropActive && (
+        {goerDropActive && openEnds.high && (
           <GoerDropZone
             meldId={meld.id}
             runEnd="high"
@@ -1362,9 +1380,9 @@ function MeldGroup({
           />
         )}
       </div>
-      {singleSelected && (
+      {singleSelected && (openEnds.low || openEnds.high) && (
         <div className="mt-1 flex justify-center gap-1">
-          {meld.type === 'run' && (
+          {openEnds.low && (
             <button
               type="button"
               className="rounded bg-zinc-700 px-1.5 py-0.5 text-[10px] text-white hover:bg-zinc-900"
@@ -1373,13 +1391,15 @@ function MeldGroup({
               + low
             </button>
           )}
-          <button
-            type="button"
-            className="rounded bg-zinc-700 px-1.5 py-0.5 text-[10px] text-white hover:bg-zinc-900"
-            onClick={() => onGoer(meld.id, singleSelected.id, 'high')}
-          >
-            {meld.type === 'run' ? '+ high' : 'Add here'}
-          </button>
+          {openEnds.high && (
+            <button
+              type="button"
+              className="rounded bg-zinc-700 px-1.5 py-0.5 text-[10px] text-white hover:bg-zinc-900"
+              onClick={() => onGoer(meld.id, singleSelected.id, 'high')}
+            >
+              {meld.type === 'run' ? '+ high' : 'Add here'}
+            </button>
+          )}
         </div>
       )}
     </div>
