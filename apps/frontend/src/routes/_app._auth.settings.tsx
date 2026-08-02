@@ -23,15 +23,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '#/components/ui/dialog'
+import PlayingCard, { CardBack } from '#/components/game/PlayingCard'
 import { cn } from '#/lib/utils'
 import { seo } from '#/lib/seo'
 import { getStoredTheme, setTheme } from '#/lib/theme'
+import { CARD_DECKS, setCardDeck, useCardDeck } from '#/lib/card-deck'
 import {
   chatNameColor,
   USERNAME_COLORS,
   usernameColor,
 } from '#/lib/username-color'
 import type { Theme } from '#/lib/theme'
+import type { GameCard } from '#/lib/game'
 import type { CurrentUser } from '#/lib/auth'
 
 export const Route = createFileRoute('/_app/_auth/settings')({
@@ -39,7 +42,7 @@ export const Route = createFileRoute('/_app/_auth/settings')({
     seo({
       title: 'Settings',
       description:
-        'Change your username, password, theme, and chat colour, or delete your KalookiOnline account.',
+        'Change your username, password, theme, card design, and chat colour, or delete your KalookiOnline account.',
       path: '/settings',
       noindex: true,
     }),
@@ -83,6 +86,8 @@ function SettingsPage() {
       <ProfileSection user={user} />
 
       <ThemeSection />
+
+      <CardDeckSection />
 
       <ChatColorSection user={user} />
 
@@ -300,6 +305,77 @@ function ThemeSection() {
           >
             {option === 'dark' ? 'Dark (default)' : 'Light'}
           </Button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+/**
+ * Sample hand shown in each deck preview: a pip card, a court card and
+ * a joker, so the differences between the decks are all visible. The
+ * joker's id picks the red artwork (see cardFaceUrl).
+ */
+const PREVIEW_CARDS: readonly GameCard[] = [
+  { id: 1, isJoker: false, rank: 'A', suit: 'spades' },
+  { id: 2, isJoker: false, rank: 7, suit: 'diamonds' },
+  { id: 3, isJoker: false, rank: 'Q', suit: 'hearts' },
+  { id: 0, isJoker: true, rank: null, suit: null },
+]
+
+/**
+ * Card design picker: swaps the artwork used for every card at the
+ * table, remembered per device like the theme.
+ */
+function CardDeckSection() {
+  const deck = useCardDeck()
+
+  return (
+    <section className="mt-6 rounded-lg border border-border bg-card p-6">
+      <h2 className="m-0 text-lg font-semibold">Card design</h2>
+      <p className="mt-1 mb-4 text-sm text-muted-foreground">
+        Choose the cards you play with on this device.
+      </p>
+
+      <div
+        className="grid gap-3 sm:grid-cols-2"
+        role="radiogroup"
+        aria-label="Card design"
+      >
+        {CARD_DECKS.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            role="radio"
+            aria-checked={deck === option.id}
+            onClick={() => setCardDeck(option.id)}
+            className={cn(
+              'flex cursor-pointer flex-col items-start gap-3 rounded-lg border p-3 text-left transition',
+              deck === option.id
+                ? 'border-button-purple ring-2 ring-button-purple'
+                : 'border-border hover:border-muted-foreground',
+            )}
+          >
+            <span className="flex gap-1">
+              {PREVIEW_CARDS.map((card) => (
+                <PlayingCard
+                  key={card.id}
+                  card={card}
+                  deck={option.id}
+                  className="h-16 w-11"
+                />
+              ))}
+              <CardBack deck={option.id} className="h-16 w-11" />
+            </span>
+            <span>
+              <span className="block text-sm font-semibold">
+                {option.label}
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                {option.description}
+              </span>
+            </span>
+          </button>
         ))}
       </div>
     </section>

@@ -1,51 +1,12 @@
 import { cn } from '#/lib/utils'
-import type { GameCard, Rank, Suit } from '#/lib/game'
-
-/**
- * Eagerly-resolved URLs for every card face image under assets/cards,
- * keyed by filename (e.g. "ace_of_spades.png"). Vite inlines these at
- * build time so lookups are synchronous.
- */
-const CARD_IMAGES = import.meta.glob<string>('../../assets/cards/*.png', {
-  eager: true,
-  import: 'default',
-})
-
-const RANK_WORDS: Record<Exclude<Rank, number>, string> = {
-  J: 'jack',
-  Q: 'queen',
-  K: 'king',
-  A: 'ace',
-}
-
-const JOKER_IMAGES = ['red_joker.png', 'black_joker.png'] as const
-
-/**
- * Resolves the asset URL for a card's face image. Jokers alternate
- * between the red and black artwork by id so a hand with two jokers
- * still reads as two distinct cards.
- */
-function cardImageUrl(card: GameCard): string | undefined {
-  const file = card.isJoker
-    ? JOKER_IMAGES[card.id % JOKER_IMAGES.length]
-    : cardFileName(card.rank, card.suit)
-  return file ? CARD_IMAGES[`../../assets/cards/${file}`] : undefined
-}
-
-/**
- * Builds the filename for a ranked card, e.g. "10_of_hearts.png" or
- * "queen_of_spades.png". Returns undefined for incomplete cards.
- */
-function cardFileName(
-  rank: Rank | null,
-  suit: Suit | null,
-): string | undefined {
-  if (rank === null || suit === null) {
-    return undefined
-  }
-  const rankPart = typeof rank === 'number' ? String(rank) : RANK_WORDS[rank]
-  return `${rankPart}_of_${suit}.png`
-}
+import {
+  cardBackUrl,
+  cardFaceUrl,
+  cardFitClass,
+  useCardDeck,
+} from '#/lib/card-deck'
+import type { CardDeck } from '#/lib/card-deck'
+import type { GameCard } from '#/lib/game'
 
 interface PlayingCardProps {
   card: GameCard
@@ -58,12 +19,18 @@ interface PlayingCardProps {
    * it when space is tight.
    */
   fluid?: boolean
+  /**
+   * Forces a deck instead of the one chosen on this device, for the
+   * previews on the settings page.
+   */
+  deck?: CardDeck
   /** Extra classes for the card face, e.g. a responsive size override. */
   className?: string
 }
 
 /**
- * A face-up playing card rendered from its artwork under assets/cards.
+ * A face-up playing card rendered from the artwork of the deck the
+ * player picked in settings.
  */
 export default function PlayingCard({
   card,
@@ -71,10 +38,13 @@ export default function PlayingCard({
   onClick,
   small,
   fluid,
+  deck,
   className,
 }: PlayingCardProps) {
+  const activeDeck = useCardDeck()
+  const cardDeck = deck ?? activeDeck
   const label = card.isJoker ? 'Joker' : `${String(card.rank)} of ${card.suit}`
-  const src = cardImageUrl(card)
+  const src = cardFaceUrl(card, cardDeck)
 
   const face = (
     <span
@@ -103,7 +73,7 @@ export default function PlayingCard({
           src={src}
           alt={label}
           draggable={false}
-          className="h-full w-full object-cover"
+          className={cn('h-full w-full', cardFitClass(cardDeck))}
         />
       ) : (
         <span className="sr-only">{label}</span>
@@ -135,22 +105,46 @@ export default function PlayingCard({
 
 interface CardBackProps {
   small?: boolean
+  /** Forces a deck instead of the one chosen on this device. */
+  deck?: CardDeck
   /** Extra classes, e.g. a responsive size override. */
   className?: string
 }
 
 /**
- * A face-down card, used for the deck and opponents' hands.
+ * A face-down card, used for the deck and opponents' hands. Decks that
+ * ship no back artwork fall back to the woven CSS pattern.
  */
-export function CardBack({ small, className }: CardBackProps) {
+export function CardBack({ small, deck, className }: CardBackProps) {
+  const activeDeck = useCardDeck()
+  const cardDeck = deck ?? activeDeck
+  const src = cardBackUrl(cardDeck)
+  const sizing = cn(
+    'playing-card block rounded-md shadow-sm',
+    small ? 'h-10 w-7' : 'h-24 w-[66px]',
+    className,
+  )
+
+  if (src) {
+    return (
+      <span
+        aria-hidden="true"
+        className={cn(sizing, 'overflow-hidden bg-white')}
+      >
+        <img
+          src={src}
+          alt=""
+          draggable={false}
+          className={cn('h-full w-full', cardFitClass(cardDeck))}
+        />
+      </span>
+    )
+  }
+
   return (
     <span
       aria-hidden="true"
-      className={cn(
-        'playing-card block rounded-md border border-black/30 bg-button-purple shadow-sm',
-        small ? 'h-10 w-7' : 'h-24 w-[66px]',
-        className,
-      )}
+      className={cn(sizing, 'border border-black/30 bg-button-purple')}
       style={{
         backgroundImage:
           'repeating-linear-gradient(45deg, rgba(255,255,255,0.12) 0 4px, transparent 4px 8px)',

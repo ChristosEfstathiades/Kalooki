@@ -10,7 +10,7 @@ const STORAGE_PREFIX = 'kalooki.'
  * left behind by an older release) resolves to null so the caller keeps
  * its defaults.
  */
-function readPreference<TValue>(
+export function readPreference<TValue>(
   key: string,
   parse: (stored: unknown) => TValue | null,
 ): TValue | null {
@@ -30,7 +30,7 @@ function readPreference<TValue>(
  * (private browsing, quota) must never break the form the user is
  * filling in.
  */
-function writePreference(key: string, value: unknown): void {
+export function writePreference(key: string, value: unknown): void {
   if (typeof window === 'undefined') {
     return
   }

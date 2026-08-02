@@ -83,6 +83,7 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 ## settings page
 
 - users can change username (their robot avatar is generated from it, so it changes too), chat colour (a swatch picker over the fixed palette, see features.md, Chat Messages), switch between the dark (default) and light themes, and logout
+- the card design picker sits between the theme and chat colour sections: one selectable tile per deck, each previewing a few real cards and the card back in that deck, with the chosen tile ringed in the purple button colour. remembered per device like the theme.
 
 ## header
 
