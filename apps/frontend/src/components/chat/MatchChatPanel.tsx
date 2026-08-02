@@ -39,7 +39,8 @@ export default function MatchChatPanel({
   }, [matchId, finished])
 
   return (
-    <aside className="fixed inset-y-0 right-0 z-30 flex w-80 max-w-full flex-col border-l border-border bg-card shadow-xl">
+    // Above the z-40 deal/flight animations, below the game menu at z-50
+    <aside className="fixed inset-y-0 right-0 z-[45] flex w-80 max-w-full flex-col border-l border-border bg-card shadow-xl">
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
         <MessageSquare
           aria-hidden="true"

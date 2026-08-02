@@ -1739,8 +1739,10 @@ interface GameMenuProps {
  */
 function GameMenu({ view, onQuit, onClose }: GameMenuProps) {
   return (
+    // z-50 keeps the menu above the decorative deal/flight layers at z-40,
+    // which render later in the tree and would otherwise cover it
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
       onClick={onClose}
     >
       <div
@@ -1953,7 +1955,8 @@ function RoundEndOverlay({
       : `Round ${latest?.roundNumber ?? view.roundNumber} finished`
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-4">
+    // Above the z-40 animations and the chat drawer, below the game menu
+    <div className="fixed inset-0 z-[46] flex items-center justify-center bg-black/70 p-4">
       <div className="w-full max-w-md rounded-lg border border-border bg-card p-6">
         <h2 className="m-0 text-xl font-bold">
           {finished
