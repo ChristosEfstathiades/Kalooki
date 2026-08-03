@@ -23,6 +23,7 @@ import {
 } from '#/lib/moderation'
 import LobbyPinnedBanner from '#/components/game/LobbyPinnedBanner'
 import ModeratorActions from '#/components/chat/ModeratorActions'
+import UserAvatar from '#/components/UserAvatar'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { cn } from '#/lib/utils'
@@ -275,14 +276,17 @@ export function ChatConversation({ channel }: ChatConversationProps) {
               <span className="break-words">{message.body}</span>
               {menuOpen && (!isOwnMessage || moderatorToolsApply) && (
                 <span className="absolute left-0 z-10 mt-5 flex w-max max-w-full flex-col rounded-md border border-border bg-popover shadow-md">
-                  <span className="border-b border-border px-2 py-1 text-xs">
-                    <span
-                      className="font-semibold"
-                      style={{ color: nameColor }}
-                    >
-                      {author.username}
+                  <span className="flex items-center gap-2 border-b border-border px-2 py-1 text-xs">
+                    <UserAvatar user={author} className="size-6 shrink-0" />
+                    <span>
+                      <span
+                        className="font-semibold"
+                        style={{ color: nameColor }}
+                      >
+                        {author.username}
+                      </span>
+                      <StaffBadge role={author.role} />
                     </span>
-                    <StaffBadge role={author.role} />
                   </span>
                   <span className="flex flex-wrap gap-1 p-1">
                     {!isOwnMessage && (
