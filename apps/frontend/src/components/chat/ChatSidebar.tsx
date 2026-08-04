@@ -276,11 +276,11 @@ export function ChatConversation({ channel }: ChatConversationProps) {
               <span className="break-words">{message.body}</span>
               {menuOpen && (!isOwnMessage || moderatorToolsApply) && (
                 <span className="absolute left-0 z-10 mt-5 flex w-max max-w-full flex-col rounded-md border border-border bg-popover shadow-md">
-                  <span className="flex items-center gap-2 border-b border-border px-2 py-1 text-xs">
-                    <UserAvatar user={author} className="size-6 shrink-0" />
+                  <span className="flex items-center gap-3 border-b border-border px-3 py-2 text-sm">
+                    <UserAvatar user={author} className="size-10 shrink-0" />
                     <span>
                       <span
-                        className="font-semibold"
+                        className="text-base font-semibold"
                         style={{ color: nameColor }}
                       >
                         {author.username}
@@ -310,7 +310,7 @@ export function ChatConversation({ channel }: ChatConversationProps) {
                         )}
                         <Button
                           size="xs"
-                          variant="ghost"
+                          variant="destructive"
                           onClick={() =>
                             runAction(
                               () => reportMessage.mutateAsync(message.id),
