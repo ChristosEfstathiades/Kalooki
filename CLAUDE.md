@@ -56,7 +56,10 @@ Backend architecture (generated schema and models, Tuyau client generation, resp
 ### Realtime
 Real-time gameplay and chat run over **Socket.IO**, attached to the AdonisJS HTTP server. Chosen for its rooms/namespaces (one room per match / group chat / global chat), built-in auto-reconnect (pairs with the 5-minute rejoin timer), and ack callbacks for server-validated moves. The socket handshake carries the API token, and a socket only joins rooms it's authorized for — a player never receives opponents' hidden state. See `docs/Architecture.md`.
 
-> Note: email sending (for production email verification) is intentionally deferred — verification is production-only and its transport is not yet wired.
+### Email
+Outgoing mail goes through `@adonisjs/mail` with **Resend** as the only configured mailer (`apps/backend/config/mail.ts`). One mailer is defined on purpose: a fallback transport that silently accepts messages in production is how "the verification email never arrived" becomes an invisible failure. The single transactional message today is the signup verification link.
+
+Without `RESEND_API_KEY`, `#services/email_verification_service` logs the verification link instead of sending it, and **throws in production** rather than leaving an account unusable. So development and tests never post to a real provider, and a misconfigured production deploy fails loudly. `MAIL_FROM_ADDRESS` must sit on a domain verified with Resend (SPF + DKIM) or the provider rejects the message. Verification links point at `FRONTEND_URL` (the player site), not the API, and fall back to `APP_URL` when unset, which is only correct for a same-origin deployment.
 
 ## Coding conventions
 
