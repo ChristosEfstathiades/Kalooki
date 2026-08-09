@@ -6,6 +6,8 @@ export type ScannedRoutes = {
   ALL: {
     'auth.new_account.store': { paramsTuple?: []; params?: {} }
     'auth.access_tokens.store': { paramsTuple?: []; params?: {} }
+    'auth.email_verification.verify': { paramsTuple?: []; params?: {} }
+    'auth.email_verification.resend': { paramsTuple?: []; params?: {} }
     'presence.index': { paramsTuple?: []; params?: {} }
     'site.site.status': { paramsTuple?: []; params?: {} }
     'site.site.news': { paramsTuple?: []; params?: {} }
@@ -125,6 +127,8 @@ export type ScannedRoutes = {
   POST: {
     'auth.new_account.store': { paramsTuple?: []; params?: {} }
     'auth.access_tokens.store': { paramsTuple?: []; params?: {} }
+    'auth.email_verification.verify': { paramsTuple?: []; params?: {} }
+    'auth.email_verification.resend': { paramsTuple?: []; params?: {} }
     'profile.access_tokens.destroy': { paramsTuple?: []; params?: {} }
     'social.friend_requests.store': { paramsTuple?: []; params?: {} }
     'social.friend_requests.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

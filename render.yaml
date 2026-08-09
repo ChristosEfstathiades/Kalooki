@@ -1,0 +1,122 @@
+# Render Blueprint: the AdonisJS backend (HTTP + Socket.IO) and its Postgres.
+#
+# Full walkthrough, including the manual steps this file cannot cover
+# (secret files, custom domain, first admin), is in
+# Developer/deployment-render.md.
+#
+# The frontend and admin SPAs are deliberately NOT defined here. See
+# section 8 of that guide for why.
+
+databases:
+  - name: kalooki-postgres
+    plan: basic-256mb
+    databaseName: kalooki
+    user: kalooki
+    region: frankfurt
+
+services:
+  - name: kalooki-api
+    type: web
+    runtime: node
+    region: frankfurt
+    branch: production
+
+    # Starter, never free. A free instance spins down after 15 minutes
+    # idle, and a spin-down destroys every in-memory match, lobby and
+    # queue entry (Deployment.md section 3.3).
+    plan: starter
+
+    # Load-bearing. All live game state is in process memory with no
+    # Redis adapter, so a second instance would split rooms and break
+    # live games (Deployment.md section 3.1, AUDIT.md SC1).
+    numInstances: 1
+
+    # `/` returns {hello: 'world'} and touches no database.
+    healthCheckPath: /
+
+    buildCommand: bash render-build.sh
+    preDeployCommand: cd apps/backend/build && node ace migration:run --force
+    startCommand: cd apps/backend/build && node bin/server.js
+
+    envVars:
+      # Root package.json requires >=24.
+      - key: NODE_VERSION
+        value: '24'
+
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: LOG_LEVEL
+        value: info
+      - key: TZ
+        value: UTC
+      - key: SESSION_DRIVER
+        value: cookie
+
+      # PORT is injected by Render; do not set it here.
+
+      - key: APP_KEY
+        generateValue: true
+
+      # ---------------------------------------------------------------
+      # Domain-dependent values. Left as sync:false rather than
+      # hardcoded because the domain is not registered yet: Render
+      # prompts for each on first deploy, and the blueprint never ships
+      # a wrong hostname. Fill all four together once DNS exists.
+      # ---------------------------------------------------------------
+
+      # This service's own public URL, e.g. https://api.example.com
+      - key: APP_URL
+        sync: false
+
+      # The player site, e.g. https://example.com. Verification links in
+      # outgoing email point here, not at the API.
+      - key: FRONTEND_URL
+        sync: false
+
+      # Comma separated, and it must include the admin origin too, e.g.
+      # https://example.com,https://admin.example.com. Without this
+      # every browser request from the frontend fails preflight.
+      - key: CORS_ORIGIN
+        sync: false
+
+      # From a domain verified with Resend (SPF + DKIM), e.g.
+      # no-reply@example.com
+      - key: MAIL_FROM_ADDRESS
+        sync: false
+
+      - key: MAIL_FROM_NAME
+        value: Kalooki Online
+
+      # Required in production: without it signup cannot deliver the
+      # verification link and no new account can ever sign in.
+      - key: RESEND_API_KEY
+        sync: false
+
+      - key: DB_CONNECTION
+        value: pg
+
+      # config/database.ts reads discrete PG_* vars rather than a
+      # connection string, so these are wired individually.
+      - key: PG_USER
+        fromDatabase:
+          name: kalooki-postgres
+          property: user
+      - key: PG_PASSWORD
+        fromDatabase:
+          name: kalooki-postgres
+          property: password
+      - key: PG_DB_NAME
+        fromDatabase:
+          name: kalooki-postgres
+          property: database
+
+      # Set from the dashboard: paste the database's internal hostname.
+      # fromDatabase reliably exposes connectionString/user/password/
+      # database; host is not dependable across spec versions, so this
+      # one is filled in by hand once, at first deploy.
+      - key: PG_HOST
+        sync: false
+      - key: PG_PORT
+        value: '5432'

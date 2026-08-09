@@ -14,6 +14,7 @@ export const controllers = {
   AdminSettings: () => import('#controllers/admin_settings_controller'),
   AdminStats: () => import('#controllers/admin_stats_controller'),
   ChatMessages: () => import('#controllers/chat_messages_controller'),
+  EmailVerification: () => import('#controllers/email_verification_controller'),
   FriendRequests: () => import('#controllers/friend_requests_controller'),
   Friends: () => import('#controllers/friends_controller'),
   GroupInvites: () => import('#controllers/group_invites_controller'),

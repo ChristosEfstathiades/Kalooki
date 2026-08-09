@@ -9,6 +9,7 @@ import { groupIdsOf, isGroupMember } from '#services/group_service'
 import { assertMatchChatAccess, postChatMessage } from '#services/chat_service'
 import { friendIdsOf } from '#services/friendship_service'
 import { isBanned } from '#services/role_service'
+import { allowedOrigins } from '#services/allowed_origins'
 import {
   onlineCount,
   resetPresence,
@@ -110,9 +111,10 @@ type SendAck = (result: { ok: boolean; error?: string }) => void
  */
 export function bootSocketServer(nodeServer: NodeHttpServer): Server {
   io = new Server(nodeServer, {
-    // Mirrors config/cors.ts: open in development, locked down until
-    // a production origin allowlist is configured.
-    cors: { origin: true, credentials: true },
+    // Shares one allowlist with config/cors.ts (AUDIT.md S2). This used
+    // to claim it mirrored the HTTP config while actually reflecting
+    // every origin with credentials, in production included.
+    cors: { origin: allowedOrigins(), credentials: true },
   })
 
   io.use((socket, next) => {

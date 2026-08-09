@@ -127,6 +127,16 @@ function SigninPage() {
             )}
           </form.Subscribe>
         </form>
+
+        <p className="mt-6 text-sm text-muted-foreground">
+          Waiting on a verification email?{' '}
+          <Link
+            to="/verify-email"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            Request a new link
+          </Link>
+        </p>
       </section>
     </div>
   )

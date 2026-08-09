@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GameMatchIdRouteImport } from './routes/game.$matchId'
+import { Route as AppVerifyEmailRouteImport } from './routes/_app.verify-email'
 import { Route as AppTipsRouteImport } from './routes/_app.tips'
 import { Route as AppSignupRouteImport } from './routes/_app.signup'
 import { Route as AppSigninRouteImport } from './routes/_app.signin'
@@ -37,6 +38,11 @@ const GameMatchIdRoute = GameMatchIdRouteImport.update({
   id: '/game/$matchId',
   path: '/game/$matchId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppVerifyEmailRoute = AppVerifyEmailRouteImport.update({
+  id: '/verify-email',
+  path: '/verify-email',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppTipsRoute = AppTipsRouteImport.update({
   id: '/tips',
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/signin': typeof AppSigninRoute
   '/signup': typeof AppSignupRoute
   '/tips': typeof AppTipsRoute
+  '/verify-email': typeof AppVerifyEmailRoute
   '/game/$matchId': typeof GameMatchIdRoute
   '/history': typeof AppAuthHistoryRoute
   '/leaderboard': typeof AppAuthLeaderboardRoute
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/signin': typeof AppSigninRoute
   '/signup': typeof AppSignupRoute
   '/tips': typeof AppTipsRoute
+  '/verify-email': typeof AppVerifyEmailRoute
   '/game/$matchId': typeof GameMatchIdRoute
   '/history': typeof AppAuthHistoryRoute
   '/leaderboard': typeof AppAuthLeaderboardRoute
@@ -132,6 +140,7 @@ export interface FileRoutesById {
   '/_app/signin': typeof AppSigninRoute
   '/_app/signup': typeof AppSignupRoute
   '/_app/tips': typeof AppTipsRoute
+  '/_app/verify-email': typeof AppVerifyEmailRoute
   '/game/$matchId': typeof GameMatchIdRoute
   '/_app/_auth/history': typeof AppAuthHistoryRoute
   '/_app/_auth/leaderboard': typeof AppAuthLeaderboardRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/tips'
+    | '/verify-email'
     | '/game/$matchId'
     | '/history'
     | '/leaderboard'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/tips'
+    | '/verify-email'
     | '/game/$matchId'
     | '/history'
     | '/leaderboard'
@@ -178,6 +189,7 @@ export interface FileRouteTypes {
     | '/_app/signin'
     | '/_app/signup'
     | '/_app/tips'
+    | '/_app/verify-email'
     | '/game/$matchId'
     | '/_app/_auth/history'
     | '/_app/_auth/leaderboard'
@@ -213,6 +225,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/game/$matchId'
       preLoaderRoute: typeof GameMatchIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/verify-email': {
+      id: '/_app/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof AppVerifyEmailRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/tips': {
       id: '/_app/tips'
@@ -319,6 +338,7 @@ interface AppRouteChildren {
   AppSigninRoute: typeof AppSigninRoute
   AppSignupRoute: typeof AppSignupRoute
   AppTipsRoute: typeof AppTipsRoute
+  AppVerifyEmailRoute: typeof AppVerifyEmailRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -329,6 +349,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSigninRoute: AppSigninRoute,
   AppSignupRoute: AppSignupRoute,
   AppTipsRoute: AppTipsRoute,
+  AppVerifyEmailRoute: AppVerifyEmailRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

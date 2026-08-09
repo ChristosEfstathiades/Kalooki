@@ -1,5 +1,5 @@
-import app from '@adonisjs/core/services/app'
 import { defineConfig } from '@adonisjs/cors'
+import { allowedOrigins } from '#services/allowed_origins'
 
 /**
  * Configuration options to tweak the CORS policy. The following
@@ -14,11 +14,15 @@ const corsConfig = defineConfig({
   enabled: true,
 
   /**
-   * In development, allow every origin to simplify local front/backend setup.
-   * In production, keep an explicit allowlist (empty by default, so no
-   * cross-origin browser access is allowed until configured).
+   * In development, allow every origin to simplify local front/backend
+   * setup. In production, the explicit `CORS_ORIGIN` allowlist shared
+   * with the Socket.IO server (AUDIT.md S6).
+   *
+   * Resolved per request rather than at config load so the allowlist is
+   * read after the logger is available, and so the same function backs
+   * both layers.
    */
-  origin: app.inDev ? true : [],
+  origin: () => allowedOrigins(),
 
   /**
    * HTTP methods accepted for cross-origin requests.

@@ -59,6 +59,25 @@ export class ChatMessageSchema extends BaseModel {
   declare wasCensored: boolean
 }
 
+export class EmailVerificationTokenSchema extends BaseModel {
+  static $columns = ['createdAt', 'expiresAt', 'id', 'tokenHash', 'updatedAt', 'usedAt', 'userId'] as const
+  $columns = EmailVerificationTokenSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column.dateTime()
+  declare expiresAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare tokenHash: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column.dateTime()
+  declare usedAt: DateTime | null
+  @column()
+  declare userId: number
+}
+
 export class FriendRequestSchema extends BaseModel {
   static $columns = ['createdAt', 'id', 'recipientId', 'senderId', 'updatedAt'] as const
   $columns = FriendRequestSchema.$columns

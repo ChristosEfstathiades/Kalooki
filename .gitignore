@@ -11,7 +11,10 @@ dist
 .env.local
 .env.production.local
 .env.development.local
-apps/admin
+
+# Internal working docs (deployment guides, audit, TODOs). Kept out of
+# the repo on purpose. Note this is why AUDIT.md was unrecoverable when
+# it was truncated: nothing here is under version control.
 Developer
 
 # Moderation wordlists (kept out of the repo; see wordlist.example.json)

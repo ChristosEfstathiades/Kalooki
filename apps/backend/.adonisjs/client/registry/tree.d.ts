@@ -9,6 +9,10 @@ export interface ApiDefinition {
     accessTokens: {
       store: typeof routes['auth.access_tokens.store']
     }
+    emailVerification: {
+      verify: typeof routes['auth.email_verification.verify']
+      resend: typeof routes['auth.email_verification.resend']
+    }
   }
   presence: {
     index: typeof routes['presence.index']

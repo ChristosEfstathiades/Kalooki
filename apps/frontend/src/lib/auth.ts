@@ -105,6 +105,54 @@ export function useSignup() {
   })
 }
 
+export interface VerifyEmailInput {
+  token: string
+}
+
+/**
+ * Redeems an email verification link. The backend signs the user in as
+ * part of redeeming it (they have just proved they control the address),
+ * so a token comes back unless the account is banned or deleted.
+ */
+export function useVerifyEmail() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: VerifyEmailInput) => {
+      const response = await api.post('/api/v1/auth/email/verify', {
+        body: { token: input.token },
+      })
+      return response.data
+    },
+    onSuccess: (data) => {
+      if (data.token) {
+        storeToken(data.token, false)
+        queryClient.setQueryData(currentUserQueryOptions.queryKey, data.user)
+      }
+    },
+  })
+}
+
+export interface ResendVerificationInput {
+  email: string
+}
+
+/**
+ * Requests another verification email. The backend deliberately answers
+ * the same way whether or not the address has an unverified account, so
+ * there is no success/not-found distinction to render here.
+ */
+export function useResendVerification() {
+  return useMutation({
+    mutationFn: async (input: ResendVerificationInput) => {
+      const response = await api.post('/api/v1/auth/email/resend', {
+        body: { email: input.email },
+      })
+      return response.data
+    },
+  })
+}
+
 export interface UpdateProfileInput {
   username?: string
   chatColor?: UsernameColor

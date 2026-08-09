@@ -60,6 +60,8 @@ function SignupPage() {
   const navigate = useNavigate()
   const signup = useSignup()
   const [serverErrors, setServerErrors] = useState<string[]>([])
+  const [awaitingVerification, setAwaitingVerification] = useState(false)
+  const [verificationEmailSent, setVerificationEmailSent] = useState(true)
 
   const form = useForm({
     defaultValues: {
@@ -71,7 +73,17 @@ function SignupPage() {
     onSubmit: async ({ value }) => {
       setServerErrors([])
       try {
-        await signup.mutateAsync(value)
+        const result = await signup.mutateAsync(value)
+
+        // In production the account is created without a token and has
+        // to be verified first. Sending them to /play would bounce
+        // straight back to signin with no explanation (AUDIT.md G1).
+        if (result.requiresEmailVerification) {
+          setVerificationEmailSent(result.emailSent)
+          setAwaitingVerification(true)
+          return
+        }
+
         await navigate({ to: '/play' })
       } catch (error) {
         setServerErrors(extractApiErrors(error))
@@ -80,6 +92,38 @@ function SignupPage() {
   })
 
   const { signupsEnabled } = useSiteFlags()
+
+  if (awaitingVerification) {
+    return (
+      <div className="page-wrap flex justify-center py-12 sm:py-20">
+        <section className="w-full max-w-sm rounded-lg border border-border bg-card p-6">
+          <h1 className="m-0 text-xl font-bold">Check your email</h1>
+          {verificationEmailSent ? (
+            <p className="mt-4 text-sm">
+              Your account is created. We have sent you a link to confirm your
+              email address, which you need to do before your first sign in.
+              The link expires in 24 hours.
+            </p>
+          ) : (
+            <p className="mt-4 text-sm">
+              Your account is created, but we could not send the confirmation
+              email just now. Request a new link to finish setting it up.
+            </p>
+          )}
+          <p className="mt-4 text-sm text-muted-foreground">
+            Nothing arrived? Check your spam folder, or{' '}
+            <Link
+              to="/verify-email"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              request a new link
+            </Link>
+            .
+          </p>
+        </section>
+      </div>
+    )
+  }
 
   return (
     <div className="page-wrap flex justify-center py-12 sm:py-20">

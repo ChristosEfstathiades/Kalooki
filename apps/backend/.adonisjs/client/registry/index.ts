@@ -18,6 +18,18 @@ const routes = {
     tokens: [{"old":"/api/v1/auth/login","type":0,"val":"api","end":""},{"old":"/api/v1/auth/login","type":0,"val":"v1","end":""},{"old":"/api/v1/auth/login","type":0,"val":"auth","end":""},{"old":"/api/v1/auth/login","type":0,"val":"login","end":""}],
     types: placeholder as Registry['auth.access_tokens.store']['types'],
   },
+  'auth.email_verification.verify': {
+    methods: ["POST"],
+    pattern: '/api/v1/auth/email/verify',
+    tokens: [{"old":"/api/v1/auth/email/verify","type":0,"val":"api","end":""},{"old":"/api/v1/auth/email/verify","type":0,"val":"v1","end":""},{"old":"/api/v1/auth/email/verify","type":0,"val":"auth","end":""},{"old":"/api/v1/auth/email/verify","type":0,"val":"email","end":""},{"old":"/api/v1/auth/email/verify","type":0,"val":"verify","end":""}],
+    types: placeholder as Registry['auth.email_verification.verify']['types'],
+  },
+  'auth.email_verification.resend': {
+    methods: ["POST"],
+    pattern: '/api/v1/auth/email/resend',
+    tokens: [{"old":"/api/v1/auth/email/resend","type":0,"val":"api","end":""},{"old":"/api/v1/auth/email/resend","type":0,"val":"v1","end":""},{"old":"/api/v1/auth/email/resend","type":0,"val":"auth","end":""},{"old":"/api/v1/auth/email/resend","type":0,"val":"email","end":""},{"old":"/api/v1/auth/email/resend","type":0,"val":"resend","end":""}],
+    types: placeholder as Registry['auth.email_verification.resend']['types'],
+  },
   'presence.index': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/presence',

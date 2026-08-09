@@ -22,6 +22,12 @@ router
       .group(() => {
         router.post('signup', [controllers.NewAccount, 'store'])
         router.post('login', [controllers.AccessTokens, 'store'])
+
+        // Email verification (AUDIT.md G1). Unauthenticated by
+        // necessity: the whole point is that the user cannot sign in
+        // yet. Both sit under the auth throttle.
+        router.post('email/verify', [controllers.EmailVerification, 'verify'])
+        router.post('email/resend', [controllers.EmailVerification, 'resend'])
       })
       .prefix('auth')
       .as('auth')

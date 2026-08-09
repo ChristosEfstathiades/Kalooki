@@ -31,6 +31,30 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/access_tokens_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'auth.email_verification.verify': {
+    methods: ["POST"]
+    pattern: '/api/v1/auth/email/verify'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/user').verifyEmailValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/user').verifyEmailValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/email_verification_controller').default['verify']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/email_verification_controller').default['verify']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'auth.email_verification.resend': {
+    methods: ["POST"]
+    pattern: '/api/v1/auth/email/resend'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/user').resendVerificationValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/user').resendVerificationValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/email_verification_controller').default['resend']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/email_verification_controller').default['resend']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'presence.index': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/presence'

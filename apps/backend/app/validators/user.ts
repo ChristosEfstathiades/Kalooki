@@ -104,3 +104,22 @@ export const loginValidator = vine.create({
   password: vine.string(),
   rememberMe: vine.boolean().optional(),
 })
+
+/**
+ * Validator for redeeming an email verification link. The token is 32
+ * random bytes base64url encoded, so 43 characters; the bound is loose
+ * enough to survive a mail client mangling the URL and tight enough to
+ * keep absurd payloads out of the lookup.
+ */
+export const verifyEmailValidator = vine.create({
+  token: vine.string().trim().minLength(1).maxLength(512),
+})
+
+/**
+ * Validator for requesting another verification email. Takes the
+ * address rather than a token because the user reaching for this has
+ * usually lost the original mail.
+ */
+export const resendVerificationValidator = vine.create({
+  email: email(),
+})

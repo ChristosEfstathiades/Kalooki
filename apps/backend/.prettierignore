@@ -1,3 +1,6 @@
 .adonisjs
 node_modules
 build
+
+# Generated from the migrations, DO NOT EDIT (see eslint.config.js)
+database/schema.ts
