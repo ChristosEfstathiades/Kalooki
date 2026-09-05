@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(file ace_of_spades.png)",
+      "Bash(python -c \"from PIL import Image; print\\(Image.open\\('ace_of_spades.png'\\).size\\)\")",
+      "Bash(git -C /c/xampp/htdocs/projects/kalooki status)",
+      "Bash(git apply *)",
+      "Bash(rm 7dayto30daychatmessagelifetime.patch)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(node -e ' *)",
+      "Bash(node ace *)",
+      "PowerShell(npm run typecheck --workspace apps/frontend 2>&1)"
+    ]
+  }
+}

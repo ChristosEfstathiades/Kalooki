@@ -2,6 +2,9 @@
 
 Backend-specific guidance for the AdonisJS API. Repo-wide context, commands, and coding conventions are in the root `CLAUDE.md`.
 
+## Where the logic lives
+Controllers are thin: they validate, call a service, and serialize. Domain logic belongs in `app/services/*.ts` — one module per domain, exporting functions rather than classes — and services are what the socket layer calls too, which is why they must not depend on `HttpContext`. The live game is its own three-layer subsystem under `app/services/game/`; the root `CLAUDE.md` describes the split and the in-memory-state constraint, and it is worth reading before changing anything in there.
+
 ## Generated schema, hand-written models
 `app/models/*.ts` do **not** declare columns. Instead, `database/schema.ts` is **auto-generated from migrations** (marked DO NOT EDIT) and exports one `*Schema` base class per table with all `@column` definitions. Models compose from these:
 
@@ -41,6 +44,9 @@ cp resources/wordlist.example.json resources/wordlist.json
 ```
 
 `#services/wordlist` reads and validates it at boot and **throws if it is missing**, the same way a missing `.env` stops the server: an unfiltered chat is a worse failure than one that will not start. `#services/profanity_filter` and `#services/username_filter` hold the matching rules and no words. Tests derive their fixtures from the loaded lists (`#tests/helpers/wordlist`), so specs never hardcode a word; keep it that way when adding cases. The file is in `metaFiles`, so `node ace build` copies it into `build/`; a deploy has to place it there like any other secret.
+
+## Tests
+Two suites, and which one a test belongs in follows from the layering above. `tests/unit/` exercises pure modules with no I/O — the game engine, melds, bots and even the match service run against a deterministic `Rng` (`const rng: Rng = () => 0`) and the match service's injected emitter, so they are fast and reproducible. `tests/functional/` migrates a SQLite database and starts the HTTP server (`tests/bootstrap.ts`), then drives real endpoints through the Japa API client. Prefer a unit test for anything rule-shaped; reach for functional when the behaviour is the route, middleware or auth.
 
 ## Import aliases
 Subpath imports (`#controllers/*`, `#models/*`, `#validators/*`, `#transformers/*`, `#generated/*`, `#database/*`, etc.) are defined in `apps/backend/package.json` `imports`. Use these rather than relative paths.
