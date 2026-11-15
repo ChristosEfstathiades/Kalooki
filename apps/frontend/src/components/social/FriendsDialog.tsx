@@ -237,7 +237,7 @@ export default function FriendsDialog({
                 <UserRow key={request.id} user={request.recipient}>
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="destructive"
                     disabled={deleteRequest.isPending}
                     onClick={() => deleteRequest.mutate(request.id)}
                   >

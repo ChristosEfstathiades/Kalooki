@@ -68,22 +68,16 @@ function LeaderboardPage() {
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-muted-foreground">
-                <th className="px-4 py-3 font-medium">#</th>
-                <th className="px-4 py-3 font-medium">Player</th>
-                <th className="px-4 py-3 text-right font-medium">Win rate</th>
-                <th className="px-4 py-3 text-right font-medium">Games</th>
-                <th className="px-4 py-3 text-right font-medium">Wins</th>
-                <th className="px-4 py-3 text-right font-medium">
-                  Best streak
-                </th>
-                <th className="px-4 py-3 text-right font-medium">
-                  Avg pts / round
-                </th>
-                <th className="px-4 py-3 text-right font-medium">Rounds won</th>
-                <th className="px-4 py-3 text-right font-medium">
-                  Avg players
-                </th>
+              <tr className="border-b-2 border-border bg-muted/40 text-left text-sm font-bold tracking-wide whitespace-nowrap uppercase">
+                <th className="px-4 py-3">#</th>
+                <th className="px-4 py-3">Player</th>
+                <th className="px-4 py-3 text-right">Win rate</th>
+                <th className="px-4 py-3 text-right">Games</th>
+                <th className="px-4 py-3 text-right">Wins</th>
+                <th className="px-4 py-3 text-right">Best streak</th>
+                <th className="px-4 py-3 text-right">Avg pts / round</th>
+                <th className="px-4 py-3 text-right">Rounds won</th>
+                <th className="px-4 py-3 text-right">Avg players</th>
               </tr>
             </thead>
             <tbody>
@@ -102,6 +96,15 @@ function LeaderboardPage() {
   )
 }
 
+/**
+ * Medal fill for the top three ranks; every other rank renders plain.
+ */
+const medalFills: Record<number, string> = {
+  1: 'bg-medal-gold',
+  2: 'bg-medal-silver',
+  3: 'bg-medal-bronze',
+}
+
 interface LeaderboardRowProps {
   entry: LeaderboardEntry
   isCurrentUser: boolean
@@ -116,8 +119,17 @@ function LeaderboardRow({ entry, isCurrentUser }: LeaderboardRowProps) {
         entry.rank === 1 && 'font-medium',
       )}
     >
-      <td className="px-4 py-2 tabular-nums text-muted-foreground">
-        {entry.rank}
+      <td className="px-4 py-2">
+        <span
+          className={cn(
+            'inline-flex size-7 items-center justify-center rounded-full text-sm tabular-nums',
+            medalFills[entry.rank]
+              ? `${medalFills[entry.rank]} font-bold text-medal-foreground`
+              : 'text-muted-foreground',
+          )}
+        >
+          {entry.rank}
+        </span>
       </td>
       <td className="px-4 py-2">
         <span className="flex items-center gap-2">

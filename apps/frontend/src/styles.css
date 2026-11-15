@@ -25,6 +25,13 @@
   /* Presence dots: brighter than the felt so a 8px dot still reads */
   --online: #4ba872;
 
+  /* Leaderboard medals for the top three ranks. Mid-tone fills, so one
+   * set carries dark text on both the dark panel and the light one */
+  --medal-gold: #d4a72c;
+  --medal-silver: #aab6c3;
+  --medal-bronze: #c07f45;
+  --medal-foreground: #1d2422;
+
   /* Scoresheet green for the player who called the round; darkened here
    * so it still reads as text on the light theme's white panels */
   --score-called: #2c7a52;
@@ -126,6 +133,10 @@
   --color-panel: var(--bg-panel);
   --color-online: var(--online);
   --color-score-called: var(--score-called);
+  --color-medal-gold: var(--medal-gold);
+  --color-medal-silver: var(--medal-silver);
+  --color-medal-bronze: var(--medal-bronze);
+  --color-medal-foreground: var(--medal-foreground);
 }
 
 html,

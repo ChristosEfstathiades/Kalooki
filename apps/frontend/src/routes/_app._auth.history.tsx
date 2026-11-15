@@ -205,8 +205,26 @@ function MatchRow({ match, currentUserId, expanded, onToggle }: MatchRowProps) {
   const winner = match.players.find(
     (player) => player.id === match.winnerUserId,
   )
-  const date = match.startedAt ? new Date(match.startedAt).toLocaleString() : ''
+  // Date only: the time of day says nothing useful about a match
+  const date = match.startedAt
+    ? new Date(match.startedAt).toLocaleDateString()
+    : ''
   const minutes = Math.max(1, Math.round(match.durationSeconds / 60))
+
+  // Joined rather than interleaved, so a match with no recorded start
+  // date does not leave a dangling separator
+  const meta = [
+    date,
+    `${minutes} min`,
+    match.completed
+      ? winner
+        ? `${winner.username} won`
+        : 'Finished'
+      : 'Incomplete, no winner',
+    you && typeof you.chipsNet === 'number'
+      ? `${formatChips(you.chipsNet)} chips`
+      : '',
+  ].filter(Boolean)
 
   return (
     <li className="rounded-lg border border-border bg-card">
@@ -232,15 +250,7 @@ function MatchRow({ match, currentUserId, expanded, onToggle }: MatchRowProps) {
             {match.players.map((player) => player.username).join(', ')}
           </span>
           <span className="block text-xs text-muted-foreground">
-            {date} · {minutes} min ·{' '}
-            {match.completed
-              ? winner
-                ? `${winner.username} won`
-                : 'Finished'
-              : 'Incomplete, no winner'}
-            {you && typeof you.chipsNet === 'number'
-              ? ` · ${formatChips(you.chipsNet)} chips`
-              : ''}
+            {meta.join(' · ')}
           </span>
         </span>
         {you && (

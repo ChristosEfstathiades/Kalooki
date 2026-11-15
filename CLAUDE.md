@@ -19,6 +19,7 @@ Product and design intent live in `Docs/` — consult and keep these in sync whe
 - `Docs/Architecture.md` — frontend/backend split, auth, realtime, DB.
 - `Docs/Coding-Conventions.md` — coding conventions (summarised below).
 - `Docs/Frontend-design.md` — UI/UX direction, theme/colours, and per-page layout.
+- `Docs/build-prompt.md` — the original brief the project was built from; useful for intent, not a current spec.
 
 ### Engineering notes
 `Developer/` holds working notes rather than product intent — the answers to "how do I do this here":
@@ -37,6 +38,11 @@ Chat censorship and username filtering read their wordlists from `apps/backend/r
 
 ### Auth & signup
 Accounts require an email, a unique username, and a password (min 8 chars, ≥1 symbol and ≥1 capital) plus confirmation. Avatars are DiceBear "bottts" robots generated from the username — there is no photo upload. Email verification is enforced **only in production**; in development accounts are active immediately. Signin offers a "remember me" option. Only authenticated users can play, and players must not be able to see other players' hidden state (e.g. opponents' cards).
+
+### Fresh checkout
+Two things stop the backend booting, and both are gitignored on purpose:
+- `cp apps/backend/.env.example apps/backend/.env`, then `node ace generate:key` to fill `APP_KEY` — `start/env.ts` validates on boot and `APP_KEY` has no default. `.env.example` documents every optional variable (Postgres, CORS, Resend, chat link hosts).
+- `cp apps/backend/resources/wordlist.example.json apps/backend/resources/wordlist.json` — see Roles & moderation above.
 
 ## Commands
 
@@ -58,15 +64,18 @@ Dev ports: backend **3333**, player site **3000**, admin site **3001**.
 - Ace is the CLI for everything else: `node ace list` to see commands, `node ace make:controller`, `node ace migration:run`, etc. `node ace list:routes` is the quickest confirmation that a new route registered.
 - Project commands in `apps/backend/commands/`: `node ace user:role <username|email> <player|moderator|admin>` (the only way to create the first admin) and `node ace accounts:purge` (hard-deletes accounts past their soft-delete grace period).
 - Development data is SQLite at `apps/backend/tmp/db.sqlite3` — gitignored, so it is the only copy of it anywhere; tests use a separate `tmp/test.sqlite3`. Production is Postgres.
+- `.claude/skills/verify` is a project skill describing how to run and observe the app end-to-end on this machine: checking whether the dev servers are already up before restarting them, seeding users through the real signup API, inserting finished matches straight into `matches`/`match_players`, and screenshotting authed pages (and driving dnd-kit drags) with headless Edge over CDP. Read it before building a one-off harness.
 - `database/schema.ts` **fails `npm run lint`**. It is generated, marked DO NOT EDIT, and rewritten on every `migration:run`, so the errors come straight back — not something you broke.
 
-Frontend scripts run inside `apps/frontend` (also driven by Turbo from root): `npm run dev` (Vite on port 3000), `npm run build`, `npm test` (Vitest), `npm run lint` (ESLint), `npm run format` (Prettier + eslint --fix). Route generation: `npm run generate-routes` (`tsr generate`).
+Frontend scripts run inside `apps/frontend` (also driven by Turbo from root): `npm run dev` (Vite on port 3000), `npm run build`, `npm test` (Vitest — the only specs are `security-headers.test.ts` and `sitemap.test.ts` at the **app root**, not under `src/`; there are no component tests), `npm run lint` (ESLint), `npm run format` (Prettier + eslint --fix). Route generation: `npm run generate-routes` (`tsr generate`).
 
 Admin scripts run inside `apps/admin`: `npm run dev` (Vite on port 3001), `npm run build` (output in `dist/`), `npm run lint`, `npm run typecheck`. It has no tests or route generation.
 
 ## Architecture
 
 Backend architecture (generated schema and models, Tuyau client generation, response shape, auth guards, import aliases) is documented in `apps/backend/CLAUDE.md`; the frontend stack and conventions in `apps/frontend/CLAUDE.md`; the admin app in `apps/admin/CLAUDE.md`. Each loads when working under that app.
+
+Every HTTP route sits under **`/api/v1`** (one prefixed group at the bottom of `start/routes.ts`); `/` is an unauthenticated health check that touches no database, which is what Render probes.
 
 ### The game runs in three layers
 Everything under `apps/backend/app/services/game/`. The split is load-bearing — keep rules out of the socket layer and I/O out of the rules:
@@ -79,7 +88,9 @@ Everything under `apps/backend/app/services/game/`. The split is load-bearing �
 ### Realtime
 Real-time gameplay and chat run over **Socket.IO**, attached to the AdonisJS HTTP server. Chosen for its rooms/namespaces (one room per match / group chat / global chat), built-in auto-reconnect (pairs with the 5-minute rejoin timer), and ack callbacks for server-validated moves. The socket handshake carries the API token, and a socket only joins rooms it's authorized for — a player never receives opponents' hidden state. See `Docs/Architecture.md`.
 
-Entry points: `providers/socket_provider.ts` attaches the server once the HTTP server is ready (and owns the hourly chat-retention sweep); `#services/socket_service` authenticates the handshake and owns the chat and presence rooms (`chatRoom()`, `userRoom()`); game handlers come from `#services/game/socket_bindings`. Every player also gets a `user:{id}` room so a match broadcast can target them with their own redacted view. On the frontend, `src/lib/socket.ts` is a singleton whose auth callback re-reads the stored token on every reconnect.
+Entry points: `providers/socket_provider.ts` attaches the server once the HTTP server is ready (and owns the hourly chat-retention sweep); `#services/socket_service` authenticates the handshake and owns the chat and presence rooms (`chatRoom()`, `userRoom()`); game handlers come from `#services/game/socket_bindings`. Every player also gets a `user:{id}` room so a match broadcast can target them with their own redacted view. Two background sweeps run inside the web process rather than as cron: the hourly chat-retention sweep in `providers/socket_provider.ts`, and the soft-deleted-account purge in `providers/account_purge_provider.ts` (on boot, then every 12 hours; `node ace accounts:purge` is the one-off equivalent). Both are tied to a single long-lived instance, like the match state above.
+
+On the frontend, `src/lib/socket.ts` is a singleton whose auth callback re-reads the stored token on every reconnect.
 
 ### Rate limiting
 Every route group carries a throttle defined in `start/limiter.ts`: `authThrottle` (per-IP, on signup/login/email verification) and `apiThrottle` (keyed by user id, falling back to IP via silent auth). The failed-login lockout and the per-account group-creation cap are consumed inside their controllers instead, so only a request that gets that far spends a slot. Limits are exported constants because the limiter manager caches instances by option values and tests need to reach the same ones.

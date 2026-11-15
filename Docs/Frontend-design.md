@@ -17,6 +17,7 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 - #141616 = Main background color
 - A dark blue (#1b2838) = Secondary background colour
 - use red (#6a303b) and purple (#533367) colours for buttons. These were selected cause they pair nicely with #35654d which is the colour of the felt
+- Buttons that withdraw or undo something — cancel a sent friend request, leave the matchmaking queue, cancel a lobby or scheduled game, remove a friend, quit a match, delete an account — use the destructive red (`--destructive`, #b03e48 light / #c14953 dark), not the brand red. The brand red is the affirmative call to action ("Join the public queue", "Start the game"), so reusing it to back out would make the two read the same. A plain "Cancel" that only dismisses a dialog or form stays neutral, so the red in a confirmation dialog belongs to the action being confirmed and nothing else.
 - Text should be white with good contrast to background
 - #35654d = colour of felt for gameplay
 
@@ -73,12 +74,15 @@ the frontend is a separate SPA in apps/frontend that uses tanstack react.
 
 - display table of match history. click match to expand and show more info that is specified in features.md
 - a filter bar above the list: match type (all/public/private), date order (newest/oldest first), and a checkbox to show only matches the user won. filtering happens server-side.
+- a collapsed row shows the match type, the players, the date, duration, who won, and the user's placement. the **date only, never the time of day** — the clock time says nothing useful about a match and pushed the part people actually scan to the right. the meta line is joined from its parts, so a match with no recorded start date simply drops it rather than leaving a dangling separator.
 
 ## leaderboard page
 
 - separate page (not a modal) reachable from the play page, linked next to match history.
 - a single ranked table of the top public-match players: rank, profile picture + username, win rate, games, wins, best win streak, average points per round, rounds won rate, and average players per game (see features.md, Global Leaderboard).
 - the signed-in user's own row is highlighted when they are on the board. explains the 10-public-match eligibility rule above the table; wide stats scroll horizontally on small screens.
+- the column labels are large, bold and uppercase on a tinted header band, pitched to carry the same weight as the record card's figures on the play page. a leaderboard is a scoreboard, not a spreadsheet, so the headers should read as part of the design rather than as faint grey captions. headers never wrap; the table scrolls sideways instead.
+- the top three ranks get a gold/silver/bronze medal disc in place of a plain rank number (`--medal-gold` #d4a72c, `--medal-silver` #aab6c3, `--medal-bronze` #c07f45, all carrying `--medal-foreground` dark text). they are mid-tone on purpose so one set works on both the dark panel and the light one. every other rank renders in the same size disc footprint, unfilled, so row heights stay even.
 
 ## settings page
 

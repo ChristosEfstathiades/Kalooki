@@ -297,7 +297,7 @@ function MatchmakingCard() {
           </span>
           <Button
             size="sm"
-            variant="outline"
+            variant="destructive"
             onClick={() => void runQueueAction(leavePublicQueue)}
           >
             Cancel

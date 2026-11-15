@@ -340,7 +340,7 @@ export default function GroupGamePanel({
                   )}
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="destructive"
                     onClick={() => void run(() => leaveLobby(groupId))}
                   >
                     {lobby.ownerId === currentUserId ? 'Cancel game' : 'Leave'}
@@ -358,7 +358,7 @@ export default function GroupGamePanel({
               !lobby.players.some((player) => player.id === currentUserId) && (
                 <Button
                   size="sm"
-                  variant="secondary"
+                  variant="destructive"
                   onClick={() => void run(() => leaveLobby(groupId))}
                 >
                   {lobbyIsOpen(lobby) ? 'Cancel game' : 'Cancel scheduled game'}
